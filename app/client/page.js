@@ -179,10 +179,11 @@ export default function ClientPage() {
   const [warMapTasks, setWarMapTasks] = useState([])
   const [warMapInput, setWarMapInput] = useState('')
   const [warMapWeek, setWarMapWeek] = useState(() => getMonday())
-  const [calendarView, setCalendarView] = useState('week')
+  const [calendarView, setCalendarView] = useState('month')
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear())
   const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth())
   const [selectedDay, setSelectedDay] = useState(null)
+  const [dayViewDate, setDayViewDate] = useState(() => new Date().toISOString().split('T')[0])
   const [taskModal, setTaskModal] = useState(null)
   const [modalForm, setModalForm] = useState({ title: '', date: '', time: '', duration: 60, recurring: 'none' })
   const [delegatingTask, setDelegatingTask] = useState(null)
@@ -391,6 +392,7 @@ export default function ClientPage() {
   const monthEnd = new Date(calendarYear, calendarMonth + 1, 0).toISOString().split('T')[0]
   const tasksForWeek = expandTasksForRange(warMapTasks, weekDays[0], weekDays[6])
   const tasksForMonth = expandTasksForRange(warMapTasks, monthStart, monthEnd)
+  const tasksForDay = expandTasksForRange(warMapTasks, dayViewDate, dayViewDate)
 
   const firstDayOfMonth = new Date(calendarYear, calendarMonth, 1).getDay()
   const daysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate()
@@ -466,10 +468,10 @@ export default function ClientPage() {
         </div>
 
         {/* Tabs */}
-        <div className="flex border-b border-zinc-800 mb-7 gap-5 overflow-x-auto scrollbar-none">
+        <div className="flex border-b border-zinc-800 mb-7 gap-1 sm:gap-5 overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
           {tabs.map(tab => (
             <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-              className={`pb-3 text-sm font-semibold uppercase tracking-wider transition border-b-2 -mb-px whitespace-nowrap flex-shrink-0 ${
+              className={`pb-3 pt-1 px-2 sm:px-0 text-xs sm:text-sm font-semibold uppercase tracking-wider transition border-b-2 -mb-px whitespace-nowrap flex-shrink-0 ${
                 activeTab === tab.id ? 'border-gold text-gold' : 'border-transparent text-zinc-500 hover:text-zinc-300'
               }`}>
               {tab.label}
@@ -697,14 +699,14 @@ export default function ClientPage() {
                 <div className="space-y-1.5">
                   {brainDump.map(task => (
                     <div key={task.id} className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2.5">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm text-white flex-1 min-w-0 truncate">{task.title}</p>
-                        <div className="flex items-center gap-1.5 flex-shrink-0">
-                          <button onClick={() => openScheduleModal(task)} className="text-xs text-sky-400 hover:text-sky-300 uppercase tracking-wider font-semibold px-2 py-1 rounded hover:bg-sky-400/10 transition">Schedule</button>
-                          <button onClick={() => setDelegatingTask(delegatingTask === task.id ? null : task.id)} className="text-xs text-violet-400 hover:text-violet-300 uppercase tracking-wider font-semibold px-2 py-1 rounded hover:bg-violet-400/10 transition">Delegate</button>
-                          <button onClick={() => triageTask(task.id, 'do_now')} className="text-xs text-gold hover:text-gold-light uppercase tracking-wider font-semibold px-2 py-1 rounded hover:bg-gold/10 transition">Do Now</button>
-                          <button onClick={() => deleteTask(task.id)} className="text-zinc-700 hover:text-red-400 transition p-1"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
-                        </div>
+                      <div className="flex items-start justify-between gap-2 mb-1.5">
+                        <p className="text-sm text-white min-w-0 break-words">{task.title}</p>
+                        <button onClick={() => deleteTask(task.id)} className="text-zinc-700 hover:text-red-400 transition p-1 flex-shrink-0 -mt-0.5"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+                      </div>
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <button onClick={() => openScheduleModal(task)} className="text-xs text-sky-400 hover:text-sky-300 uppercase tracking-wider font-semibold px-2.5 py-1.5 rounded hover:bg-sky-400/10 transition">Schedule</button>
+                        <button onClick={() => setDelegatingTask(delegatingTask === task.id ? null : task.id)} className="text-xs text-violet-400 hover:text-violet-300 uppercase tracking-wider font-semibold px-2.5 py-1.5 rounded hover:bg-violet-400/10 transition">Delegate</button>
+                        <button onClick={() => triageTask(task.id, 'do_now')} className="text-xs text-gold hover:text-gold-light uppercase tracking-wider font-semibold px-2.5 py-1.5 rounded hover:bg-gold/10 transition">Do Now</button>
                       </div>
                       {delegatingTask === task.id && (
                         <div className="flex items-center gap-2 mt-2 pl-0">
@@ -723,139 +725,214 @@ export default function ClientPage() {
             </div>
 
             {/* Calendar Controls */}
-            <div className="flex items-center justify-between mb-4 pt-2 border-t border-zinc-800">
-              <div className="flex items-center gap-1">
-                <button onClick={() => {
-                    if (calendarView === 'week') setWarMapWeek(w => shiftWeek(w, -1))
-                    else { if (calendarMonth === 0) { setCalendarMonth(11); setCalendarYear(y => y - 1) } else setCalendarMonth(m => m - 1) }
-                  }}
-                  className="p-2 text-zinc-500 hover:text-white transition rounded hover:bg-zinc-800">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-                </button>
-                <span className="text-sm font-semibold text-white min-w-[200px] text-center">
-                  {calendarView === 'week' ? formatWeekRange(warMapWeek) : `${MONTH_NAMES[calendarMonth]} ${calendarYear}`}
-                </span>
-                <button onClick={() => {
-                    if (calendarView === 'week') setWarMapWeek(w => shiftWeek(w, 1))
-                    else { if (calendarMonth === 11) { setCalendarMonth(0); setCalendarYear(y => y + 1) } else setCalendarMonth(m => m + 1) }
-                  }}
-                  className="p-2 text-zinc-500 hover:text-white transition rounded hover:bg-zinc-800">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                </button>
-                <button onClick={() => { setWarMapWeek(getMonday()); setCalendarYear(new Date().getFullYear()); setCalendarMonth(new Date().getMonth()) }}
-                  className="ml-1 px-2.5 py-1 text-xs text-zinc-500 hover:text-gold uppercase tracking-wider font-semibold transition">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4 pt-4 border-t border-zinc-800">
+              <div className="flex items-center justify-between sm:justify-start gap-1">
+                <div className="flex items-center gap-0.5">
+                  <button onClick={() => {
+                      if (calendarView === 'day') setDayViewDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() - 1); return dt.toISOString().split('T')[0] })
+                      else if (calendarView === 'week') setWarMapWeek(w => shiftWeek(w, -1))
+                      else { if (calendarMonth === 0) { setCalendarMonth(11); setCalendarYear(y => y - 1) } else setCalendarMonth(m => m - 1) }
+                    }}
+                    className="p-2 text-zinc-500 hover:text-white transition rounded hover:bg-zinc-800">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                  </button>
+                  <span className="text-sm font-semibold text-white min-w-[140px] sm:min-w-[200px] text-center">
+                    {calendarView === 'day'
+                      ? new Date(dayViewDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+                      : calendarView === 'week'
+                        ? formatWeekRange(warMapWeek)
+                        : `${MONTH_NAMES[calendarMonth]} ${calendarYear}`}
+                  </span>
+                  <button onClick={() => {
+                      if (calendarView === 'day') setDayViewDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() + 1); return dt.toISOString().split('T')[0] })
+                      else if (calendarView === 'week') setWarMapWeek(w => shiftWeek(w, 1))
+                      else { if (calendarMonth === 11) { setCalendarMonth(0); setCalendarYear(y => y + 1) } else setCalendarMonth(m => m + 1) }
+                    }}
+                    className="p-2 text-zinc-500 hover:text-white transition rounded hover:bg-zinc-800">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                  </button>
+                </div>
+                <button onClick={() => { setDayViewDate(todayStr); setWarMapWeek(getMonday()); setCalendarYear(new Date().getFullYear()); setCalendarMonth(new Date().getMonth()) }}
+                  className="px-2.5 py-1 text-xs text-zinc-500 hover:text-gold uppercase tracking-wider font-semibold transition">
                   Today
                 </button>
               </div>
-              <div className="flex items-center gap-2">
-                <button onClick={() => openNewTaskModal(todayStr)}
+              <div className="flex items-center justify-between sm:justify-end gap-2">
+                <button onClick={() => openNewTaskModal(calendarView === 'day' ? dayViewDate : todayStr)}
                   className="px-4 py-2 bg-gold hover:bg-gold-light text-zinc-950 font-bold text-xs uppercase tracking-widest rounded transition">
-                  + Add Task
+                  + Add
                 </button>
                 <div className="flex border border-zinc-700 rounded overflow-hidden">
+                  <button onClick={() => setCalendarView('day')}
+                    className={`px-2.5 sm:px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition ${calendarView === 'day' ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-white'}`}>
+                    Day
+                  </button>
                   <button onClick={() => setCalendarView('week')}
-                    className={`px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition ${calendarView === 'week' ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-white'}`}>
+                    className={`px-2.5 sm:px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition ${calendarView === 'week' ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-white'}`}>
                     Week
                   </button>
                   <button onClick={() => setCalendarView('month')}
-                    className={`px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition ${calendarView === 'month' ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-white'}`}>
+                    className={`px-2.5 sm:px-3 py-1.5 text-xs font-semibold uppercase tracking-wider transition ${calendarView === 'month' ? 'bg-zinc-700 text-white' : 'text-zinc-500 hover:text-white'}`}>
                     Month
                   </button>
                 </div>
               </div>
             </div>
 
-            {/* ── WEEK VIEW ─────────────────────────────────────────────── */}
-            {calendarView === 'week' && (
-              <div className="border border-zinc-800 rounded-lg overflow-hidden">
-                {/* Day headers */}
-                <div className="flex border-b border-zinc-800 bg-zinc-900/50" style={{ paddingLeft: '52px' }}>
-                  {weekDays.map(dateStr => {
-                    const { day, date } = formatDayHeader(dateStr)
-                    const isToday = dateStr === todayStr
-                    return (
-                      <div key={dateStr} className={`flex-1 text-center py-3 border-l border-zinc-800 ${isToday ? 'bg-gold/10' : ''}`}>
-                        <p className="text-xs text-zinc-500 uppercase tracking-widest">{day}</p>
-                        <div className={`w-7 h-7 rounded-full flex items-center justify-center mx-auto mt-1 text-sm font-bold ${isToday ? 'bg-gold text-zinc-950' : 'text-zinc-300'}`}>
-                          {date}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-
-                {/* Scrollable time grid */}
-                <div ref={weekViewRef} className="overflow-y-auto overflow-x-auto" style={{ maxHeight: '560px' }}>
-                  <div className="flex" style={{ minWidth: '600px', minHeight: `${HOURS.length * HOUR_H}px` }}>
-
-                    {/* Time labels */}
-                    <div className="flex-shrink-0 relative bg-zinc-900/30" style={{ width: '52px', minHeight: `${HOURS.length * HOUR_H}px` }}>
-                      {HOURS.map((h, i) => (
-                        <div key={h} style={{ top: `${i * HOUR_H}px`, height: `${HOUR_H}px` }}
-                          className="absolute inset-x-0 flex items-start justify-end pr-2 pt-1 border-t border-zinc-800/50">
-                          <span className="text-xs text-zinc-600">{h === 12 ? '12pm' : h > 12 ? `${h - 12}pm` : `${h}am`}</span>
+            {/* ── DAY VIEW ──────────────────────────────────────────────── */}
+            {calendarView === 'day' && (() => {
+              const dayTasksAll = tasksForDay
+              const timedTasks = dayTasksAll.filter(t => t.scheduled_time)
+              const allDayTasks = dayTasksAll.filter(t => !t.scheduled_time)
+              const { day: dayName } = formatDayHeader(dayViewDate)
+              return (
+                <div className="border border-zinc-800 rounded-lg overflow-hidden">
+                  {/* All-day tasks */}
+                  {allDayTasks.length > 0 && (
+                    <div className="px-3 py-2.5 border-b border-zinc-800 bg-zinc-900/40 space-y-1.5">
+                      <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest">All Day</p>
+                      {allDayTasks.map(task => (
+                        <div key={`${task.id}-${task._displayDate}`}
+                          onClick={() => openViewModal(task)}
+                          className={`text-sm px-3 py-2 rounded cursor-pointer ${task.completed ? 'bg-zinc-800 text-zinc-500 line-through' : 'bg-gold/20 text-gold active:bg-gold/30 transition'}`}>
+                          {task.title}
                         </div>
                       ))}
                     </div>
+                  )}
 
-                    {/* Day columns */}
-                    {weekDays.map(dateStr => {
-                      const isToday = dateStr === todayStr
-                      const dayTasks = tasksForWeek.filter(t => t._displayDate === dateStr)
-                      const timedTasks = dayTasks.filter(t => t.scheduled_time)
-                      const allDayTasks = dayTasks.filter(t => !t.scheduled_time)
-
-                      return (
-                        <div key={dateStr} className={`flex-1 relative border-l border-zinc-800 ${isToday ? 'bg-gold/[0.03]' : ''}`}
-                          style={{ minHeight: `${HOURS.length * HOUR_H}px` }}>
-
-                          {/* All-day tasks strip */}
-                          {allDayTasks.length > 0 && (
-                            <div className="px-0.5 pt-0.5 pb-1 border-b border-zinc-800/50 space-y-0.5 z-10 relative bg-zinc-900/40">
-                              {allDayTasks.map(task => (
-                                <div key={`${task.id}-${task._displayDate}`}
-                                  onClick={() => openViewModal(task)}
-                                  className={`text-xs px-1.5 py-0.5 rounded cursor-pointer truncate ${task.completed ? 'bg-zinc-800 text-zinc-500 line-through' : 'bg-gold/20 text-gold hover:bg-gold/30 transition'}`}>
-                                  {task.title}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          {/* Hour slot backgrounds */}
-                          {HOURS.map((h, i) => (
-                            <div key={h}
-                              style={{ top: `${i * HOUR_H}px`, height: `${HOUR_H}px` }}
-                              className="absolute inset-x-0 border-t border-zinc-800/40 hover:bg-zinc-800/20 cursor-pointer transition group"
-                              onClick={() => openNewTaskModal(dateStr, `${String(h).padStart(2, '0')}:00`)}>
-                              <span className="opacity-0 group-hover:opacity-100 text-xs text-zinc-700 pl-1 pt-0.5 select-none block">
-                                + {h === 12 ? '12pm' : h > 12 ? `${h - 12}pm` : `${h}am`}
-                              </span>
-                            </div>
-                          ))}
-
-                          {/* Timed tasks */}
-                          {timedTasks.map((task, tIdx) => {
-                            const top = getTimeTopPx(task.scheduled_time)
-                            const height = Math.max(28, ((task.duration_minutes || 60) / 60) * HOUR_H)
-                            return (
-                              <div key={`${task.id}-${task._displayDate}`}
-                                style={{ top: `${top}px`, height: `${height}px`, left: `${tIdx * 2}px` }}
-                                className={`absolute right-0.5 rounded px-1.5 py-1 text-xs overflow-hidden cursor-pointer z-10 border ${
-                                  task.completed
-                                    ? 'bg-zinc-800/60 border-zinc-700 text-zinc-500'
-                                    : 'bg-gold/20 border-gold/40 text-gold hover:bg-gold/30 transition'
-                                }`}
-                                onClick={e => { e.stopPropagation(); openViewModal(task) }}>
-                                <p className="font-semibold truncate leading-tight">{task.title}</p>
-                                {height > 44 && <p className="text-gold/60 mt-0.5 text-[10px]">{formatTime(task.scheduled_time)}</p>}
-                                {task.recurring && task.recurring !== 'none' && <span className="text-gold/50 text-[10px]"> ↻</span>}
-                              </div>
-                            )
-                          })}
+                  {/* Scrollable time grid */}
+                  <div ref={weekViewRef} className="overflow-y-auto" style={{ maxHeight: '65vh' }}>
+                    <div className="relative" style={{ minHeight: `${HOURS.length * HOUR_H}px` }}>
+                      {/* Hour slots */}
+                      {HOURS.map((h, i) => (
+                        <div key={h}
+                          style={{ top: `${i * HOUR_H}px`, height: `${HOUR_H}px` }}
+                          className="absolute inset-x-0 flex border-t border-zinc-800/40 active:bg-zinc-800/30 cursor-pointer transition"
+                          onClick={() => openNewTaskModal(dayViewDate, `${String(h).padStart(2, '0')}:00`)}>
+                          <div className="w-14 flex-shrink-0 text-right pr-3 pt-1">
+                            <span className="text-xs text-zinc-600">{h === 12 ? '12pm' : h > 12 ? `${h - 12}pm` : `${h}am`}</span>
+                          </div>
                         </div>
-                      )
-                    })}
+                      ))}
+
+                      {/* Timed tasks */}
+                      {timedTasks.map((task, tIdx) => {
+                        const top = getTimeTopPx(task.scheduled_time)
+                        const height = Math.max(40, ((task.duration_minutes || 60) / 60) * HOUR_H)
+                        return (
+                          <div key={`${task.id}-${task._displayDate}`}
+                            style={{ top: `${top}px`, height: `${height}px`, left: '60px' }}
+                            className={`absolute right-2 rounded-lg px-3 py-2 overflow-hidden cursor-pointer z-10 border ${
+                              task.completed
+                                ? 'bg-zinc-800/60 border-zinc-700 text-zinc-500'
+                                : 'bg-gold/20 border-gold/40 text-gold active:bg-gold/30 transition'
+                            }`}
+                            onClick={e => { e.stopPropagation(); openViewModal(task) }}>
+                            <p className="font-semibold text-sm truncate leading-tight">{task.title}</p>
+                            {height > 44 && <p className="text-gold/60 mt-0.5 text-xs">{formatTime(task.scheduled_time)}{task.duration_minutes ? ` · ${task.duration_minutes}min` : ''}</p>}
+                            {task.recurring && task.recurring !== 'none' && <span className="text-gold/50 text-xs"> ↻ {task.recurring}</span>}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* ── WEEK VIEW ─────────────────────────────────────────────── */}
+            {calendarView === 'week' && (
+              <div className="border border-zinc-800 rounded-lg overflow-hidden">
+                <div ref={weekViewRef} className="overflow-auto" style={{ maxHeight: '560px' }}>
+                  <div style={{ minWidth: '560px' }}>
+                    {/* Day headers — sticky top */}
+                    <div className="flex sticky top-0 z-20 bg-zinc-950 border-b border-zinc-800" style={{ paddingLeft: '48px' }}>
+                      {weekDays.map(dateStr => {
+                        const { day, date } = formatDayHeader(dateStr)
+                        const isToday = dateStr === todayStr
+                        return (
+                          <div key={dateStr}
+                            className={`flex-1 text-center py-2.5 border-l border-zinc-800 cursor-pointer active:bg-zinc-800/40 ${isToday ? 'bg-gold/10' : ''}`}
+                            onClick={() => { setDayViewDate(dateStr); setCalendarView('day') }}>
+                            <p className="text-[10px] sm:text-xs text-zinc-500 uppercase tracking-widest">{day}</p>
+                            <div className={`w-6 h-6 sm:w-7 sm:h-7 rounded-full flex items-center justify-center mx-auto mt-0.5 text-xs sm:text-sm font-bold ${isToday ? 'bg-gold text-zinc-950' : 'text-zinc-300'}`}>
+                              {date}
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+
+                    {/* Time grid */}
+                    <div className="flex" style={{ minHeight: `${HOURS.length * HOUR_H}px` }}>
+
+                      {/* Time labels */}
+                      <div className="flex-shrink-0 relative bg-zinc-900/30" style={{ width: '48px', minHeight: `${HOURS.length * HOUR_H}px` }}>
+                        {HOURS.map((h, i) => (
+                          <div key={h} style={{ top: `${i * HOUR_H}px`, height: `${HOUR_H}px` }}
+                            className="absolute inset-x-0 flex items-start justify-end pr-2 pt-1 border-t border-zinc-800/50">
+                            <span className="text-[10px] sm:text-xs text-zinc-600">{h === 12 ? '12pm' : h > 12 ? `${h - 12}pm` : `${h}am`}</span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Day columns */}
+                      {weekDays.map(dateStr => {
+                        const isToday = dateStr === todayStr
+                        const dayTasks = tasksForWeek.filter(t => t._displayDate === dateStr)
+                        const timedTasks = dayTasks.filter(t => t.scheduled_time)
+                        const allDayTasks = dayTasks.filter(t => !t.scheduled_time)
+
+                        return (
+                          <div key={dateStr} className={`flex-1 relative border-l border-zinc-800 ${isToday ? 'bg-gold/[0.03]' : ''}`}
+                            style={{ minHeight: `${HOURS.length * HOUR_H}px` }}>
+
+                            {/* All-day tasks strip */}
+                            {allDayTasks.length > 0 && (
+                              <div className="px-0.5 pt-0.5 pb-1 border-b border-zinc-800/50 space-y-0.5 z-10 relative bg-zinc-900/40">
+                                {allDayTasks.map(task => (
+                                  <div key={`${task.id}-${task._displayDate}`}
+                                    onClick={() => openViewModal(task)}
+                                    className={`text-[10px] sm:text-xs px-1 py-0.5 rounded cursor-pointer truncate ${task.completed ? 'bg-zinc-800 text-zinc-500 line-through' : 'bg-gold/20 text-gold active:bg-gold/30 transition'}`}>
+                                    {task.title}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Hour slot backgrounds */}
+                            {HOURS.map((h, i) => (
+                              <div key={h}
+                                style={{ top: `${i * HOUR_H}px`, height: `${HOUR_H}px` }}
+                                className="absolute inset-x-0 border-t border-zinc-800/40 active:bg-zinc-800/20 cursor-pointer transition"
+                                onClick={() => openNewTaskModal(dateStr, `${String(h).padStart(2, '0')}:00`)}>
+                              </div>
+                            ))}
+
+                            {/* Timed tasks */}
+                            {timedTasks.map((task, tIdx) => {
+                              const top = getTimeTopPx(task.scheduled_time)
+                              const height = Math.max(24, ((task.duration_minutes || 60) / 60) * HOUR_H)
+                              return (
+                                <div key={`${task.id}-${task._displayDate}`}
+                                  style={{ top: `${top}px`, height: `${height}px`, left: `${tIdx * 2}px` }}
+                                  className={`absolute right-0.5 rounded px-1 py-0.5 text-[10px] sm:text-xs overflow-hidden cursor-pointer z-10 border ${
+                                    task.completed
+                                      ? 'bg-zinc-800/60 border-zinc-700 text-zinc-500'
+                                      : 'bg-gold/20 border-gold/40 text-gold active:bg-gold/30 transition'
+                                  }`}
+                                  onClick={e => { e.stopPropagation(); openViewModal(task) }}>
+                                  <p className="font-semibold truncate leading-tight">{task.title}</p>
+                                  {height > 36 && <p className="text-gold/60 mt-0.5 text-[9px] sm:text-[10px]">{formatTime(task.scheduled_time)}</p>}
+                                  {task.recurring && task.recurring !== 'none' && <span className="text-gold/50 text-[9px]"> ↻</span>}
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )
+                      })}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -865,30 +942,43 @@ export default function ClientPage() {
             {calendarView === 'month' && (
               <div>
                 <div className="grid grid-cols-7 gap-px bg-zinc-800 border border-zinc-800 rounded-lg overflow-hidden">
-                  {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d => (
-                    <div key={d} className="bg-zinc-950 py-2 text-center text-xs font-semibold text-zinc-600 uppercase tracking-wider">{d}</div>
+                  {[['M','Mon'],['T','Tue'],['W','Wed'],['T','Thu'],['F','Fri'],['S','Sat'],['S','Sun']].map(([short, full], i) => (
+                    <div key={i} className="bg-zinc-950 py-2 text-center text-[10px] sm:text-xs font-semibold text-zinc-600 uppercase tracking-wider">
+                      <span className="sm:hidden">{short}</span>
+                      <span className="hidden sm:inline">{full}</span>
+                    </div>
                   ))}
                   {calCells.map((day, i) => {
-                    if (!day) return <div key={`e-${i}`} className="bg-zinc-950 h-24 md:h-28" />
+                    if (!day) return <div key={`e-${i}`} className="bg-zinc-950 h-16 sm:h-20 md:h-24" />
                     const dateStr = `${calendarYear}-${String(calendarMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
                     const dayTasks = tasksForMonth.filter(t => t._displayDate === dateStr)
                     const isToday = dateStr === todayStr
                     const isSelected = selectedDay === dateStr
                     return (
                       <div key={day}
-                        className={`bg-zinc-950 h-24 md:h-28 p-1.5 cursor-pointer hover:bg-zinc-900/60 transition ${isSelected ? 'ring-1 ring-inset ring-gold bg-zinc-900/40' : ''}`}
+                        className={`bg-zinc-950 h-16 sm:h-20 md:h-24 p-1 sm:p-1.5 cursor-pointer active:bg-zinc-900/60 hover:bg-zinc-900/60 transition ${isSelected ? 'ring-1 ring-inset ring-gold bg-zinc-900/40' : ''}`}
                         onClick={() => setSelectedDay(isSelected ? null : dateStr)}>
-                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold mb-1 ${isToday ? 'bg-gold text-zinc-950' : 'text-zinc-500'}`}>
+                        <div className={`w-5 h-5 sm:w-6 sm:h-6 rounded-full flex items-center justify-center text-[10px] sm:text-xs font-bold ${isToday ? 'bg-gold text-zinc-950' : 'text-zinc-500'}`}>
                           {day}
                         </div>
-                        <div className="space-y-0.5">
-                          {dayTasks.slice(0, 3).map(task => (
+                        <div className="space-y-0.5 mt-0.5 hidden sm:block">
+                          {dayTasks.slice(0, 2).map(task => (
                             <div key={`${task.id}-${task._displayDate}`}
                               className={`text-[10px] px-1 py-0.5 rounded truncate leading-tight ${task.completed ? 'text-zinc-600 line-through' : 'bg-gold/20 text-gold'}`}>
                               {task.scheduled_time ? formatTime(task.scheduled_time) + ' ' : ''}{task.title}
                             </div>
                           ))}
-                          {dayTasks.length > 3 && <div className="text-[10px] text-zinc-600 px-1">+{dayTasks.length - 3} more</div>}
+                          {dayTasks.length > 2 && <div className="text-[10px] text-zinc-600 px-1">+{dayTasks.length - 2} more</div>}
+                        </div>
+                        {/* Mobile: just show dot indicators */}
+                        {dayTasks.length > 0 && (
+                          <div className="flex gap-0.5 mt-0.5 sm:hidden justify-center">
+                            {dayTasks.slice(0, 3).map((task, idx) => (
+                              <div key={idx} className={`w-1 h-1 rounded-full ${task.completed ? 'bg-zinc-600' : 'bg-gold'}`} />
+                            ))}
+                            {dayTasks.length > 3 && <div className="w-1 h-1 rounded-full bg-zinc-600" />}
+                          </div>
+                        )}
                         </div>
                       </div>
                     )
@@ -981,16 +1071,21 @@ export default function ClientPage() {
 
             {/* ── TASK MODAL ────────────────────────────────────────────── */}
             {taskModal && (
-              <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+              <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center sm:p-4"
                 onClick={() => setTaskModal(null)}>
-                <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 w-full max-w-md shadow-2xl"
+                <div className="bg-zinc-900 border border-zinc-800 rounded-t-xl sm:rounded-lg p-5 sm:p-6 w-full sm:max-w-md shadow-2xl max-h-[90vh] overflow-y-auto"
                   onClick={e => e.stopPropagation()}>
+
+                  {/* Mobile drag handle */}
+                  <div className="flex justify-center mb-3 sm:hidden">
+                    <div className="w-10 h-1 bg-zinc-700 rounded-full" />
+                  </div>
 
                   <div className="flex items-center justify-between mb-5">
                     <h3 className="text-sm font-bold text-white uppercase tracking-widest">
                       {taskModal.mode === 'view' ? 'Task' : taskModal.mode === 'schedule' ? 'Schedule Task' : 'Add Task'}
                     </h3>
-                    <button onClick={() => setTaskModal(null)} className="text-zinc-500 hover:text-white transition">
+                    <button onClick={() => setTaskModal(null)} className="text-zinc-500 hover:text-white active:text-white transition p-1">
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                     </button>
                   </div>
@@ -1042,7 +1137,7 @@ export default function ClientPage() {
                           placeholder="What needs to be done?"
                           className={`w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm ${taskModal.mode === 'schedule' ? 'opacity-70' : ''}`} />
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Date</label>
                           <input type="date" value={modalForm.date} onChange={e => setModalForm({ ...modalForm, date: e.target.value })}
@@ -1057,7 +1152,7 @@ export default function ClientPage() {
                           </select>
                         </div>
                       </div>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
                           <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Duration</label>
                           <select value={modalForm.duration} onChange={e => setModalForm({ ...modalForm, duration: Number(e.target.value) })}
