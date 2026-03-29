@@ -479,14 +479,20 @@ export default function AdminPage() {
                           <span className="px-2.5 py-1 bg-yellow-900/20 border border-yellow-900/40 rounded text-yellow-400 text-xs font-semibold uppercase tracking-widest">Pending</span>
                         )}
                       </div>
+                      {/* #1 Priority */}
+                      <div className="bg-zinc-900 border-2 border-gold/30 rounded-lg px-4 py-3 mb-3">
+                        <p className="text-[10px] font-semibold text-gold uppercase tracking-widest mb-1">#1 Priority</p>
+                        <p className={`text-sm font-medium ${warMapWeekly.number_one_priority ? 'text-white' : 'text-zinc-700 italic'}`}>{warMapWeekly.number_one_priority || 'Not set'}</p>
+                      </div>
+                      {/* Other Priorities */}
                       <div className="space-y-2">
                         {[
-                          { num: 1, value: warMapWeekly.number_one_priority, accent: true },
-                          { num: 2, value: warMapWeekly.priority_2, accent: false },
-                          { num: 3, value: warMapWeekly.priority_3, accent: false },
-                        ].map(({ num, value, accent }) => (
+                          { num: 1, value: warMapWeekly.priority_2 },
+                          { num: 2, value: warMapWeekly.priority_3 },
+                          { num: 3, value: warMapWeekly.priority_4 },
+                        ].map(({ num, value }) => (
                           <div key={num} className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3">
-                            <span className={`text-sm font-bold w-5 flex-shrink-0 ${accent ? 'text-gold' : 'text-zinc-500'}`}>{num}</span>
+                            <span className="text-sm font-bold w-5 flex-shrink-0 text-zinc-500">{num}</span>
                             <p className={`text-sm ${value ? 'text-white' : 'text-zinc-700 italic'}`}>{value || 'Not set'}</p>
                           </div>
                         ))}

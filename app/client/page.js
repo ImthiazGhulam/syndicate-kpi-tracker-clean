@@ -179,7 +179,7 @@ export default function ClientPage() {
   const [warMapTasks, setWarMapTasks] = useState([])
   const [warMapInput, setWarMapInput] = useState('')
   const [warMapWeek, setWarMapWeek] = useState(() => getMonday())
-  const [weeklyPriorities, setWeeklyPriorities] = useState({ number_one_priority: '', priority_2: '', priority_3: '', completed: false, completed_at: null })
+  const [weeklyPriorities, setWeeklyPriorities] = useState({ number_one_priority: '', priority_2: '', priority_3: '', priority_4: '', completed: false, completed_at: null })
   const [prioritiesSaving, setPrioritiesSaving] = useState(false)
   const [calendarView, setCalendarView] = useState('month')
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear())
@@ -257,7 +257,7 @@ export default function ClientPage() {
     if (weeklyRes.data) {
       setWeeklyPriorities(weeklyRes.data)
     } else {
-      setWeeklyPriorities({ number_one_priority: '', priority_2: '', priority_3: '', completed: false, completed_at: null })
+      setWeeklyPriorities({ number_one_priority: '', priority_2: '', priority_3: '', priority_4: '', completed: false, completed_at: null })
     }
     setLoading(false)
   }
@@ -269,7 +269,7 @@ export default function ClientPage() {
     if (data) {
       setWeeklyPriorities(data)
     } else {
-      setWeeklyPriorities({ number_one_priority: '', priority_2: '', priority_3: '', completed: false, completed_at: null })
+      setWeeklyPriorities({ number_one_priority: '', priority_2: '', priority_3: '', priority_4: '', completed: false, completed_at: null })
     }
   }
 
@@ -372,6 +372,7 @@ export default function ClientPage() {
       number_one_priority: weeklyPriorities.number_one_priority || '',
       priority_2: weeklyPriorities.priority_2 || '',
       priority_3: weeklyPriorities.priority_3 || '',
+      priority_4: weeklyPriorities.priority_4 || '',
     }, { onConflict: 'client_id,week_of' }).select().single()
     if (data) setWeeklyPriorities(data)
     setPrioritiesSaving(false)
@@ -385,6 +386,7 @@ export default function ClientPage() {
       number_one_priority: weeklyPriorities.number_one_priority || '',
       priority_2: weeklyPriorities.priority_2 || '',
       priority_3: weeklyPriorities.priority_3 || '',
+      priority_4: weeklyPriorities.priority_4 || '',
       completed: true,
       completed_at: new Date().toISOString(),
     }, { onConflict: 'client_id,week_of' }).select().single()
@@ -778,29 +780,23 @@ export default function ClientPage() {
               </div>
 
               <div>
-                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1">Top 3 Priorities</h3>
-                <p className="text-zinc-600 text-xs mb-3">Your key focus areas for the week, in order of importance.</p>
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1">Other Priorities</h3>
+                <p className="text-zinc-600 text-xs mb-3">Three more key focus areas for the week.</p>
                 <div className="space-y-2">
                   {[
-                    { key: 'number_one_priority', num: 1, accent: true },
-                    { key: 'priority_2', num: 2, accent: false },
-                    { key: 'priority_3', num: 3, accent: false },
-                  ].map(({ key, num, accent }) => (
+                    { key: 'priority_2', num: 1 },
+                    { key: 'priority_3', num: 2 },
+                    { key: 'priority_4', num: 3 },
+                  ].map(({ key, num }) => (
                     <div key={key} className="flex items-center gap-3">
-                      <span className={`text-sm font-bold w-5 flex-shrink-0 ${accent ? 'text-gold' : 'text-zinc-500'}`}>{num}</span>
-                      {num === 1 ? (
-                        <p className={`flex-1 px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded text-sm ${weeklyPriorities.number_one_priority ? 'text-white' : 'text-zinc-600'}`}>
-                          {weeklyPriorities.number_one_priority || 'Set above'}
-                        </p>
-                      ) : (
-                        <input
-                          value={weeklyPriorities[key] || ''}
-                          onChange={e => setWeeklyPriorities(prev => ({ ...prev, [key]: e.target.value }))}
-                          onBlur={savePriorities}
-                          placeholder={`Priority ${num}`}
-                          className="flex-1 px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm"
-                        />
-                      )}
+                      <span className="text-sm font-bold w-5 flex-shrink-0 text-zinc-500">{num}</span>
+                      <input
+                        value={weeklyPriorities[key] || ''}
+                        onChange={e => setWeeklyPriorities(prev => ({ ...prev, [key]: e.target.value }))}
+                        onBlur={savePriorities}
+                        placeholder={`Priority ${num}`}
+                        className="flex-1 px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm"
+                      />
                     </div>
                   ))}
                 </div>
