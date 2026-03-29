@@ -2454,6 +2454,8 @@ export default function ClientPage() {
               <div className="flex gap-3 px-4 sm:px-0" style={{ minWidth: '900px' }}>
                 {LEAD_STAGES.map((stage, stageIdx) => {
                   const stageLeads = leads.filter(l => l.status === stage.id)
+                  const prevStageId = stageIdx > 0 ? LEAD_STAGES[stageIdx - 1].id : null
+                  const nextStageId = stageIdx < LEAD_STAGES.length - 1 ? LEAD_STAGES[stageIdx + 1].id : null
                   const isDragOver = dragOverCol === stage.id && dragLead?.status !== stage.id
                   return (
                     <div key={stage.id} className="flex-1 min-w-[150px]" data-stage={stage.id}>
@@ -2497,6 +2499,21 @@ export default function ClientPage() {
                             <p className="text-[10px] text-zinc-600 mt-1.5">
                               {new Date(lead.updated_at || lead.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                             </p>
+                            {/* Mobile move buttons */}
+                            <div className="flex items-center gap-1.5 mt-2 sm:hidden">
+                              {prevStageId && (
+                                <button onClick={(e) => { e.stopPropagation(); moveLead(lead.id, prevStageId) }}
+                                  className="flex-1 py-1.5 text-[10px] font-semibold text-zinc-500 active:text-white bg-zinc-900 active:bg-zinc-700 rounded transition uppercase tracking-wider text-center">
+                                  ← Back
+                                </button>
+                              )}
+                              {nextStageId && (
+                                <button onClick={(e) => { e.stopPropagation(); moveLead(lead.id, nextStageId) }}
+                                  className="flex-1 py-1.5 text-[10px] font-semibold text-gold active:text-gold-light bg-gold/10 active:bg-gold/20 rounded transition uppercase tracking-wider text-center">
+                                  Next →
+                                </button>
+                              )}
+                            </div>
                           </div>
                         ))}
 
