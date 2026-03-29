@@ -190,9 +190,10 @@ export default function ClientPage() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('design')
   const [showToast, setShowToast] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   const flash = () => { setShowToast(true); setTimeout(() => setShowToast(false), 2000) }
-  const switchTab = (id) => { setActiveTab(id); window.scrollTo({ top: 0, behavior: 'smooth' }) }
+  const switchTab = (id) => { setActiveTab(id); setSidebarOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }) }
 
   // Data
   const [checkins, setCheckins] = useState([])
@@ -736,58 +737,97 @@ export default function ClientPage() {
   const kpiDaysWithData = kpiDays.filter(d => monthlyKpis[d]).length || 1
 
   const tabs = [
-    { id: 'design',      label: 'Design™' },
-    { id: 'war-map',     label: 'Weekly War Map™' },
-    { id: 'morning-ops', label: 'Morning Ops™' },
-    { id: 'dashboard',   label: 'Dashboard' },
-    { id: 'hot-list',    label: 'Hot List' },
-    { id: 'check-in',    label: 'Check-In' },
-    { id: 'projects',    label: 'Projects' },
+    { id: 'design',      label: 'Design™',          icon: '🎯' },
+    { id: 'war-map',     label: 'Weekly War Map™',   icon: '⚔️' },
+    { id: 'morning-ops', label: 'Morning Ops™',      icon: '☀️' },
+    { id: 'dashboard',   label: 'Dashboard',         icon: '📊' },
+    { id: 'hot-list',    label: 'Hot List',           icon: '🔥' },
+    { id: 'check-in',    label: 'Check-In',          icon: '💬' },
+    { id: 'projects',    label: 'Projects',           icon: '📋' },
   ]
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
-  return (
-    <div className="min-h-screen bg-zinc-950">
-      <SaveToast show={showToast} />
+  const sidebarNav = (
+    <nav className="flex flex-col h-full">
+      {/* Logo */}
+      <div className="p-5 pb-4 border-b border-zinc-800">
+        <img src="/logo.png" alt="The Syndicate" className="h-12 w-auto" />
+      </div>
 
-      {/* Header */}
-      <header className="bg-zinc-950 border-b border-zinc-800 px-4 py-4 flex items-center justify-between sticky top-0 z-10">
-        <div className="flex items-center gap-3">
-          <img src="/logo.png" alt="The Syndicate" className="h-8 w-auto flex-shrink-0" />
-          <div className="hidden sm:block">
-            <p className="text-white text-sm font-bold tracking-wider uppercase leading-none">The Syndicate</p>
-            <p className="text-zinc-600 text-xs tracking-widest uppercase mt-0.5">{clientData.name}</p>
-          </div>
-          <p className="text-white text-sm font-bold tracking-wider uppercase sm:hidden">The Syndicate</p>
-        </div>
-        <button onClick={handleSignOut} className="text-zinc-500 hover:text-white text-xs uppercase tracking-widest font-semibold flex items-center gap-2 transition">
+      {/* User */}
+      <div className="px-5 py-4 border-b border-zinc-800">
+        <p className="text-white text-sm font-semibold truncate">{clientData.name}</p>
+        <p className="text-zinc-600 text-xs truncate mt-0.5">{clientData.business}</p>
+      </div>
+
+      {/* Nav items */}
+      <div className="flex-1 py-3 overflow-y-auto scrollbar-thin">
+        {tabs.map(tab => (
+          <button key={tab.id} onClick={() => switchTab(tab.id)}
+            className={`w-full flex items-center gap-3 px-5 py-3 text-sm font-medium transition ${
+              activeTab === tab.id
+                ? 'text-gold bg-gold/[0.08] border-r-2 border-gold'
+                : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+            }`}>
+            <span className="text-base w-6 text-center">{tab.icon}</span>
+            <span className="tracking-wide">{tab.label}</span>
+          </button>
+        ))}
+      </div>
+
+      {/* Sign out */}
+      <div className="p-4 border-t border-zinc-800">
+        <button onClick={handleSignOut}
+          className="w-full flex items-center gap-3 px-3 py-2.5 text-zinc-500 hover:text-white text-sm font-medium rounded hover:bg-zinc-900 transition">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
           </svg>
-          <span className="hidden sm:inline">Sign Out</span>
+          <span className="tracking-wide">Sign Out</span>
         </button>
-      </header>
+      </div>
+    </nav>
+  )
 
-      <div className="max-w-5xl mx-auto p-4 md:p-7">
+  return (
+    <div className="min-h-screen bg-zinc-950 flex">
+      <SaveToast show={showToast} />
 
-        {/* Welcome */}
-        <div className="mb-7">
-          <h1 className="text-2xl font-bold text-white tracking-tight">Welcome back, {clientData.name.split(' ')[0]}</h1>
-          <p className="text-zinc-500 text-sm mt-1">{clientData.business} · {clientData.industry}</p>
+      {/* Desktop sidebar */}
+      <aside className="hidden md:flex md:flex-col md:w-60 md:fixed md:inset-y-0 bg-zinc-950 border-r border-zinc-800 z-20">
+        {sidebarNav}
+      </aside>
+
+      {/* Mobile sidebar overlay */}
+      {sidebarOpen && (
+        <div className="fixed inset-0 z-50 md:hidden fade-overlay">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setSidebarOpen(false)} />
+          <aside className="absolute left-0 top-0 bottom-0 w-64 bg-zinc-950 border-r border-zinc-800 slide-in-left shadow-2xl">
+            {sidebarNav}
+          </aside>
         </div>
+      )}
 
-        {/* Tabs */}
-        <div className="flex border-b border-zinc-800 mb-7 gap-1 sm:gap-5 overflow-x-auto scrollbar-none -mx-4 px-4 sm:mx-0 sm:px-0">
-          {tabs.map(tab => (
-            <button key={tab.id} onClick={() => switchTab(tab.id)}
-              className={`pb-3 pt-1 px-2 sm:px-0 text-xs sm:text-sm font-semibold uppercase tracking-wider transition border-b-2 -mb-px whitespace-nowrap flex-shrink-0 ${
-                activeTab === tab.id ? 'border-gold text-gold' : 'border-transparent text-zinc-500 hover:text-zinc-300'
-              }`}>
-              {tab.label}
-            </button>
-          ))}
-        </div>
+      {/* Main content */}
+      <div className="flex-1 md:ml-60">
+        {/* Mobile header */}
+        <header className="md:hidden bg-zinc-950 border-b border-zinc-800 px-4 py-3 flex items-center justify-between sticky top-0 z-10">
+          <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 text-zinc-400 hover:text-white active:text-white transition">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
+          </button>
+          <img src="/logo.png" alt="The Syndicate" className="h-7 w-auto" />
+          <div className="w-9" /> {/* Spacer for centering */}
+        </header>
+
+        <div className="max-w-5xl mx-auto p-4 md:p-7">
+
+          {/* Page title */}
+          <div className="mb-7">
+            <h1 className="text-lg sm:text-2xl font-bold text-white tracking-tight">
+              {tabs.find(t => t.id === activeTab)?.icon} {tabs.find(t => t.id === activeTab)?.label}
+            </h1>
+            <p className="text-zinc-600 text-xs mt-1">Welcome back, {clientData.name.split(' ')[0]} · {clientData.business}</p>
+          </div>
 
         {/* ── MORNING OPS™ ──────────────────────────────────────────────── */}
         {activeTab === 'morning-ops' && (
@@ -2060,6 +2100,7 @@ export default function ClientPage() {
           </div>
         )}
 
+        </div>
       </div>
     </div>
   )
