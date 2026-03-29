@@ -190,6 +190,75 @@ function DynamicList({ items = [''], onUpdate, onAdd, onRemove, placeholder }) {
 
 // ── Component ───────────────────────────────────────────────────────────────
 
+// ── Reusable Sub-components (outside main component for mobile performance) ──
+
+function Label({ children }) {
+  return <label className="block text-xs font-bold text-zinc-400 uppercase tracking-widest mb-2">{children}</label>
+}
+
+function GoldLabel({ children }) {
+  return <label className="block text-xs font-bold text-gold uppercase tracking-widest mb-2">{children}</label>
+}
+
+function SectionHeading({ title, description }) {
+  return (
+    <div className="mb-4">
+      <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-1">{title}</h3>
+      {description && <p className="text-zinc-600 text-xs">{description}</p>}
+    </div>
+  )
+}
+
+function FieldGroup({ label, children, className = '', gold = false }) {
+  return (
+    <div className={`mb-5 ${className}`}>
+      {gold ? <GoldLabel>{label}</GoldLabel> : <Label>{label}</Label>}
+      {children}
+    </div>
+  )
+}
+
+function ScoreRing({ score, max, size = 120, strokeWidth = 8, label }) {
+  const radius = (size - strokeWidth) / 2
+  const circumference = 2 * Math.PI * radius
+  const pct = max > 0 ? score / max : 0
+  const offset = circumference * (1 - pct)
+  let color = '#ef4444'
+  if (pct >= 0.82) color = '#C9A84C'
+  else if (pct >= 0.62) color = '#22c55e'
+  else if (pct >= 0.42) color = '#eab308'
+  return (
+    <div className="flex flex-col items-center relative">
+      <svg width={size} height={size} className="-rotate-90">
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#27272a" strokeWidth={strokeWidth} />
+        <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={color} strokeWidth={strokeWidth} strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" className="transition-all duration-700" />
+      </svg>
+      <div className="absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-2xl font-bold text-white">{score}</span>
+        <span className="text-xs text-zinc-500">/ {max}</span>
+      </div>
+      {label && <p className="text-xs text-zinc-400 mt-2 font-semibold uppercase tracking-wider">{label}</p>}
+    </div>
+  )
+}
+
+function ProgressBar({ score, max, label, color = 'bg-gold' }) {
+  const pct = max > 0 ? Math.round((score / max) * 100) : 0
+  return (
+    <div className="mb-4">
+      <div className="flex justify-between mb-1">
+        <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">{label}</span>
+        <span className="text-xs text-zinc-500">{score} / {max}</span>
+      </div>
+      <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
+        <div className={`h-full rounded-full transition-all duration-700 ${color}`} style={{ width: `${pct}%` }} />
+      </div>
+    </div>
+  )
+}
+
+// ── Main Component ──────────────────────────────────────────────────────────
+
 export default function PremiumPositionPage() {
   const router = useRouter()
 
@@ -285,10 +354,15 @@ export default function PremiumPositionPage() {
   }, [saveToSupabase])
 
   // Auto-save watchers
-  useEffect(() => { if (!record) return; debouncedSave({ bucket: bucketData }) }, [bucketData])
-  useEffect(() => { if (!record) return; debouncedSave({ brand_star: starData }) }, [starData])
-  useEffect(() => { if (!record) return; debouncedSave({ hero: heroData }) }, [heroData])
-  useEffect(() => { if (!record) return; debouncedSave({ remarkable: remarkableData }) }, [remarkableData])
+  // Save on blur (not on every keystroke) + on stage change
+  const saveAll = useCallback(() => {
+    if (!record) return
+    if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+    saveTimerRef.current = setTimeout(() => {
+      saveToSupabase({ bucket: bucketData, brand_star: starData, hero: heroData, remarkable: remarkableData, current_stage: currentStage })
+    }, 500)
+  }, [record, saveToSupabase, bucketData, starData, heroData, remarkableData, currentStage])
+
   useEffect(() => { if (!record) return; saveToSupabase({ current_stage: currentStage }) }, [currentStage])
 
   // ── Updaters ──────────────────────────────────────────────────────────────
@@ -411,6 +485,7 @@ export default function PremiumPositionPage() {
   // ── Stage Navigation ──────────────────────────────────────────────────────
 
   const goToStage = (stage) => {
+    saveAll()
     setCurrentStage(stage)
     setSidebarOpen(false)
     window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -450,70 +525,9 @@ export default function PremiumPositionPage() {
     </div>
   )
 
-  // ── Reusable Field Components ─────────────────────────────────────────────
-
-  const Label = ({ children }) => (
-    <label className="block text-xs font-bold text-zinc-400 uppercase tracking-widest mb-2">{children}</label>
-  )
-
-  const GoldLabel = ({ children }) => (
-    <label className="block text-xs font-bold text-gold uppercase tracking-widest mb-2">{children}</label>
-  )
-
-  const SectionHeading = ({ title, description }) => (
-    <div className="mb-4">
-      <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-1">{title}</h3>
-      {description && <p className="text-zinc-600 text-xs">{description}</p>}
-    </div>
-  )
-
-  const FieldGroup = ({ label, children, className = '', gold = false }) => (
-    <div className={`mb-5 ${className}`}>
-      {gold ? <GoldLabel>{label}</GoldLabel> : <Label>{label}</Label>}
-      {children}
-    </div>
-  )
-
-  const ScoreRing = ({ score, max, size = 120, strokeWidth = 8, label }) => {
-    const radius = (size - strokeWidth) / 2
-    const circumference = 2 * Math.PI * radius
-    const pct = max > 0 ? score / max : 0
-    const offset = circumference * (1 - pct)
-
-    let color = '#ef4444'
-    if (pct >= 0.82) color = '#C9A84C'
-    else if (pct >= 0.62) color = '#22c55e'
-    else if (pct >= 0.42) color = '#eab308'
-
-    return (
-      <div className="flex flex-col items-center relative">
-        <svg width={size} height={size} className="-rotate-90">
-          <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke="#27272a" strokeWidth={strokeWidth} />
-          <circle cx={size / 2} cy={size / 2} r={radius} fill="none" stroke={color} strokeWidth={strokeWidth} strokeDasharray={circumference} strokeDashoffset={offset} strokeLinecap="round" className="transition-all duration-700" />
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center">
-          <span className="text-2xl font-bold text-white">{score}</span>
-          <span className="text-xs text-zinc-500">/ {max}</span>
-        </div>
-        {label && <p className="text-xs text-zinc-400 mt-2 font-semibold uppercase tracking-wider">{label}</p>}
-      </div>
-    )
-  }
-
-  const ProgressBar = ({ score, max, label, color = 'bg-gold' }) => {
-    const pct = max > 0 ? Math.round((score / max) * 100) : 0
-    return (
-      <div className="mb-4">
-        <div className="flex justify-between mb-1">
-          <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">{label}</span>
-          <span className="text-xs text-zinc-500">{score} / {max}</span>
-        </div>
-        <div className="w-full h-2 bg-zinc-800 rounded-full overflow-hidden">
-          <div className={`h-full rounded-full transition-all duration-700 ${color}`} style={{ width: `${pct}%` }} />
-        </div>
-      </div>
-    )
-  }
+  // All reusable sub-components (Label, GoldLabel, SectionHeading, FieldGroup,
+  // ScoreRing, ProgressBar, TextInput, TextArea, etc.) are defined OUTSIDE
+  // the main component to prevent mobile focus loss on re-render
 
   // ── Bucket Layer Helpers ──────────────────────────────────────────────────
 
@@ -1267,7 +1281,7 @@ export default function PremiumPositionPage() {
           <div className="w-6" />
         </header>
 
-        <div className="max-w-4xl mx-auto p-4 md:px-8 md:py-7">
+        <div className="max-w-4xl mx-auto p-4 md:px-8 md:py-7" onBlur={saveAll}>
           {currentStage === 1 && renderStage1()}
           {currentStage === 2 && renderStage2()}
           {currentStage === 3 && renderStage3()}
