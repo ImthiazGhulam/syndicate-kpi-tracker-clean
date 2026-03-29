@@ -574,10 +574,11 @@ export default function ClientPage() {
     return p
   }
 
-  const saveEvening = async () => {
+  const saveEvening = async (overrides = {}) => {
     if (!clientData) return
     setEveningSaving(true)
-    const { data } = await supabase.from('evening_pulse').upsert(buildEveningPayload(), { onConflict: 'client_id,date' }).select().single()
+    const payload = { ...buildEveningPayload(), ...overrides }
+    const { data } = await supabase.from('evening_pulse').upsert(payload, { onConflict: 'client_id,date' }).select().single()
     if (data) { setEveningPulse(data); flash() }
     setEveningSaving(false)
   }
@@ -626,10 +627,11 @@ export default function ClientPage() {
     return p
   }
 
-  const saveReview = async () => {
+  const saveReview = async (overrides = {}) => {
     if (!clientData) return
     setReviewSaving(true)
-    const { data } = await supabase.from('weekly_review').upsert(buildReviewPayload(), { onConflict: 'client_id,week_of' }).select().single()
+    const payload = { ...buildReviewPayload(), ...overrides }
+    const { data } = await supabase.from('weekly_review').upsert(payload, { onConflict: 'client_id,week_of' }).select().single()
     if (data) { setWeeklyReview(data); flash() }
     setReviewSaving(false)
   }
@@ -2239,7 +2241,7 @@ export default function ClientPage() {
                 <label className="block text-xs font-bold text-gold uppercase tracking-widest mb-3">Did I complete my #1 priority?</label>
                 <div className="flex gap-3">
                   {[true, false].map(val => (
-                    <button key={String(val)} onClick={() => { setEveningPulse(prev => ({ ...prev, priority_completed: val })); setTimeout(saveEvening, 100) }}
+                    <button key={String(val)} onClick={() => { setEveningPulse(prev => ({ ...prev, priority_completed: val })); saveEvening({ priority_completed: val }) }}
                       className={`flex-1 py-3 rounded-lg text-sm font-bold uppercase tracking-widest transition border ${
                         eveningPulse.priority_completed === val
                           ? val ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-red-900/40 border-red-800 text-red-400'
@@ -2272,7 +2274,7 @@ export default function ClientPage() {
                 </label>
                 <div className="flex gap-1.5">
                   {[1,2,3,4,5,6,7,8,9,10].map(n => (
-                    <button key={n} onClick={() => { setEveningPulse(prev => ({ ...prev, show_up_rating: n })); setTimeout(saveEvening, 100) }}
+                    <button key={n} onClick={() => { setEveningPulse(prev => ({ ...prev, show_up_rating: n })); saveEvening({ show_up_rating: n }) }}
                       className={`flex-1 py-2.5 rounded text-sm font-bold transition ${
                         n <= (eveningPulse.show_up_rating || 0)
                           ? n <= 3 ? 'bg-red-900/40 text-red-400' : n <= 6 ? 'bg-amber-900/40 text-amber-400' : 'bg-emerald-900/40 text-emerald-400'
@@ -2426,7 +2428,7 @@ export default function ClientPage() {
                 <label className="block text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3">Did I hit my weekly target?</label>
                 <div className="flex gap-3">
                   {[true, false].map(val => (
-                    <button key={String(val)} onClick={() => { setWeeklyReview(prev => ({ ...prev, target_hit: val })); setTimeout(saveReview, 100) }}
+                    <button key={String(val)} onClick={() => { setWeeklyReview(prev => ({ ...prev, target_hit: val })); saveReview({ target_hit: val }) }}
                       className={`flex-1 py-3 rounded-lg text-sm font-bold uppercase tracking-widest transition border ${
                         weeklyReview.target_hit === val
                           ? val ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-red-900/40 border-red-800 text-red-400'
@@ -2445,7 +2447,7 @@ export default function ClientPage() {
                 </label>
                 <div className="flex gap-1.5">
                   {[1,2,3,4,5,6,7,8,9,10].map(n => (
-                    <button key={n} onClick={() => { setWeeklyReview(prev => ({ ...prev, week_rating: n })); setTimeout(saveReview, 100) }}
+                    <button key={n} onClick={() => { setWeeklyReview(prev => ({ ...prev, week_rating: n })); saveReview({ week_rating: n }) }}
                       className={`flex-1 py-2.5 rounded text-sm font-bold transition ${
                         n <= (weeklyReview.week_rating || 0)
                           ? n <= 3 ? 'bg-red-900/40 text-red-400' : n <= 6 ? 'bg-amber-900/40 text-amber-400' : 'bg-emerald-900/40 text-emerald-400'
