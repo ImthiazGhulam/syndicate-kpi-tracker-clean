@@ -1053,6 +1053,7 @@ export default function ClientPage() {
     ]},
     { heading: 'Build™', items: [
       { id: 'playbook',    label: 'Sold Out™ Playbook',   icon: '📖', href: '/playbook' },
+      { id: 'premium-pos', label: 'Premium Position™',    icon: '👑', href: '/premium-position' },
     ]},
   ]
 
