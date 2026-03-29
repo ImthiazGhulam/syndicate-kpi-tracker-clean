@@ -189,6 +189,9 @@ export default function ClientPage() {
   const [leads, setLeads] = useState([])
   const [addingLeadCol, setAddingLeadCol] = useState(null)
   const [newLeadName, setNewLeadName] = useState('')
+  const [newLeadIG, setNewLeadIG] = useState('')
+  const [dragLead, setDragLead] = useState(null)
+  const [dragOverCol, setDragOverCol] = useState(null)
 
   // Check-in form
   const [checkinForm, setCheckinForm] = useState({
@@ -428,9 +431,13 @@ export default function ClientPage() {
 
   const addLead = async (status) => {
     if (!newLeadName.trim()) return
-    const { data } = await supabase.from('leads').insert([{ client_id: clientData.id, name: newLeadName.trim(), status }]).select().single()
+    const { data } = await supabase.from('leads').insert([{
+      client_id: clientData.id, name: newLeadName.trim(), status,
+      instagram: newLeadIG.trim() || null,
+    }]).select().single()
     if (data) setLeads(prev => [...prev, data])
     setNewLeadName('')
+    setNewLeadIG('')
     setAddingLeadCol(null)
   }
 
@@ -442,6 +449,64 @@ export default function ClientPage() {
   const deleteLead = async (leadId) => {
     await supabase.from('leads').delete().eq('id', leadId)
     setLeads(prev => prev.filter(l => l.id !== leadId))
+  }
+
+  // Drag & drop
+  const handleDragStart = (e, lead) => {
+    setDragLead(lead)
+    e.dataTransfer.effectAllowed = 'move'
+    e.dataTransfer.setData('text/plain', lead.id)
+    // Style the dragged element
+    setTimeout(() => { e.target.style.opacity = '0.4' }, 0)
+  }
+  const handleDragEnd = (e) => {
+    e.target.style.opacity = '1'
+    setDragLead(null)
+    setDragOverCol(null)
+  }
+  const handleDragOver = (e, stageId) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    setDragOverCol(stageId)
+  }
+  const handleDragLeave = () => { setDragOverCol(null) }
+  const handleDrop = async (e, stageId) => {
+    e.preventDefault()
+    setDragOverCol(null)
+    if (dragLead && dragLead.status !== stageId) {
+      await moveLead(dragLead.id, stageId)
+    }
+    setDragLead(null)
+  }
+
+  // Touch drag for mobile
+  const touchDragRef = useRef(null)
+  const handleTouchStart = (e, lead) => {
+    const touch = e.touches[0]
+    touchDragRef.current = { lead, startX: touch.clientX, startY: touch.clientY, el: e.currentTarget, moved: false }
+  }
+  const handleTouchMove = (e) => {
+    if (!touchDragRef.current) return
+    const touch = e.touches[0]
+    const dx = Math.abs(touch.clientX - touchDragRef.current.startX)
+    const dy = Math.abs(touch.clientY - touchDragRef.current.startY)
+    if (dx > 10 || dy > 10) touchDragRef.current.moved = true
+  }
+  const handleTouchEnd = async (e) => {
+    if (!touchDragRef.current || !touchDragRef.current.moved) {
+      touchDragRef.current = null
+      return
+    }
+    const touch = e.changedTouches[0]
+    const el = document.elementFromPoint(touch.clientX, touch.clientY)
+    const colEl = el?.closest('[data-stage]')
+    if (colEl) {
+      const newStage = colEl.dataset.stage
+      if (newStage !== touchDragRef.current.lead.status) {
+        await moveLead(touchDragRef.current.lead.id, newStage)
+      }
+    }
+    touchDragRef.current = null
   }
 
   const submitCheckin = async (e) => {
@@ -1802,17 +1867,16 @@ export default function ClientPage() {
           <div>
             <div className="mb-6">
               <h2 className="text-base font-bold text-white uppercase tracking-widest">Hot List</h2>
-              <p className="text-zinc-600 text-xs mt-1">Track your leads from first contact to closed client.</p>
+              <p className="text-zinc-600 text-xs mt-1">Track your leads from first contact to closed client. Drag cards between columns.</p>
             </div>
 
             <div className="overflow-x-auto -mx-4 sm:mx-0 pb-4">
               <div className="flex gap-3 px-4 sm:px-0" style={{ minWidth: '900px' }}>
                 {LEAD_STAGES.map((stage, stageIdx) => {
                   const stageLeads = leads.filter(l => l.status === stage.id)
-                  const prevStage = stageIdx > 0 ? LEAD_STAGES[stageIdx - 1].id : null
-                  const nextStage = stageIdx < LEAD_STAGES.length - 1 ? LEAD_STAGES[stageIdx + 1].id : null
+                  const isDragOver = dragOverCol === stage.id && dragLead?.status !== stage.id
                   return (
-                    <div key={stage.id} className="flex-1 min-w-[150px]">
+                    <div key={stage.id} className="flex-1 min-w-[150px]" data-stage={stage.id}>
                       {/* Column header */}
                       <div className={`rounded-t-lg border-t-2 ${stage.color} px-3 py-2.5 bg-zinc-900`}>
                         <div className="flex items-center justify-between">
@@ -1821,34 +1885,38 @@ export default function ClientPage() {
                         </div>
                       </div>
 
-                      {/* Cards */}
-                      <div className="bg-zinc-900/50 border border-t-0 border-zinc-800 rounded-b-lg p-2 min-h-[200px] space-y-2">
+                      {/* Drop zone */}
+                      <div
+                        className={`bg-zinc-900/50 border border-t-0 border-zinc-800 rounded-b-lg p-2 min-h-[200px] space-y-2 transition-colors ${isDragOver ? 'bg-gold/[0.06] border-gold/30' : ''}`}
+                        onDragOver={e => handleDragOver(e, stage.id)}
+                        onDragLeave={handleDragLeave}
+                        onDrop={e => handleDrop(e, stage.id)}
+                        data-stage={stage.id}
+                      >
                         {stageLeads.map(lead => (
-                          <div key={lead.id} className="bg-zinc-800 border border-zinc-700 rounded-lg p-3 group">
-                            <div className="flex items-start justify-between gap-2 mb-2">
-                              <p className="text-sm font-medium text-white leading-tight">{lead.name}</p>
+                          <div key={lead.id}
+                            draggable
+                            onDragStart={e => handleDragStart(e, lead)}
+                            onDragEnd={handleDragEnd}
+                            onTouchStart={e => handleTouchStart(e, lead)}
+                            onTouchMove={handleTouchMove}
+                            onTouchEnd={handleTouchEnd}
+                            className="bg-zinc-800 border border-zinc-700 rounded-lg p-3 group cursor-grab active:cursor-grabbing hover:border-zinc-600 transition select-none">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-semibold text-white leading-tight">{lead.name}</p>
+                                {lead.instagram && (
+                                  <p className="text-xs text-violet-400 mt-0.5 truncate">@{lead.instagram.replace('@', '')}</p>
+                                )}
+                              </div>
                               <button onClick={() => deleteLead(lead.id)}
-                                className="text-zinc-700 hover:text-red-400 active:text-red-400 transition opacity-0 group-hover:opacity-100 flex-shrink-0 -mt-0.5">
+                                className="text-zinc-700 hover:text-red-400 active:text-red-400 transition opacity-0 group-hover:opacity-100 flex-shrink-0">
                                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                               </button>
                             </div>
-                            <p className="text-[10px] text-zinc-600 mb-2">
+                            <p className="text-[10px] text-zinc-600 mt-1.5">
                               {new Date(lead.updated_at || lead.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                             </p>
-                            <div className="flex items-center gap-1">
-                              {prevStage && (
-                                <button onClick={() => moveLead(lead.id, prevStage)}
-                                  className="flex-1 py-1.5 text-[10px] font-semibold text-zinc-500 hover:text-white active:text-white bg-zinc-900 hover:bg-zinc-700 rounded transition uppercase tracking-wider text-center">
-                                  ← Back
-                                </button>
-                              )}
-                              {nextStage && (
-                                <button onClick={() => moveLead(lead.id, nextStage)}
-                                  className="flex-1 py-1.5 text-[10px] font-semibold text-gold hover:text-gold-light bg-gold/10 hover:bg-gold/20 rounded transition uppercase tracking-wider text-center">
-                                  Next →
-                                </button>
-                              )}
-                            </div>
                           </div>
                         ))}
 
@@ -1856,22 +1924,26 @@ export default function ClientPage() {
                         {addingLeadCol === stage.id ? (
                           <div className="space-y-2">
                             <input autoFocus value={newLeadName} onChange={e => setNewLeadName(e.target.value)}
-                              onKeyDown={e => { if (e.key === 'Enter') addLead(stage.id); if (e.key === 'Escape') { setAddingLeadCol(null); setNewLeadName('') } }}
+                              onKeyDown={e => { if (e.key === 'Enter' && newLeadName.trim()) addLead(stage.id); if (e.key === 'Escape') { setAddingLeadCol(null); setNewLeadName(''); setNewLeadIG('') } }}
                               placeholder="Lead name..."
                               className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-sm text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition" />
+                            <input value={newLeadIG} onChange={e => setNewLeadIG(e.target.value)}
+                              onKeyDown={e => { if (e.key === 'Enter' && newLeadName.trim()) addLead(stage.id); if (e.key === 'Escape') { setAddingLeadCol(null); setNewLeadName(''); setNewLeadIG('') } }}
+                              placeholder="@instagram (optional)"
+                              className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-sm text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-violet-500 focus:border-violet-500 transition" />
                             <div className="flex gap-1.5">
                               <button onClick={() => addLead(stage.id)}
                                 className="flex-1 py-1.5 bg-gold hover:bg-gold-light text-zinc-950 font-bold text-[10px] uppercase tracking-widest rounded transition">
                                 Add
                               </button>
-                              <button onClick={() => { setAddingLeadCol(null); setNewLeadName('') }}
+                              <button onClick={() => { setAddingLeadCol(null); setNewLeadName(''); setNewLeadIG('') }}
                                 className="px-3 py-1.5 border border-zinc-700 text-zinc-500 text-[10px] uppercase tracking-widest rounded transition">
                                 ✕
                               </button>
                             </div>
                           </div>
                         ) : (
-                          <button onClick={() => { setAddingLeadCol(stage.id); setNewLeadName('') }}
+                          <button onClick={() => { setAddingLeadCol(stage.id); setNewLeadName(''); setNewLeadIG('') }}
                             className="w-full py-2 text-[10px] font-semibold text-zinc-600 hover:text-gold active:text-gold uppercase tracking-widest transition text-center rounded hover:bg-zinc-800/60">
                             + Add card
                           </button>
