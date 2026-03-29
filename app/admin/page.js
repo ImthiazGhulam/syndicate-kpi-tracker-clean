@@ -680,10 +680,17 @@ export default function AdminPage() {
                         </div>
                       )}
 
-                      {dailyPulse.gratitude && (
+                      {(dailyPulse.gratitude_1 || dailyPulse.gratitude_2 || dailyPulse.gratitude_3 || dailyPulse.gratitude_4 || dailyPulse.gratitude_5 || dailyPulse.gratitude_6) && (
                         <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-                          <p className="text-[10px] font-semibold text-gold uppercase tracking-widest mb-1.5">Gratitude</p>
-                          <p className="text-white text-sm leading-relaxed">{dailyPulse.gratitude}</p>
+                          <p className="text-[10px] font-semibold text-gold uppercase tracking-widest mb-2">Gratitude — Mini Adventures</p>
+                          <div className="space-y-2">
+                            {[1,2,3,4,5,6].map(n => dailyPulse[`gratitude_${n}`] && (
+                              <div key={n} className="flex items-start gap-2">
+                                <span className="text-xs font-bold text-zinc-600 w-4 flex-shrink-0 mt-0.5">{n}</span>
+                                <p className="text-white text-sm leading-relaxed">{dailyPulse[`gratitude_${n}`]}</p>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
 

@@ -304,22 +304,29 @@ export default function ClientPage() {
 
   const handleSignOut = async () => { await supabase.auth.signOut(); router.push('/login') }
 
+  const buildPulsePayload = () => ({
+    client_id: clientData.id,
+    date: dailyPulseDate,
+    intention: dailyPulse.intention || '',
+    feeling: dailyPulse.feeling || '',
+    win: dailyPulse.win || '',
+    money_task: dailyPulse.money_task || '',
+    todo_1: dailyPulse.todo_1 || '',
+    todo_2: dailyPulse.todo_2 || '',
+    todo_3: dailyPulse.todo_3 || '',
+    gratitude_1: dailyPulse.gratitude_1 || '',
+    gratitude_2: dailyPulse.gratitude_2 || '',
+    gratitude_3: dailyPulse.gratitude_3 || '',
+    gratitude_4: dailyPulse.gratitude_4 || '',
+    gratitude_5: dailyPulse.gratitude_5 || '',
+    gratitude_6: dailyPulse.gratitude_6 || '',
+    let_go: dailyPulse.let_go || '',
+  })
+
   const savePulse = async () => {
     if (!clientData) return
     setPulseSaving(true)
-    const { data } = await supabase.from('daily_pulse').upsert({
-      client_id: clientData.id,
-      date: dailyPulseDate,
-      intention: dailyPulse.intention || '',
-      feeling: dailyPulse.feeling || '',
-      win: dailyPulse.win || '',
-      money_task: dailyPulse.money_task || '',
-      todo_1: dailyPulse.todo_1 || '',
-      todo_2: dailyPulse.todo_2 || '',
-      todo_3: dailyPulse.todo_3 || '',
-      gratitude: dailyPulse.gratitude || '',
-      let_go: dailyPulse.let_go || '',
-    }, { onConflict: 'client_id,date' }).select().single()
+    const { data } = await supabase.from('daily_pulse').upsert(buildPulsePayload(), { onConflict: 'client_id,date' }).select().single()
     if (data) setDailyPulse(data)
     setPulseSaving(false)
   }
@@ -328,17 +335,7 @@ export default function ClientPage() {
     if (!clientData) return
     setPulseSaving(true)
     const { data } = await supabase.from('daily_pulse').upsert({
-      client_id: clientData.id,
-      date: dailyPulseDate,
-      intention: dailyPulse.intention || '',
-      feeling: dailyPulse.feeling || '',
-      win: dailyPulse.win || '',
-      money_task: dailyPulse.money_task || '',
-      todo_1: dailyPulse.todo_1 || '',
-      todo_2: dailyPulse.todo_2 || '',
-      todo_3: dailyPulse.todo_3 || '',
-      gratitude: dailyPulse.gratitude || '',
-      let_go: dailyPulse.let_go || '',
+      ...buildPulsePayload(),
       completed: true,
       completed_at: new Date().toISOString(),
     }, { onConflict: 'client_id,date' }).select().single()
@@ -714,7 +711,12 @@ export default function ClientPage() {
                     {tasksForPulseDay
                       .sort((a, b) => (a.scheduled_time || '99:99').localeCompare(b.scheduled_time || '99:99'))
                       .map((task, idx) => (
-                      <div key={`${task.id}-${idx}`} className={`bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-2.5 flex items-center gap-3 ${task.completed ? 'opacity-50' : ''}`}>
+                      <div key={`${task.id}-${idx}`} className={`bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2.5 flex items-center gap-3 ${task.completed ? 'opacity-50' : ''}`}>
+                        <button onClick={() => completeTask(task.id)} className="flex-shrink-0">
+                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition ${task.completed ? 'bg-emerald-500 border-emerald-500' : 'border-zinc-600 hover:border-emerald-500 active:border-emerald-500'}`}>
+                            {task.completed && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                          </div>
+                        </button>
                         {task.scheduled_time && <span className="text-xs text-sky-400/70 font-medium flex-shrink-0 w-14">{formatTime(task.scheduled_time)}</span>}
                         <p className={`text-sm flex-1 ${task.completed ? 'line-through text-zinc-500' : 'text-white'}`}>{task.title}</p>
                         {task.duration_minutes && <span className="text-xs text-zinc-600 flex-shrink-0">{task.duration_minutes}min</span>}
@@ -724,32 +726,36 @@ export default function ClientPage() {
                 </div>
               )}
 
-              {/* Gratitude + Mini Adventures */}
+              {/* Gratitude — 6 adventure boxes */}
               <div>
-                <label className="block text-xs font-bold text-gold uppercase tracking-widest mb-2">I am so grateful I just...</label>
-                <p className="text-zinc-600 text-xs mb-3">Rewrite your mini adventure. Visualise it as if it's already happened.</p>
-                <textarea value={dailyPulse.gratitude || ''} onChange={e => setDailyPulse(prev => ({ ...prev, gratitude: e.target.value }))} onBlur={savePulse}
-                  rows={3} placeholder="Write as if your adventure has already happened..."
-                  className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition resize-none text-sm" />
-
-                {/* Mini Adventures grid */}
-                {adventuresForm.some(a => a.title) && (
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-4">
-                    {adventuresForm.filter(a => a.title).map((adv, i) => (
-                      <div key={i} className={`bg-zinc-900 border rounded-lg p-3 ${adv.completed ? 'border-gold/30' : 'border-zinc-800'}`}>
-                        <div className="flex items-start gap-2">
-                          <div className={`w-4 h-4 rounded border-2 flex-shrink-0 mt-0.5 flex items-center justify-center ${adv.completed ? 'bg-gold border-gold' : 'border-zinc-600'}`}>
+                <label className="block text-xs font-bold text-gold uppercase tracking-widest mb-1">I am so grateful I just...</label>
+                <p className="text-zinc-600 text-xs mb-4">Rewrite each mini adventure as if it's already happened. Feel the gratitude.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {Array.from({ length: 6 }, (_, i) => {
+                    const adv = adventuresForm[i] || {}
+                    const key = `gratitude_${i + 1}`
+                    return (
+                      <div key={i} className={`bg-zinc-900 border rounded-lg p-3.5 ${adv.completed ? 'border-gold/30' : 'border-zinc-800'}`}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className={`w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center ${adv.completed ? 'bg-gold border-gold' : 'border-zinc-700'}`}>
                             {adv.completed && <svg className="w-2.5 h-2.5 text-zinc-950" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                           </div>
-                          <div className="min-w-0">
-                            <p className={`text-xs font-semibold leading-tight ${adv.completed ? 'text-zinc-500 line-through' : 'text-white'}`}>{adv.title}</p>
-                            {adv.when_planned && <p className="text-[10px] text-zinc-600 mt-0.5">{adv.when_planned}</p>}
-                          </div>
+                          <p className={`text-xs font-semibold ${adv.title ? (adv.completed ? 'text-zinc-500' : 'text-white') : 'text-zinc-700 italic'}`}>
+                            {adv.title || `Adventure ${i + 1}`}
+                          </p>
                         </div>
+                        <textarea
+                          value={dailyPulse[key] || ''}
+                          onChange={e => setDailyPulse(prev => ({ ...prev, [key]: e.target.value }))}
+                          onBlur={savePulse}
+                          rows={2}
+                          placeholder={adv.title ? `I'm so grateful I ${adv.title.toLowerCase()}...` : `Adventure ${i + 1}...`}
+                          className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition resize-none text-xs leading-relaxed"
+                        />
                       </div>
-                    ))}
-                  </div>
-                )}
+                    )
+                  })}
+                </div>
               </div>
 
               {/* Let go */}
