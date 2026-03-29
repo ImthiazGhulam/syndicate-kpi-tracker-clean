@@ -188,7 +188,12 @@ export default function ClientPage() {
   const [user, setUser] = useState(null)
   const [clientData, setClientData] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState('progress')
+  const [activeTab, setActiveTab] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('syndicate_active_tab') || 'progress'
+    }
+    return 'progress'
+  })
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const toastRef = useRef(null)
 
@@ -205,7 +210,7 @@ export default function ClientPage() {
       }, 2000)
     }
   }
-  const switchTab = (id) => { setActiveTab(id); setSidebarOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }) }
+  const switchTab = (id) => { setActiveTab(id); localStorage.setItem('syndicate_active_tab', id); setSidebarOpen(false); window.scrollTo({ top: 0, behavior: 'smooth' }) }
 
   // Data
   const [checkins, setCheckins] = useState([])
