@@ -58,6 +58,7 @@ export default function AdminPage() {
   const [lifeDesign, setLifeDesign] = useState(null)
   const [adventures, setAdventures] = useState(defaultAdventures())
   const [warMapTasks, setWarMapTasks] = useState([])
+  const [warMapWeekly, setWarMapWeekly] = useState(null)
 
   // Calendar state (for War Map view)
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear())
@@ -91,13 +92,21 @@ export default function AdminPage() {
 
     const year = new Date().getFullYear()
 
-    const [kpisRes, checkinsRes, projectsRes, designRes, adventuresRes, warRes] = await Promise.all([
+    // Get current week's Monday
+    const now = new Date()
+    const dayOfWeek = now.getDay()
+    const monday = new Date(now)
+    monday.setDate(monday.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1))
+    const mondayStr = monday.toISOString().split('T')[0]
+
+    const [kpisRes, checkinsRes, projectsRes, designRes, adventuresRes, warRes, weeklyRes] = await Promise.all([
       supabase.from('kpis').select('*').eq('client_id', client.id).order('week_date', { ascending: false }),
       supabase.from('checkins').select('*').eq('client_id', client.id).order('checkin_date', { ascending: false }),
       supabase.from('projects').select('*').eq('client_id', client.id).order('start_date', { ascending: false }),
       supabase.from('life_design').select('*').eq('client_id', client.id).eq('year', year).maybeSingle(),
       supabase.from('mini_adventures').select('*').eq('client_id', client.id).eq('year', year).order('order_index'),
       supabase.from('war_map_tasks').select('*').eq('client_id', client.id).order('created_at', { ascending: false }),
+      supabase.from('war_map_weekly').select('*').eq('client_id', client.id).eq('week_of', mondayStr).maybeSingle(),
     ])
 
     if (kpisRes.data) setKpis(kpisRes.data)
@@ -115,6 +124,7 @@ export default function AdminPage() {
     }
 
     if (warRes.data) setWarMapTasks(warRes.data)
+    setWarMapWeekly(weeklyRes.data || null)
   }
 
   const handleSignOut = async () => { await supabase.auth.signOut(); router.push('/login') }
@@ -455,9 +465,41 @@ export default function AdminPage() {
               {/* ── WAR MAP ───────────────────────────────────────────────── */}
               {activeTab === 'war-map' && (
                 <div>
-                  {warMapTasks.length === 0 ? (
+                  {/* Weekly Priorities + Completion */}
+                  {warMapWeekly && (
+                    <div className="mb-8">
+                      <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">This Week's Priorities</h3>
+                        {warMapWeekly.completed ? (
+                          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-900/20 border border-emerald-900/40 rounded">
+                            <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                            <span className="text-emerald-400 text-xs font-semibold uppercase tracking-widest">Completed</span>
+                          </div>
+                        ) : (
+                          <span className="px-2.5 py-1 bg-yellow-900/20 border border-yellow-900/40 rounded text-yellow-400 text-xs font-semibold uppercase tracking-widest">Pending</span>
+                        )}
+                      </div>
+                      <div className="space-y-2">
+                        {[
+                          { num: 1, value: warMapWeekly.number_one_priority, accent: true },
+                          { num: 2, value: warMapWeekly.priority_2, accent: false },
+                          { num: 3, value: warMapWeekly.priority_3, accent: false },
+                        ].map(({ num, value, accent }) => (
+                          <div key={num} className="flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3">
+                            <span className={`text-sm font-bold w-5 flex-shrink-0 ${accent ? 'text-gold' : 'text-zinc-500'}`}>{num}</span>
+                            <p className={`text-sm ${value ? 'text-white' : 'text-zinc-700 italic'}`}>{value || 'Not set'}</p>
+                          </div>
+                        ))}
+                      </div>
+                      {warMapWeekly.completed_at && (
+                        <p className="text-zinc-600 text-xs mt-2">Submitted {new Date(warMapWeekly.completed_at).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+                      )}
+                    </div>
+                  )}
+
+                  {warMapTasks.length === 0 && !warMapWeekly ? (
                     <p className="text-center py-12 text-zinc-600 text-sm">Client hasn't used the Weekly War Map yet.</p>
-                  ) : (
+                  ) : warMapTasks.length > 0 ? (
                     <div>
                       {/* Summary Row */}
                       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
@@ -574,7 +616,7 @@ export default function AdminPage() {
                         </div>
                       </div>
                     </div>
-                  )}
+                  ) : null}
                 </div>
               )}
 

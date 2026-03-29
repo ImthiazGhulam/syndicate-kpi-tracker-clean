@@ -179,6 +179,8 @@ export default function ClientPage() {
   const [warMapTasks, setWarMapTasks] = useState([])
   const [warMapInput, setWarMapInput] = useState('')
   const [warMapWeek, setWarMapWeek] = useState(() => getMonday())
+  const [weeklyPriorities, setWeeklyPriorities] = useState({ number_one_priority: '', priority_2: '', priority_3: '', completed: false, completed_at: null })
+  const [prioritiesSaving, setPrioritiesSaving] = useState(false)
   const [calendarView, setCalendarView] = useState('month')
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear())
   const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth())
@@ -196,6 +198,11 @@ export default function ClientPage() {
       weekViewRef.current.scrollTop = 2 * HOUR_H // scroll to 8am
     }
   }, [activeTab, calendarView])
+
+  // Fetch weekly priorities when week changes
+  useEffect(() => {
+    if (clientData) fetchWeeklyPriorities(warMapWeek)
+  }, [warMapWeek, clientData?.id])
 
   // ── Auth & Fetch ─────────────────────────────────────────────────────────────
 
@@ -216,13 +223,15 @@ export default function ClientPage() {
     setClientData(client)
 
     const year = new Date().getFullYear()
-    const [kpisRes, checkinsRes, projectsRes, designRes, adventuresRes, warRes] = await Promise.all([
+    const monday = getMonday()
+    const [kpisRes, checkinsRes, projectsRes, designRes, adventuresRes, warRes, weeklyRes] = await Promise.all([
       supabase.from('kpis').select('*').eq('client_id', client.id).order('week_date', { ascending: false }),
       supabase.from('checkins').select('*').eq('client_id', client.id).order('checkin_date', { ascending: false }),
       supabase.from('projects').select('*').eq('client_id', client.id).order('start_date', { ascending: false }),
       supabase.from('life_design').select('*').eq('client_id', client.id).eq('year', year).maybeSingle(),
       supabase.from('mini_adventures').select('*').eq('client_id', client.id).eq('year', year).order('order_index'),
       supabase.from('war_map_tasks').select('*').eq('client_id', client.id).order('created_at', { ascending: false }),
+      supabase.from('war_map_weekly').select('*').eq('client_id', client.id).eq('week_of', monday).maybeSingle(),
     ])
 
     if (kpisRes.data) setKpis(kpisRes.data)
@@ -245,7 +254,23 @@ export default function ClientPage() {
     }
 
     if (warRes.data) setWarMapTasks(warRes.data)
+    if (weeklyRes.data) {
+      setWeeklyPriorities(weeklyRes.data)
+    } else {
+      setWeeklyPriorities({ number_one_priority: '', priority_2: '', priority_3: '', completed: false, completed_at: null })
+    }
     setLoading(false)
+  }
+
+  // Fetch weekly priorities when week changes
+  const fetchWeeklyPriorities = async (weekOf) => {
+    if (!clientData) return
+    const { data } = await supabase.from('war_map_weekly').select('*').eq('client_id', clientData.id).eq('week_of', weekOf).maybeSingle()
+    if (data) {
+      setWeeklyPriorities(data)
+    } else {
+      setWeeklyPriorities({ number_one_priority: '', priority_2: '', priority_3: '', completed: false, completed_at: null })
+    }
   }
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
@@ -336,6 +361,35 @@ export default function ClientPage() {
     await triageTask(taskId, 'delegate', { delegated_to: delegateName.trim() })
     setDelegatingTask(null)
     setDelegateName('')
+  }
+
+  // Weekly priorities
+  const savePriorities = async () => {
+    setPrioritiesSaving(true)
+    const { data } = await supabase.from('war_map_weekly').upsert({
+      client_id: clientData.id,
+      week_of: warMapWeek,
+      number_one_priority: weeklyPriorities.number_one_priority || '',
+      priority_2: weeklyPriorities.priority_2 || '',
+      priority_3: weeklyPriorities.priority_3 || '',
+    }, { onConflict: 'client_id,week_of' }).select().single()
+    if (data) setWeeklyPriorities(data)
+    setPrioritiesSaving(false)
+  }
+
+  const completeWarMap = async () => {
+    setPrioritiesSaving(true)
+    const { data } = await supabase.from('war_map_weekly').upsert({
+      client_id: clientData.id,
+      week_of: warMapWeek,
+      number_one_priority: weeklyPriorities.number_one_priority || '',
+      priority_2: weeklyPriorities.priority_2 || '',
+      priority_3: weeklyPriorities.priority_3 || '',
+      completed: true,
+      completed_at: new Date().toISOString(),
+    }, { onConflict: 'client_id,week_of' }).select().single()
+    if (data) setWeeklyPriorities(data)
+    setPrioritiesSaving(false)
   }
 
   // Modal helpers
@@ -694,6 +748,64 @@ export default function ClientPage() {
         {/* ── WEEKLY WAR MAP™ ───────────────────────────────────────────────── */}
         {activeTab === 'war-map' && (
           <div>
+
+            {/* Week header + completion status */}
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h2 className="text-base font-bold text-white uppercase tracking-widest">Weekly War Map™</h2>
+                <p className="text-zinc-600 text-xs mt-1">Week of {new Date(warMapWeek).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+              </div>
+              {weeklyPriorities.completed && (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-900/20 border border-emerald-900/40 rounded">
+                  <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                  <span className="text-emerald-400 text-xs font-semibold uppercase tracking-widest">Completed</span>
+                </div>
+              )}
+            </div>
+
+            {/* Priorities */}
+            <div className="mb-8">
+              <div className="mb-6">
+                <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-1">#1 Priority This Week</h3>
+                <p className="text-zinc-600 text-xs mb-3">The single most important thing you must accomplish this week.</p>
+                <input
+                  value={weeklyPriorities.number_one_priority || ''}
+                  onChange={e => setWeeklyPriorities(prev => ({ ...prev, number_one_priority: e.target.value }))}
+                  onBlur={savePriorities}
+                  placeholder="What is your #1 priority?"
+                  className="w-full px-4 py-3.5 bg-zinc-900 border-2 border-gold/30 rounded-lg text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm font-medium"
+                />
+              </div>
+
+              <div>
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-1">Top 3 Priorities</h3>
+                <p className="text-zinc-600 text-xs mb-3">Your key focus areas for the week, in order of importance.</p>
+                <div className="space-y-2">
+                  {[
+                    { key: 'number_one_priority', num: 1, accent: true },
+                    { key: 'priority_2', num: 2, accent: false },
+                    { key: 'priority_3', num: 3, accent: false },
+                  ].map(({ key, num, accent }) => (
+                    <div key={key} className="flex items-center gap-3">
+                      <span className={`text-sm font-bold w-5 flex-shrink-0 ${accent ? 'text-gold' : 'text-zinc-500'}`}>{num}</span>
+                      {num === 1 ? (
+                        <p className={`flex-1 px-4 py-2.5 bg-zinc-900 border border-zinc-800 rounded text-sm ${weeklyPriorities.number_one_priority ? 'text-white' : 'text-zinc-600'}`}>
+                          {weeklyPriorities.number_one_priority || 'Set above'}
+                        </p>
+                      ) : (
+                        <input
+                          value={weeklyPriorities[key] || ''}
+                          onChange={e => setWeeklyPriorities(prev => ({ ...prev, [key]: e.target.value }))}
+                          onBlur={savePriorities}
+                          placeholder={`Priority ${num}`}
+                          className="flex-1 px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm"
+                        />
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
 
             {/* Brain Dump */}
             <div className="mb-8">
@@ -1081,6 +1193,32 @@ export default function ClientPage() {
                 </div>
               </div>
             )}
+
+            {/* ── COMPLETE WAR MAP ───────────────────────────────────────── */}
+            <div className="mt-10 pt-6 border-t border-zinc-800">
+              {weeklyPriorities.completed ? (
+                <div className="bg-zinc-900 border border-emerald-900/40 rounded-lg p-5 text-center">
+                  <svg className="w-10 h-10 text-emerald-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  <p className="text-white font-semibold text-sm mb-1">War Map Completed</p>
+                  <p className="text-zinc-500 text-xs">
+                    Submitted {weeklyPriorities.completed_at ? new Date(weeklyPriorities.completed_at).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) : ''}
+                  </p>
+                </div>
+              ) : (
+                <div className="text-center">
+                  <p className="text-zinc-500 text-xs mb-4 uppercase tracking-widest">All done? Submit your War Map for the week.</p>
+                  <button
+                    onClick={completeWarMap}
+                    disabled={prioritiesSaving || !weeklyPriorities.number_one_priority?.trim()}
+                    className="w-full sm:w-auto px-10 py-4 bg-gold hover:bg-gold-light disabled:opacity-40 text-zinc-950 font-bold text-xs uppercase tracking-widest rounded-lg transition">
+                    {prioritiesSaving ? 'Submitting...' : 'Complete War Map™'}
+                  </button>
+                  {!weeklyPriorities.number_one_priority?.trim() && (
+                    <p className="text-zinc-600 text-xs mt-2">Set your #1 priority before completing.</p>
+                  )}
+                </div>
+              )}
+            </div>
 
             {/* ── TASK MODAL ────────────────────────────────────────────── */}
             {taskModal && (
