@@ -434,6 +434,7 @@ export default function AdminPage() {
       { id: 'projects',     label: 'Projects' },
     ]},
     { heading: 'Daily', items: [
+      { id: 'identity',     label: 'Identity Chamber' },
       { id: 'morning-ops',  label: 'Morning Ops' },
       { id: 'debrief',      label: 'The Debrief' },
       { id: 'tracker',      label: 'Business Tracker' },
@@ -1242,6 +1243,42 @@ export default function AdminPage() {
               )}
 
               {/* ══════════════════════════════════════════════════════════════ */}
+              {/* ── IDENTITY CHAMBER — Read-only ────────────────────────── */}
+              {activeTab === 'identity' && (
+                <div className="fade-in max-w-2xl">
+                  <div className="flex items-center justify-between mb-5">
+                    <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Identity Chamber™</h3>
+                    {identityChange?.affirmations?.trim() ? (
+                      <CompletedBadge />
+                    ) : (
+                      <NotStartedBadge />
+                    )}
+                  </div>
+
+                  {!identityChange?.affirmations?.trim() ? (
+                    <p className="text-center py-12 text-zinc-600 text-sm">Client hasn't written their affirmations yet.</p>
+                  ) : (
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 sm:p-7">
+                      <div className="flex items-center gap-3 mb-5 pb-4 border-b border-zinc-800">
+                        <span className="text-2xl">🪞</span>
+                        <div>
+                          <h3 className="text-sm font-bold text-white uppercase tracking-widest">Client's Identity</h3>
+                          <p className="text-zinc-600 text-xs mt-0.5">{identityChange.affirmations.split('\n').filter(l => l.trim()).length} affirmations written</p>
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        {identityChange.affirmations.split('\n').filter(l => l.trim()).map((line, i) => (
+                          <div key={i} className="flex items-start gap-3">
+                            <span className="text-xs font-bold text-zinc-700 w-5 text-right flex-shrink-0 mt-0.5">{i + 1}</span>
+                            <p className="text-white text-sm leading-relaxed">{line}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* ── MORNING OPS — Read-only ──────────────────────────────── */}
               {/* ══════════════════════════════════════════════════════════════ */}
               {activeTab === 'morning-ops' && (
