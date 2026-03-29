@@ -139,6 +139,7 @@ export default function AdminPage() {
   const [weeklyReview, setWeeklyReview] = useState(null)
   const [monthlyReview, setMonthlyReview] = useState(null)
   const [allMonthlyReviews, setAllMonthlyReviews] = useState([])
+  const [clientPlaybook, setClientPlaybook] = useState(null)
   const [identityChange, setIdentityChange] = useState(null)
   const [lifeDesign, setLifeDesign] = useState(null)
   const [adventures, setAdventures] = useState(defaultAdventures())
@@ -256,7 +257,7 @@ export default function AdminPage() {
     const [
       dkpiRes, morningRes, eveningRes, warWeeklyRes, reviewRes,
       monthlyRes, allMonthlyRes, identityRes, designRes, adventuresRes, warTasksRes,
-      projectsRes, leadsRes, weekKpisRes,
+      projectsRes, leadsRes, weekKpisRes, playbookRes,
     ] = await Promise.all([
       supabase.from('daily_kpis').select('*').eq('client_id', client.id).gte('date', mStart).lte('date', mEnd).order('date'),
       supabase.from('daily_pulse').select('*').eq('client_id', client.id).gte('date', monday).lte('date', sunday),
@@ -272,6 +273,7 @@ export default function AdminPage() {
       supabase.from('projects').select('*').eq('client_id', client.id).order('start_date', { ascending: false }),
       supabase.from('leads').select('*').eq('client_id', client.id).order('created_at', { ascending: true }),
       supabase.from('daily_kpis').select('*').eq('client_id', client.id).gte('date', monday).lte('date', sunday),
+      supabase.from('offer_playbooks').select('*').eq('client_id', client.id).order('updated_at', { ascending: false }).limit(1).maybeSingle(),
     ])
 
     setDailyKpis(dkpiRes.data || [])
@@ -284,6 +286,7 @@ export default function AdminPage() {
     setIdentityChange(identityRes.data || null)
     setLifeDesign(designRes.data || null)
     setWeekKpis(weekKpisRes.data || [])
+    setClientPlaybook(playbookRes.data || null)
 
     if (adventuresRes.data?.length > 0) {
       const merged = defaultAdventures().map(def =>
@@ -452,6 +455,9 @@ export default function AdminPage() {
     ]},
     { heading: 'Yearly', items: [
       { id: 'design',       label: 'Design' },
+    ]},
+    { heading: 'Build™', items: [
+      { id: 'playbook',     label: 'Sold Out™ Playbook' },
     ]},
   ]
 
@@ -2032,6 +2038,190 @@ export default function AdminPage() {
                   )}
                 </div>
               )}
+
+              {/* ══════════════════════════════════════════════════════════════ */}
+              {/* ── SOLD OUT™ PLAYBOOK ────────────────────────────────────── */}
+              {/* ══════════════════════════════════════════════════════════════ */}
+              {activeTab === 'playbook' && (() => {
+                if (!clientPlaybook) return (
+                  <div className="fade-in text-center py-16">
+                    <span className="text-4xl mb-4 block">📖</span>
+                    <p className="text-zinc-500 text-sm font-medium">Client hasn't started their Sold Out™ Playbook yet.</p>
+                  </div>
+                )
+
+                const icp = clientPlaybook.icp || {}
+                const dip = clientPlaybook.dip || {}
+                const bb = clientPlaybook.bang_bang || {}
+                const scores = clientPlaybook.scores || {}
+                const totalScore = (scores.icp_score || 0) + (scores.dip_score || 0) + (scores.bb_score || 0)
+                const maxScore = 40
+                const band = totalScore >= 35 ? 'Offer-Ready' : totalScore >= 29 ? 'Strong Foundation' : totalScore >= 21 ? 'Getting There' : 'Needs Work'
+                const bandColor = totalScore >= 35 ? 'text-emerald-400' : totalScore >= 29 ? 'text-gold' : totalScore >= 21 ? 'text-amber-400' : 'text-red-400'
+
+                return (
+                <div className="fade-in">
+                  {/* Score Hero */}
+                  <div className="bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-800 border border-zinc-700/50 rounded-2xl p-6 sm:p-8 mb-6">
+                    <div className="flex flex-col sm:flex-row items-center gap-6">
+                      <div className="relative flex-shrink-0">
+                        <svg className="w-28 h-28 -rotate-90" viewBox="0 0 120 120">
+                          <circle cx="60" cy="60" r="52" fill="none" stroke="#27272a" strokeWidth="6" />
+                          <circle cx="60" cy="60" r="52" fill="none" stroke="#C9A84C" strokeWidth="6"
+                            strokeDasharray={`${(totalScore / maxScore) * 326.7} 326.7`} strokeLinecap="round" />
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                          <span className="text-3xl font-black text-white">{totalScore}</span>
+                          <span className="text-[10px] font-bold text-zinc-500">/ {maxScore}</span>
+                        </div>
+                      </div>
+                      <div className="text-center sm:text-left">
+                        <h2 className="text-lg font-black text-white uppercase tracking-wider">{clientPlaybook.name || 'Sold Out™ Playbook'}</h2>
+                        <div className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border ${
+                          totalScore >= 35 ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
+                          totalScore >= 29 ? 'bg-gold/20 text-gold border-gold/30' :
+                          totalScore >= 21 ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
+                          'bg-red-500/20 text-red-400 border-red-500/30'
+                        }`}>{band}</div>
+                        <p className="text-zinc-600 text-xs mt-2">Stage {clientPlaybook.current_stage || 1} of 4 · Updated {clientPlaybook.updated_at ? new Date(clientPlaybook.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'}</p>
+                      </div>
+                    </div>
+                    {/* Section scores */}
+                    <div className="grid grid-cols-3 gap-3 mt-6">
+                      {[
+                        { label: 'ICP', score: scores.icp_score || 0, max: 15, color: 'bg-sky-400' },
+                        { label: 'The Dip', score: scores.dip_score || 0, max: 10, color: 'bg-violet-400' },
+                        { label: 'Bang Bang', score: scores.bb_score || 0, max: 15, color: 'bg-gold' },
+                      ].map(s => (
+                        <div key={s.label}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{s.label}</span>
+                            <span className="text-xs font-bold text-white">{s.score}/{s.max}</span>
+                          </div>
+                          <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full ${s.color}`} style={{ width: `${(s.score / s.max) * 100}%` }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* ICP Summary */}
+                  {Object.keys(icp).length > 0 && (
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-4">
+                      <h3 className="text-xs font-bold text-sky-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <span className="text-base">🎯</span> Ideal Client Profile
+                      </h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {icp.client_type && (
+                          <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Client Type</p><p className="text-white text-sm">{icp.client_type}</p></div>
+                        )}
+                        {icp.sector && (
+                          <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Sector</p><p className="text-white text-sm">{icp.sector}</p></div>
+                        )}
+                        {icp.specific_description && (
+                          <div className="sm:col-span-2"><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Ideal Client</p><p className="text-zinc-300 text-sm leading-relaxed">{icp.specific_description}</p></div>
+                        )}
+                        {icp.dream_outcome && (
+                          <div className="sm:col-span-2"><p className="text-[10px] font-bold text-gold uppercase tracking-widest mb-1">Dream Outcome</p><p className="text-white text-sm leading-relaxed">{icp.dream_outcome}</p></div>
+                        )}
+                        {icp.desired_identity && (
+                          <div className="sm:col-span-2"><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Desired Identity</p><p className="text-zinc-300 text-sm leading-relaxed">{icp.desired_identity}</p></div>
+                        )}
+                        {icp.trigger_moment && (
+                          <div className="sm:col-span-2"><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Trigger Moment</p><p className="text-zinc-300 text-sm leading-relaxed">{icp.trigger_moment}</p></div>
+                        )}
+                      </div>
+                      {/* Tags row */}
+                      <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t border-zinc-800">
+                        {icp.emotional_state?.length > 0 && (
+                          <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1.5">Emotional State</p>
+                            <div className="flex flex-wrap gap-1">{icp.emotional_state.map(t => <span key={t} className="px-2 py-0.5 bg-amber-900/20 text-amber-400 rounded text-[10px] font-semibold">{t}</span>)}</div>
+                          </div>
+                        )}
+                        {icp.values?.length > 0 && (
+                          <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1.5">Values</p>
+                            <div className="flex flex-wrap gap-1">{icp.values.map(t => <span key={t} className="px-2 py-0.5 bg-violet-900/20 text-violet-400 rounded text-[10px] font-semibold">{t}</span>)}</div>
+                          </div>
+                        )}
+                        {icp.channels?.length > 0 && (
+                          <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1.5">Channels</p>
+                            <div className="flex flex-wrap gap-1">{icp.channels.map(t => <span key={t} className="px-2 py-0.5 bg-sky-900/20 text-sky-400 rounded text-[10px] font-semibold">{t}</span>)}</div>
+                          </div>
+                        )}
+                      </div>
+                      {/* Pains */}
+                      {icp.pains?.filter(Boolean).length > 0 && (
+                        <div className="mt-4 pt-4 border-t border-zinc-800">
+                          <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-2">Top Pains</p>
+                          <div className="space-y-1">{icp.pains.filter(Boolean).map((p, i) => <p key={i} className="text-zinc-300 text-sm flex items-start gap-2"><span className="text-red-400 mt-0.5">•</span>{p}</p>)}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* The Dip Summary */}
+                  {Object.keys(dip).length > 0 && (dip.problem || dip.format || dip.price) && (
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-4">
+                      <h3 className="text-xs font-bold text-violet-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <span className="text-base">⚡</span> The Dip — Micro Offer
+                      </h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        {dip.format && <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Format</p><p className="text-white text-sm font-medium">{dip.format}</p></div>}
+                        {dip.price && <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Price</p><p className="text-emerald-400 text-sm font-bold">£{Number(dip.price).toLocaleString()}</p></div>}
+                        {dip.duration && <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Duration</p><p className="text-white text-sm">{dip.duration}</p></div>}
+                      </div>
+                      {dip.problem && <div className="mt-3"><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Problem It Solves</p><p className="text-zinc-300 text-sm">{dip.problem}</p></div>}
+                      {dip.outcome && <div className="mt-3"><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Outcome Delivered</p><p className="text-zinc-300 text-sm">{dip.outcome}</p></div>}
+                      {dip.bridge && <div className="mt-3"><p className="text-[10px] font-bold text-gold uppercase tracking-widest mb-1">Bridge to Main Offer</p><p className="text-zinc-300 text-sm">{dip.bridge}</p></div>}
+                    </div>
+                  )}
+
+                  {/* Bang Bang Offer Summary */}
+                  {Object.keys(bb).length > 0 && (bb.name || bb.promise || bb.price) && (
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-4">
+                      <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <span className="text-base">💥</span> Bang Bang Offer — {bb.name || 'Main Offer'}
+                      </h3>
+                      {bb.promise && <div className="bg-zinc-800/50 rounded-lg p-4 mb-4"><p className="text-white text-sm leading-relaxed italic">"{bb.promise}"</p></div>}
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                        {bb.price && <div className="bg-zinc-800/50 rounded-lg p-3 text-center"><p className="text-lg font-black text-emerald-400">£{Number(bb.price).toLocaleString()}</p><p className="text-[9px] text-zinc-600 uppercase tracking-widest font-bold">Price</p></div>}
+                        {bb.stack_value && <div className="bg-zinc-800/50 rounded-lg p-3 text-center"><p className="text-lg font-black text-white">£{Number(bb.stack_value).toLocaleString()}</p><p className="text-[9px] text-zinc-600 uppercase tracking-widest font-bold">Stack Value</p></div>}
+                        {bb.duration && <div className="bg-zinc-800/50 rounded-lg p-3 text-center"><p className="text-lg font-black text-sky-400">{bb.duration}</p><p className="text-[9px] text-zinc-600 uppercase tracking-widest font-bold">Duration</p></div>}
+                        {bb.dream_score && <div className="bg-zinc-800/50 rounded-lg p-3 text-center"><p className="text-lg font-black text-gold">{bb.dream_score}/7</p><p className="text-[9px] text-zinc-600 uppercase tracking-widest font-bold">Dream Score</p></div>}
+                      </div>
+                      {bb.unique_mechanism && <div className="mb-3"><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Unique Mechanism</p><p className="text-zinc-300 text-sm">{bb.unique_mechanism}</p></div>}
+                      {bb.phases?.length > 0 && (
+                        <div className="mb-3">
+                          <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-2">Programme Phases</p>
+                          <div className="flex gap-2 overflow-x-auto pb-1">
+                            {bb.phases.filter(p => p.name).map((phase, i) => (
+                              <div key={i} className="flex-shrink-0 bg-zinc-800 rounded-lg p-3 min-w-[140px]">
+                                <p className="text-gold text-[10px] font-bold uppercase tracking-widest">Phase {i + 1}</p>
+                                <p className="text-white text-sm font-semibold mt-0.5">{phase.name}</p>
+                                {phase.duration && <p className="text-zinc-600 text-xs mt-0.5">{phase.duration}</p>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {bb.guarantees?.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-zinc-800">
+                          <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1.5">Guarantees</p>
+                          <div className="flex flex-wrap gap-1">{bb.guarantees.map(g => <span key={g} className="px-2 py-0.5 bg-emerald-900/20 text-emerald-400 rounded text-[10px] font-semibold">{g}</span>)}</div>
+                        </div>
+                      )}
+                      {bb.continuity_offer && (
+                        <div className="mt-3 pt-3 border-t border-zinc-800">
+                          <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Continuity</p>
+                          <p className="text-zinc-300 text-sm">{bb.continuity_offer}{bb.continuity_price ? ` — £${Number(bb.continuity_price).toLocaleString()}` : ''}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                )
+              })()}
 
             </div>
           )}
