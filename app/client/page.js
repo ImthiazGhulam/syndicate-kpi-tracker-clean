@@ -1052,8 +1052,8 @@ export default function ClientPage() {
       { id: 'design',      label: 'Design™',              icon: '🎯' },
     ]},
     { heading: 'Build™', items: [
-      { id: 'playbook',    label: 'Sold Out™ Playbook',   icon: '📖', href: '/playbook' },
       { id: 'premium-pos', label: 'Premium Position™',    icon: '👑', href: '/premium-position' },
+      { id: 'playbook',    label: 'Sold Out™ Playbook',   icon: '📖', href: '/playbook' },
     ]},
   ]
 
