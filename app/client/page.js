@@ -219,7 +219,7 @@ export default function ClientPage() {
   // Projects — CRUD
   const [showProjectForm, setShowProjectForm] = useState(false)
   const [editingProject, setEditingProject] = useState(null)
-  const [projectForm, setProjectForm] = useState({ name: '', description: '', status: 'planning', priority: 'medium', start_date: '', end_date: '', links: '', resources: '' })
+  const [projectForm, setProjectForm] = useState({ name: '', description: '', status: 'not_started', priority: 'medium', start_date: '', end_date: '', links: '', resources: '' })
   const [projectTasks, setProjectTasks] = useState({})
   const [newTaskInputs, setNewTaskInputs] = useState({})
   const [expandedProjects, setExpandedProjects] = useState({})
@@ -745,7 +745,7 @@ export default function ClientPage() {
 
   // Projects CRUD
   const resetProjectForm = () => {
-    setProjectForm({ name: '', description: '', status: 'planning', priority: 'medium', start_date: '', end_date: '', links: '', resources: '' })
+    setProjectForm({ name: '', description: '', status: 'not_started', priority: 'medium', start_date: '', end_date: '', links: '', resources: '' })
     setEditingProject(null)
     setShowProjectForm(false)
   }
@@ -3280,11 +3280,10 @@ export default function ClientPage() {
                     <label className="block text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">Status</label>
                     <select value={projectForm.status} onChange={e => setProjectForm(f => ({ ...f, status: e.target.value }))}
                       className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm">
-                      <option value="planning">Planning</option>
-                      <option value="active">Active</option>
-                      <option value="paused">Paused</option>
-                      <option value="completed">Completed</option>
-                      <option value="cancelled">Cancelled</option>
+                      <option value="not_started">Not Started</option>
+                      <option value="in_progress">In Progress</option>
+                      <option value="on_hold">On Hold</option>
+                      <option value="complete">Complete</option>
                     </select>
                   </div>
                   <div>
@@ -3341,11 +3340,10 @@ export default function ClientPage() {
               <div className="space-y-3">
                 {projects.map(p => {
                   const statusColors = {
-                    active: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
-                    completed: 'bg-sky-500/10 text-sky-400 border-sky-500/30',
-                    paused: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
-                    cancelled: 'bg-red-500/10 text-red-400 border-red-500/30',
-                    planning: 'bg-violet-500/10 text-violet-400 border-violet-500/30',
+                    not_started: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/30',
+                    in_progress: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30',
+                    on_hold: 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30',
+                    complete: 'bg-sky-500/10 text-sky-400 border-sky-500/30',
                   }
                   const tasks = projectTasks[p.id] || []
                   const completedTasks = tasks.filter(t => t.completed).length
