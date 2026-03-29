@@ -2735,7 +2735,7 @@ export default function ClientPage() {
                               </button>
                             </div>
                             <p className="text-[10px] text-zinc-600 mt-1.5">
-                              {new Date(lead.updated_at || lead.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                            Moved: {new Date(lead.updated_at || lead.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                             </p>
                             {/* Mobile move buttons */}
                             <div className="flex items-center gap-1.5 mt-2 sm:hidden">

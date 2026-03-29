@@ -1749,7 +1749,7 @@ export default function AdminPage() {
                                     <p className="text-sm font-semibold text-white leading-tight">{lead.name}</p>
                                     {lead.instagram && <p className="text-xs text-violet-400 mt-0.5">@{lead.instagram.replace('@', '')}</p>}
                                     <p className="text-[10px] text-zinc-600 mt-1">
-                                      {new Date(lead.updated_at || lead.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                                    Moved: {new Date(lead.updated_at || lead.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                                     </p>
                                   </div>
                                 ))}
