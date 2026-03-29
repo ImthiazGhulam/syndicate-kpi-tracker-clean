@@ -217,9 +217,16 @@ export default function AdminPage() {
       if (mornings === 0 && elapsed >= 3) alerts.push('No morning ops')
       if (debriefs === 0 && elapsed >= 3) alerts.push('No debriefs')
       if (!hasIdentity) alerts.push('No identity set')
-      if (c.programme_renewal) {
+      if (c.programme_renewal && c.programme_start) {
+        const totalDays = Math.ceil((new Date(c.programme_renewal) - new Date(c.programme_start)) / 86400000)
         const dLeft = Math.ceil((new Date(c.programme_renewal) - new Date()) / 86400000)
-        if (dLeft <= 30 && dLeft > 0) alerts.push(`Renews in ${dLeft}d`)
+        const quarterMark = Math.ceil(totalDays / 4)
+        if (dLeft <= 0) alerts.push('Programme expired')
+        else if (dLeft <= Math.ceil(quarterMark / 2)) alerts.push(`Renews in ${dLeft}d — ACT NOW`)
+        else if (dLeft <= quarterMark) alerts.push(`Renews in ${dLeft}d`)
+      } else if (c.programme_renewal) {
+        const dLeft = Math.ceil((new Date(c.programme_renewal) - new Date()) / 86400000)
+        if (dLeft <= 90 && dLeft > 0) alerts.push(`Renews in ${dLeft}d`)
       }
 
       const status = score >= 70 ? 'healthy' : score >= 40 ? 'at-risk' : mornings === 0 && debriefs === 0 && elapsed >= 3 ? 'critical' : 'at-risk'
@@ -664,6 +671,61 @@ export default function AdminPage() {
                 </div>
               )}
 
+              {/* Upcoming Renewals */}
+              {(() => {
+                const renewals = clients
+                  .filter(c => c.programme_start && c.programme_renewal)
+                  .map(c => {
+                    const totalDays = Math.ceil((new Date(c.programme_renewal) - new Date(c.programme_start)) / 86400000)
+                    const daysLeft = Math.ceil((new Date(c.programme_renewal) - new Date()) / 86400000)
+                    const quarterMark = Math.ceil(totalDays / 4)
+                    const pctComplete = Math.min(100, Math.round(((totalDays - daysLeft) / totalDays) * 100))
+                    return { ...c, daysLeft, quarterMark, totalDays, pctComplete }
+                  })
+                  .filter(c => c.daysLeft <= c.quarterMark && c.daysLeft > -30)
+                  .sort((a, b) => a.daysLeft - b.daysLeft)
+
+                if (renewals.length === 0) return null
+                return (
+                  <div className="mb-8">
+                    <h2 className="text-xs font-bold text-gold uppercase tracking-widest mb-3 flex items-center gap-2">
+                      <span className="text-base">📆</span> Upcoming Renewals
+                    </h2>
+                    <div className="space-y-2">
+                      {renewals.map(c => (
+                        <button key={c.id} onClick={() => selectClient(c)}
+                          className={`w-full bg-zinc-900 border rounded-xl p-4 flex items-center gap-4 text-left transition hover:border-gold/40 ${
+                            c.daysLeft <= 0 ? 'border-red-900/50' :
+                            c.daysLeft <= Math.ceil(c.quarterMark / 2) ? 'border-amber-900/40' : 'border-zinc-800'
+                          }`}>
+                          <div className="flex-shrink-0 text-center" style={{ minWidth: '56px' }}>
+                            <p className={`text-2xl font-black ${c.daysLeft <= 0 ? 'text-red-400' : c.daysLeft <= Math.ceil(c.quarterMark / 2) ? 'text-amber-400' : 'text-gold'}`}>
+                              {c.daysLeft <= 0 ? '!' : c.daysLeft}
+                            </p>
+                            <p className="text-[9px] text-zinc-600 uppercase tracking-widest font-bold">{c.daysLeft <= 0 ? 'Overdue' : 'days left'}</p>
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white font-semibold text-sm">{c.name}</p>
+                            <p className="text-zinc-500 text-xs">{c.business}</p>
+                            <div className="flex items-center gap-3 mt-2">
+                              <div className="flex-1 h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                                <div className="h-full bg-gold rounded-full" style={{ width: `${c.pctComplete}%` }} />
+                              </div>
+                              <span className="text-[10px] text-zinc-600 flex-shrink-0">{c.pctComplete}% through</span>
+                            </div>
+                            <p className="text-zinc-600 text-[10px] mt-1">
+                              {new Date(c.programme_start).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })} → {new Date(c.programme_renewal).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                              {' · '}{c.totalDays} day programme
+                            </p>
+                          </div>
+                          <svg className="w-4 h-4 text-zinc-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
+
               {/* Full Roster Table */}
               <div>
                 <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3">Full Roster</h2>
@@ -816,8 +878,13 @@ export default function AdminPage() {
 
                 if (selectedClient.programme_renewal) {
                   const daysLeft = Math.ceil((new Date(selectedClient.programme_renewal) - new Date()) / 86400000)
-                  if (daysLeft <= 30 && daysLeft > 0) alerts.push({ type: 'critical', msg: `Programme renews in ${daysLeft} days`, action: 'Start renewal conversation' })
-                  else if (daysLeft <= 90 && daysLeft > 30) alerts.push({ type: 'info', msg: `Programme renews in ${daysLeft} days`, action: 'Keep engagement high' })
+                  const totalDays = selectedClient.programme_start
+                    ? Math.ceil((new Date(selectedClient.programme_renewal) - new Date(selectedClient.programme_start)) / 86400000)
+                    : 365
+                  const quarterMark = Math.ceil(totalDays / 4)
+                  if (daysLeft <= 0) alerts.push({ type: 'critical', msg: 'Programme has expired', action: 'Renewal overdue — reach out immediately' })
+                  else if (daysLeft <= Math.ceil(quarterMark / 2)) alerts.push({ type: 'critical', msg: `Programme renews in ${daysLeft} days`, action: 'Start renewal conversation now' })
+                  else if (daysLeft <= quarterMark) alerts.push({ type: 'warning', msg: `Programme renews in ${daysLeft} days`, action: `Within renewal window (${quarterMark}-day notice)` })
                 }
 
                 return (
