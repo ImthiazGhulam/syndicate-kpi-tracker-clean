@@ -1051,7 +1051,7 @@ export default function ClientPage() {
     { heading: 'Yearly', items: [
       { id: 'design',      label: 'Design™',              icon: '🎯' },
     ]},
-    { heading: 'Strategy', items: [
+    { heading: 'Build™', items: [
       { id: 'playbook',    label: 'Sold Out™ Playbook',   icon: '📖', href: '/playbook' },
     ]},
   ]
