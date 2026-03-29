@@ -182,11 +182,7 @@ export default function AdminPage() {
             </svg>
           </button>
           <div className="flex items-center gap-3">
-            <div className="w-7 h-7 bg-gold rounded flex items-center justify-center flex-shrink-0">
-              <svg className="w-4 h-4 text-zinc-950" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-              </svg>
-            </div>
+            <img src="/logo.png" alt="The Syndicate" className="h-8 w-auto flex-shrink-0" />
             <div className="hidden sm:block">
               <p className="text-white text-sm font-bold tracking-wider uppercase leading-none">The Syndicate</p>
               <p className="text-zinc-600 text-xs tracking-widest uppercase mt-0.5">Admin</p>
