@@ -23,6 +23,38 @@ for (let h = 6; h <= 21; h++) {
 
 const MONTH_NAMES = ['January','February','March','April','May','June','July','August','September','October','November','December']
 
+const KPI_COLS = [
+  { key: 'total_followers', label: 'Total Followers', group: 'audience', input: true },
+  { key: 'new_followers', label: 'New Followers', group: 'audience', input: true },
+  { key: 'qual_followers', label: 'Qual. Followers', group: 'audience', input: true },
+  { key: 'ad_spend', label: 'Ad Spend (£)', group: 'audience', input: true, step: '0.01' },
+  { key: 'cost_per_qual', label: 'Cost/Qual', group: 'audience', calc: r => r.qual_followers ? '£' + (r.ad_spend / r.qual_followers).toFixed(2) : '—' },
+  { key: 'content_posted', label: 'Content', group: 'audience', input: true },
+  { key: 'new_convos', label: 'New Convos', group: 'convos', input: true },
+  { key: 'aud_conv_pct', label: 'Aud→Conv %', group: 'convos', calc: r => r.new_followers ? Math.round(r.new_convos / r.new_followers * 100) + '%' : '—' },
+  { key: 'responded', label: 'Responded', group: 'convos', input: true },
+  { key: 'response_rate', label: 'Resp %', group: 'convos', calc: r => r.new_convos ? Math.round(r.responded / r.new_convos * 100) + '%' : '—' },
+  { key: 'triage_calls', label: 'Triage', group: 'calls', input: true },
+  { key: 'triage_conv_pct', label: 'Triage %', group: 'calls', calc: r => r.responded ? Math.round(r.triage_calls / r.responded * 100) + '%' : '—' },
+  { key: 'calls_booked', label: 'Booked', group: 'calls', input: true },
+  { key: 'calls_taken', label: 'Taken', group: 'calls', input: true },
+  { key: 'show_up_pct', label: 'Show %', group: 'calls', calc: r => r.calls_booked ? Math.round(r.calls_taken / r.calls_booked * 100) + '%' : '—' },
+  { key: 'offers', label: 'Offers', group: 'sales', input: true },
+  { key: 'no_shows', label: 'No Shows', group: 'sales', input: true },
+  { key: 'follow_ups', label: 'Follow Ups', group: 'sales', input: true },
+  { key: 'closed', label: 'Closed', group: 'sales', input: true },
+  { key: 'close_rate', label: 'Close %', group: 'sales', calc: r => r.offers ? Math.round(r.closed / r.offers * 100) + '%' : '—' },
+  { key: 'cash_collected', label: 'Cash (£)', group: 'sales', input: true, step: '0.01' },
+  { key: 'revenue', label: 'Revenue (£)', group: 'sales', input: true, step: '0.01' },
+]
+
+const KPI_GROUPS = [
+  { id: 'audience', label: 'Audience', color: 'text-sky-400 border-sky-400/30' },
+  { id: 'convos', label: 'Conversations', color: 'text-violet-400 border-violet-400/30' },
+  { id: 'calls', label: 'Calls', color: 'text-gold border-gold/30' },
+  { id: 'sales', label: 'Sales', color: 'text-emerald-400 border-emerald-400/30' },
+]
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function getMonday(d = new Date()) {
@@ -145,17 +177,13 @@ export default function ClientPage() {
   const [activeTab, setActiveTab] = useState('design')
 
   // Data
-  const [kpis, setKpis] = useState([])
   const [checkins, setCheckins] = useState([])
   const [projects, setProjects] = useState([])
 
-  // KPI form
-  const [kpiForm, setKpiForm] = useState({
-    week_date: new Date().toISOString().split('T')[0],
-    leads: '', outreach: '', sales: '', revenue: '', cost_per_lead: '', tasks_completed: '',
-  })
-  const [kpiLoading, setKpiLoading] = useState(false)
-  const [kpiSuccess, setKpiSuccess] = useState(false)
+  // Dashboard — daily KPI tracker
+  const [monthlyKpis, setMonthlyKpis] = useState({})
+  const [kpiMonth, setKpiMonth] = useState(new Date().getMonth())
+  const [kpiYear, setKpiYear] = useState(new Date().getFullYear())
 
   // Check-in form
   const [checkinForm, setCheckinForm] = useState({
@@ -209,6 +237,21 @@ export default function ClientPage() {
     if (clientData) fetchWeeklyPriorities(warMapWeek)
   }, [warMapWeek, clientData?.id])
 
+  // Fetch monthly KPIs when month/year changes
+  const fetchMonthlyKpis = async (y, m) => {
+    if (!clientData) return
+    const s = `${y}-${String(m + 1).padStart(2, '0')}-01`
+    const e = new Date(y, m + 1, 0).toISOString().split('T')[0]
+    const { data } = await supabase.from('daily_kpis').select('*').eq('client_id', clientData.id).gte('date', s).lte('date', e)
+    const obj = {}
+    data?.forEach(row => { obj[row.date] = row })
+    setMonthlyKpis(obj)
+  }
+
+  useEffect(() => {
+    if (clientData) fetchMonthlyKpis(kpiYear, kpiMonth)
+  }, [kpiMonth, kpiYear, clientData?.id])
+
   // ── Auth & Fetch ─────────────────────────────────────────────────────────────
 
   useEffect(() => {
@@ -230,8 +273,10 @@ export default function ClientPage() {
     const year = new Date().getFullYear()
     const monday = getMonday()
     const today = new Date().toISOString().split('T')[0]
-    const [kpisRes, checkinsRes, projectsRes, designRes, adventuresRes, warRes, weeklyRes, pulseRes] = await Promise.all([
-      supabase.from('kpis').select('*').eq('client_id', client.id).order('week_date', { ascending: false }),
+    const mStart = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`
+    const mEnd = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0]
+    const [dkpiRes, checkinsRes, projectsRes, designRes, adventuresRes, warRes, weeklyRes, pulseRes] = await Promise.all([
+      supabase.from('daily_kpis').select('*').eq('client_id', client.id).gte('date', mStart).lte('date', mEnd),
       supabase.from('checkins').select('*').eq('client_id', client.id).order('checkin_date', { ascending: false }),
       supabase.from('projects').select('*').eq('client_id', client.id).order('start_date', { ascending: false }),
       supabase.from('life_design').select('*').eq('client_id', client.id).eq('year', year).maybeSingle(),
@@ -241,7 +286,11 @@ export default function ClientPage() {
       supabase.from('daily_pulse').select('*').eq('client_id', client.id).eq('date', today).maybeSingle(),
     ])
 
-    if (kpisRes.data) setKpis(kpisRes.data)
+    if (dkpiRes.data) {
+      const obj = {}
+      dkpiRes.data.forEach(row => { obj[row.date] = row })
+      setMonthlyKpis(obj)
+    }
     if (checkinsRes.data) setCheckins(checkinsRes.data)
     if (projectsRes.data) setProjects(projectsRes.data)
 
@@ -343,25 +392,21 @@ export default function ClientPage() {
     setPulseSaving(false)
   }
 
-  const submitKpi = async (e) => {
-    e.preventDefault(); setKpiLoading(true)
-    const payload = {
-      client_id: clientData.id, week_date: kpiForm.week_date,
-      leads: kpiForm.leads !== '' ? Number(kpiForm.leads) : null,
-      outreach: kpiForm.outreach !== '' ? Number(kpiForm.outreach) : null,
-      sales: kpiForm.sales !== '' ? Number(kpiForm.sales) : null,
-      revenue: kpiForm.revenue !== '' ? Number(kpiForm.revenue) : null,
-      cost_per_lead: kpiForm.cost_per_lead !== '' ? Number(kpiForm.cost_per_lead) : null,
-      tasks_completed: kpiForm.tasks_completed !== '' ? Number(kpiForm.tasks_completed) : null,
-    }
-    const { error } = await supabase.from('kpis').insert([payload])
-    if (!error) {
-      setKpiSuccess(true)
-      setKpiForm({ week_date: new Date().toISOString().split('T')[0], leads: '', outreach: '', sales: '', revenue: '', cost_per_lead: '', tasks_completed: '' })
-      fetchAll(user.email)
-      setTimeout(() => setKpiSuccess(false), 3000)
-    }
-    setKpiLoading(false)
+  // Daily KPI tracker
+  const updateKpi = (dateStr, key, value) => {
+    setMonthlyKpis(prev => ({
+      ...prev,
+      [dateStr]: { ...(prev[dateStr] || {}), [key]: value === '' ? 0 : Number(value) }
+    }))
+  }
+
+  const saveKpiDay = async (dateStr) => {
+    const row = monthlyKpis[dateStr] || {}
+    const payload = { client_id: clientData.id, date: dateStr }
+    KPI_COLS.filter(c => c.input).forEach(c => {
+      payload[c.key] = Number(row[c.key]) || 0
+    })
+    await supabase.from('daily_kpis').upsert(payload, { onConflict: 'client_id,date' })
   }
 
   const submitCheckin = async (e) => {
@@ -558,14 +603,23 @@ export default function ClientPage() {
     </div>
   )
 
-  const latestKpi = kpis[0]
+  // Dashboard computed
+  const kpiDaysInMonth = new Date(kpiYear, kpiMonth + 1, 0).getDate()
+  const kpiDays = Array.from({ length: kpiDaysInMonth }, (_, i) => {
+    const d = i + 1
+    return `${kpiYear}-${String(kpiMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+  })
+  const kpiTotals = {}
+  KPI_COLS.filter(c => c.input).forEach(c => {
+    kpiTotals[c.key] = kpiDays.reduce((sum, d) => sum + (Number(monthlyKpis[d]?.[c.key]) || 0), 0)
+  })
+  const kpiDaysWithData = kpiDays.filter(d => monthlyKpis[d]).length || 1
 
   const tabs = [
     { id: 'design',      label: 'Design™' },
     { id: 'war-map',     label: 'Weekly War Map™' },
     { id: 'morning-ops', label: 'Morning Ops™' },
     { id: 'dashboard',   label: 'Dashboard' },
-    { id: 'submit-kpis', label: 'Submit KPIs' },
     { id: 'check-in',    label: 'Check-In' },
     { id: 'projects',    label: 'Projects' },
   ]
@@ -1588,81 +1642,122 @@ export default function ClientPage() {
           </div>
         )}
 
-        {/* ── DASHBOARD ────────────────────────────────────────────────────── */}
+        {/* ── DASHBOARD — Daily KPI Tracker ─────────────────────────────── */}
         {activeTab === 'dashboard' && (
           <div>
-            <div className="flex items-baseline gap-2 mb-5">
-              <h2 className="text-base font-semibold text-white uppercase tracking-wider">Latest KPIs</h2>
-              {latestKpi && <span className="text-zinc-600 text-xs">{formatDate(latestKpi.week_date)}</span>}
+            {/* Month nav */}
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-base font-bold text-white uppercase tracking-widest">Dashboard</h2>
+              <div className="flex items-center gap-1">
+                <button onClick={() => { if (kpiMonth === 0) { setKpiMonth(11); setKpiYear(y => y - 1) } else setKpiMonth(m => m - 1) }}
+                  className="p-2 text-zinc-500 hover:text-white transition rounded hover:bg-zinc-800">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <span className="text-sm font-semibold text-white min-w-[160px] text-center">{MONTH_NAMES[kpiMonth]} {kpiYear}</span>
+                <button onClick={() => { if (kpiMonth === 11) { setKpiMonth(0); setKpiYear(y => y + 1) } else setKpiMonth(m => m + 1) }}
+                  className="p-2 text-zinc-500 hover:text-white transition rounded hover:bg-zinc-800">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                </button>
+              </div>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-9">
-              <StatCard label="Leads"         value={latestKpi?.leads}  target={clientData.lead_target}  color="gold" />
-              <StatCard label="Outreach"      value={latestKpi?.outreach} target={clientData.outreach_target} color="blue" />
-              <StatCard label="Sales"         value={latestKpi?.sales}  color="purple" />
-              <StatCard label="Revenue"       value={latestKpi?.revenue != null ? formatCurrency(latestKpi.revenue) : null} target={clientData.revenue_target ? formatCurrency(clientData.revenue_target) : null} color="green" />
-              <StatCard label="Cost per Lead" value={latestKpi?.cost_per_lead != null ? formatCurrency(latestKpi.cost_per_lead) : null} color="gold" />
-              <StatCard label="Tasks Done"    value={latestKpi?.tasks_completed} color="blue" />
-            </div>
-            {kpis.length > 1 && (
-              <div>
-                <h2 className="text-base font-semibold text-white uppercase tracking-wider mb-5">KPI History</h2>
-                <div className="overflow-x-auto rounded-lg border border-zinc-800">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-zinc-800 bg-zinc-900">
-                        {['Week','Leads','Revenue','Sales'].map(h => (
-                          <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-widest">{h}</th>
+
+            {/* KPI Table */}
+            <div className="overflow-x-auto border border-zinc-800 rounded-lg -mx-4 sm:mx-0">
+              <table className="text-[11px] w-max min-w-full">
+                <thead>
+                  {/* Group headers */}
+                  <tr className="bg-zinc-900">
+                    <th className="sticky left-0 z-10 bg-zinc-900 px-2 py-2 text-zinc-500 font-semibold uppercase tracking-wider border-b border-r border-zinc-800 w-10">Day</th>
+                    {KPI_GROUPS.map(g => {
+                      const count = KPI_COLS.filter(c => c.group === g.id).length
+                      return <th key={g.id} colSpan={count} className={`px-2 py-2 font-bold uppercase tracking-wider border-b border-zinc-800 ${g.color}`}>{g.label}</th>
+                    })}
+                  </tr>
+                  {/* Column headers */}
+                  <tr className="bg-zinc-900/70">
+                    <th className="sticky left-0 z-10 bg-zinc-900 px-2 py-1.5 border-b border-r border-zinc-800" />
+                    {KPI_COLS.map(col => (
+                      <th key={col.key} className={`px-1.5 py-1.5 text-zinc-500 font-semibold whitespace-nowrap border-b border-zinc-800 ${col.calc ? 'bg-zinc-900/40' : ''}`}>
+                        {col.label}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {kpiDays.map((dateStr, i) => {
+                    const day = i + 1
+                    const row = monthlyKpis[dateStr] || {}
+                    const isToday = dateStr === todayStr
+                    return (
+                      <tr key={dateStr} className={`border-b border-zinc-900/60 ${isToday ? 'bg-gold/[0.04]' : 'hover:bg-zinc-900/40'}`}>
+                        <td className={`sticky left-0 z-10 px-2 py-1 text-center font-bold border-r border-zinc-800 ${isToday ? 'bg-gold/20 text-gold' : 'bg-zinc-950 text-zinc-500'}`}>
+                          {day}
+                        </td>
+                        {KPI_COLS.map(col => (
+                          <td key={col.key} className={`px-0.5 py-0.5 text-center ${col.calc ? 'bg-zinc-900/20 text-zinc-400' : ''}`}>
+                            {col.calc ? (
+                              <span className="px-1.5 py-1 block">{col.calc(row)}</span>
+                            ) : (
+                              <input
+                                type="number"
+                                min="0"
+                                step={col.step || '1'}
+                                value={row[col.key] || ''}
+                                onChange={e => updateKpi(dateStr, col.key, e.target.value)}
+                                onBlur={() => saveKpiDay(dateStr)}
+                                placeholder="0"
+                                className="w-full min-w-[52px] bg-transparent text-center text-white placeholder-zinc-700 py-1 px-1 focus:outline-none focus:bg-zinc-800 rounded transition"
+                              />
+                            )}
+                          </td>
                         ))}
                       </tr>
-                    </thead>
-                    <tbody>
-                      {kpis.slice(1).map(kpi => (
-                        <tr key={kpi.id} className="border-b border-zinc-900 hover:bg-zinc-900/60 transition">
-                          <td className="px-4 py-3.5 text-zinc-400 whitespace-nowrap">{formatDate(kpi.week_date)}</td>
-                          <td className="px-4 py-3.5 text-zinc-300">{kpi.leads ?? '—'}</td>
-                          <td className="px-4 py-3.5 text-emerald-400 font-medium">{kpi.revenue != null ? formatCurrency(kpi.revenue) : '—'}</td>
-                          <td className="px-4 py-3.5 text-zinc-300">{kpi.sales ?? '—'}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                    )
+                  })}
+                  {/* Totals row */}
+                  <tr className="border-t-2 border-gold/40 bg-zinc-900 font-bold">
+                    <td className="sticky left-0 z-10 bg-zinc-900 px-2 py-2 text-center text-gold text-xs uppercase tracking-widest border-r border-zinc-800">Total</td>
+                    {KPI_COLS.map(col => (
+                      <td key={col.key} className="px-1.5 py-2 text-center text-white">
+                        {col.calc
+                          ? col.calc(kpiTotals)
+                          : col.step === '0.01'
+                            ? `£${kpiTotals[col.key]?.toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) || '0.00'}`
+                            : kpiTotals[col.key] || 0
+                        }
+                      </td>
+                    ))}
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Monthly Benchmarks */}
+            <div className="mt-8">
+              <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-4">Monthly Benchmarks</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                  <p className="text-zinc-500 text-[10px] uppercase tracking-widest mb-1">Avg Daily New Followers</p>
+                  <p className="text-xl font-bold text-sky-400">{kpiTotals.new_followers ? Math.round(kpiTotals.new_followers / kpiDaysWithData) : '—'}</p>
+                  <p className="text-zinc-600 text-[10px] mt-1">Target: 10+ per day</p>
+                </div>
+                <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                  <p className="text-zinc-500 text-[10px] uppercase tracking-widest mb-1">Avg Daily New Convos</p>
+                  <p className="text-xl font-bold text-violet-400">{kpiTotals.new_convos ? Math.round(kpiTotals.new_convos / kpiDaysWithData) : '—'}</p>
+                  <p className="text-zinc-600 text-[10px] mt-1">Target: 20+ per day</p>
+                </div>
+                <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                  <p className="text-zinc-500 text-[10px] uppercase tracking-widest mb-1">DM Response Rate</p>
+                  <p className="text-xl font-bold text-gold">{kpiTotals.new_convos ? Math.round(kpiTotals.responded / kpiTotals.new_convos * 100) + '%' : '—'}</p>
+                  <p className="text-zinc-600 text-[10px] mt-1">Target: 30%+</p>
+                </div>
+                <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                  <p className="text-zinc-500 text-[10px] uppercase tracking-widest mb-1">Show Up Rate</p>
+                  <p className="text-xl font-bold text-emerald-400">{kpiTotals.calls_booked ? Math.round(kpiTotals.calls_taken / kpiTotals.calls_booked * 100) + '%' : '—'}</p>
+                  <p className="text-zinc-600 text-[10px] mt-1">Target: 95%+</p>
                 </div>
               </div>
-            )}
-          </div>
-        )}
-
-        {/* ── SUBMIT KPIs ──────────────────────────────────────────────────── */}
-        {activeTab === 'submit-kpis' && (
-          <div className="max-w-lg">
-            <h2 className="text-base font-semibold text-white uppercase tracking-wider mb-1">Submit Weekly KPIs</h2>
-            <p className="text-zinc-500 text-sm mb-7">Fill in your numbers for the week.</p>
-            {kpiSuccess && <div className="mb-5 p-3.5 bg-emerald-900/20 border border-emerald-900 rounded text-emerald-400 text-xs uppercase tracking-wider font-semibold">KPIs submitted successfully</div>}
-            <form onSubmit={submitKpi} className="space-y-5">
-              <div>
-                <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Week Date</label>
-                <input type="date" value={kpiForm.week_date} onChange={e => setKpiForm({ ...kpiForm, week_date: e.target.value })} required
-                  className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded text-white focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm" />
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {[
-                  { key: 'leads', label: 'Leads Generated' }, { key: 'outreach', label: 'Outreach Contacts' },
-                  { key: 'sales', label: 'Sales Closed' }, { key: 'revenue', label: 'Revenue (£)' },
-                  { key: 'cost_per_lead', label: 'Cost per Lead (£)' }, { key: 'tasks_completed', label: 'Tasks Completed' },
-                ].map(({ key, label }) => (
-                  <div key={key}>
-                    <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">{label}</label>
-                    <input type="number" min="0" step={key === 'revenue' || key === 'cost_per_lead' ? '0.01' : '1'}
-                      value={kpiForm[key]} onChange={e => setKpiForm({ ...kpiForm, [key]: e.target.value })} placeholder="0"
-                      className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm" />
-                  </div>
-                ))}
-              </div>
-              <button type="submit" disabled={kpiLoading}
-                className="w-full py-3.5 bg-gold hover:bg-gold-light disabled:opacity-50 text-zinc-950 font-bold text-xs uppercase tracking-widest rounded transition">
-                {kpiLoading ? 'Submitting...' : 'Submit KPIs'}
-              </button>
-            </form>
+            </div>
           </div>
         )}
 
