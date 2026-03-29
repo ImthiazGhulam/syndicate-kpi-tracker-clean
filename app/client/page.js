@@ -224,6 +224,11 @@ export default function ClientPage() {
   const [identityAffirmations, setIdentityAffirmations] = useState('')
   const [identitySaving, setIdentitySaving] = useState(false)
 
+  // Evening Ops
+  const [eveningPulse, setEveningPulse] = useState({})
+  const [eveningPulseDate, setEveningPulseDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [eveningSaving, setEveningSaving] = useState(false)
+
   // Morning Ops
   const [dailyPulse, setDailyPulse] = useState({ intention: '', feeling: '', win: '', money_task: '', todo_1: '', todo_2: '', todo_3: '', gratitude: '', let_go: '', identity_read: false, completed: false, completed_at: null })
   const [dailyPulseDate, setDailyPulseDate] = useState(() => new Date().toISOString().split('T')[0])
@@ -306,7 +311,7 @@ export default function ClientPage() {
     const today = new Date().toISOString().split('T')[0]
     const mStart = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`
     const mEnd = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0]
-    const [dkpiRes, checkinsRes, projectsRes, designRes, adventuresRes, warRes, weeklyRes, pulseRes, leadsRes, identityRes] = await Promise.all([
+    const [dkpiRes, checkinsRes, projectsRes, designRes, adventuresRes, warRes, weeklyRes, pulseRes, leadsRes, identityRes, eveningRes] = await Promise.all([
       supabase.from('daily_kpis').select('*').eq('client_id', client.id).gte('date', mStart).lte('date', mEnd),
       supabase.from('checkins').select('*').eq('client_id', client.id).order('checkin_date', { ascending: false }),
       supabase.from('projects').select('*').eq('client_id', client.id).order('start_date', { ascending: false }),
@@ -317,6 +322,7 @@ export default function ClientPage() {
       supabase.from('daily_pulse').select('*').eq('client_id', client.id).eq('date', today).maybeSingle(),
       supabase.from('leads').select('*').eq('client_id', client.id).order('created_at', { ascending: true }),
       supabase.from('identity_change').select('*').eq('client_id', client.id).maybeSingle(),
+      supabase.from('evening_pulse').select('*').eq('client_id', client.id).eq('date', today).maybeSingle(),
     ])
 
     if (dkpiRes.data) {
@@ -355,6 +361,8 @@ export default function ClientPage() {
     }
     if (leadsRes.data) setLeads(leadsRes.data)
     if (identityRes.data) setIdentityAffirmations(identityRes.data.affirmations || '')
+    if (eveningRes.data) setEveningPulse(eveningRes.data)
+    else setEveningPulse({})
     setLoading(false)
   }
 
@@ -534,6 +542,46 @@ export default function ClientPage() {
       }
     }
     touchDragRef.current = null
+  }
+
+  // Evening Ops
+  const fetchEveningPulse = async (dateStr) => {
+    if (!clientData) return
+    const { data } = await supabase.from('evening_pulse').select('*').eq('client_id', clientData.id).eq('date', dateStr).maybeSingle()
+    setEveningPulse(data || {})
+  }
+
+  useEffect(() => {
+    if (clientData) fetchEveningPulse(eveningPulseDate)
+  }, [eveningPulseDate, clientData?.id])
+
+  const buildEveningPayload = () => {
+    const p = { client_id: clientData.id, date: eveningPulseDate }
+    const fields = ['priority_completed','went_well','do_differently','learned','show_up_rating','not_to_plan','proud_of','love_about_self',
+      'gratitude_1','gratitude_2','gratitude_3','gratitude_4','gratitude_5','gratitude_6',
+      'win_1_title','win_1_action','win_1_progress','win_2_title','win_2_action','win_2_progress',
+      'win_3_title','win_3_action','win_3_progress','win_4_title','win_4_action','win_4_progress',
+      'win_5_title','win_5_action','win_5_progress']
+    fields.forEach(f => { if (eveningPulse[f] !== undefined) p[f] = eveningPulse[f] })
+    return p
+  }
+
+  const saveEvening = async () => {
+    if (!clientData) return
+    setEveningSaving(true)
+    const { data } = await supabase.from('evening_pulse').upsert(buildEveningPayload(), { onConflict: 'client_id,date' }).select().single()
+    if (data) { setEveningPulse(data); flash() }
+    setEveningSaving(false)
+  }
+
+  const completeEvening = async () => {
+    if (!clientData) return
+    setEveningSaving(true)
+    const { data } = await supabase.from('evening_pulse').upsert({
+      ...buildEveningPayload(), completed: true, completed_at: new Date().toISOString(),
+    }, { onConflict: 'client_id,date' }).select().single()
+    if (data) setEveningPulse(data)
+    setEveningSaving(false)
   }
 
   // Identity Chamber
@@ -763,6 +811,7 @@ export default function ClientPage() {
     { id: 'morning-ops', label: 'Morning Ops™',      icon: '☀️' },
     { id: 'dashboard',   label: 'Dashboard',         icon: '📊' },
     { id: 'hot-list',    label: 'Hot List',           icon: '🔥' },
+    { id: 'debrief',     label: 'The Debrief™',      icon: '🌙' },
     { id: 'check-in',    label: 'Check-In',          icon: '💬' },
     { id: 'projects',    label: 'Projects',           icon: '📋' },
   ]
@@ -2102,6 +2151,188 @@ export default function ClientPage() {
                   )
                 })}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* ── THE DEBRIEF™ ──────────────────────────────────────────────── */}
+        {activeTab === 'debrief' && (
+          <div className="fade-in">
+            {/* Date nav */}
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <p className="text-zinc-600 text-xs mt-1">
+                  {new Date(eveningPulseDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                </p>
+              </div>
+              <div className="flex items-center gap-1">
+                <button onClick={() => setEveningPulseDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() - 1); return dt.toISOString().split('T')[0] })}
+                  className="p-2 text-zinc-500 hover:text-white active:text-white transition rounded hover:bg-zinc-800">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                </button>
+                <button onClick={() => setEveningPulseDate(new Date().toISOString().split('T')[0])}
+                  className="px-2.5 py-1 text-xs text-zinc-500 hover:text-gold uppercase tracking-wider font-semibold transition">Today</button>
+                <button onClick={() => setEveningPulseDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() + 1); return dt.toISOString().split('T')[0] })}
+                  className="p-2 text-zinc-500 hover:text-white active:text-white transition rounded hover:bg-zinc-800">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                </button>
+              </div>
+            </div>
+
+            {eveningPulse.completed && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-emerald-900/20 border border-emerald-900/40 rounded mb-6">
+                <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                <span className="text-emerald-400 text-xs font-semibold uppercase tracking-widest">Completed</span>
+              </div>
+            )}
+
+            <div className="space-y-6">
+              {/* #1 Priority check */}
+              <div>
+                <label className="block text-xs font-bold text-gold uppercase tracking-widest mb-3">Did I complete my #1 priority?</label>
+                <div className="flex gap-3">
+                  {[true, false].map(val => (
+                    <button key={String(val)} onClick={() => { setEveningPulse(prev => ({ ...prev, priority_completed: val })); setTimeout(saveEvening, 100) }}
+                      className={`flex-1 py-3 rounded-lg text-sm font-bold uppercase tracking-widest transition border ${
+                        eveningPulse.priority_completed === val
+                          ? val ? 'bg-emerald-600 border-emerald-500 text-white' : 'bg-red-900/40 border-red-800 text-red-400'
+                          : 'bg-zinc-800 border-zinc-700 text-zinc-500 hover:border-zinc-600'
+                      }`}>
+                      {val ? 'Yes' : 'No'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Text prompts */}
+              {[
+                { key: 'went_well', label: 'What went well today?', color: 'text-emerald-400' },
+                { key: 'do_differently', label: 'What will I do differently tomorrow?', color: 'text-sky-400' },
+                { key: 'learned', label: 'One thing I learned today...', color: 'text-zinc-400' },
+              ].map(({ key, label, color }) => (
+                <div key={key}>
+                  <label className={`block text-xs font-bold uppercase tracking-widest mb-2 ${color}`}>{label}</label>
+                  <textarea value={eveningPulse[key] || ''} onChange={e => setEveningPulse(prev => ({ ...prev, [key]: e.target.value }))} onBlur={saveEvening}
+                    rows={2} placeholder="Write here..."
+                    className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition resize-none text-sm" />
+                </div>
+              ))}
+
+              {/* Show up rating */}
+              <div>
+                <label className="block text-xs font-bold text-gold uppercase tracking-widest mb-3">
+                  How did I show up today? — <span className="text-white">{eveningPulse.show_up_rating || '—'}/10</span>
+                </label>
+                <div className="flex gap-1.5">
+                  {[1,2,3,4,5,6,7,8,9,10].map(n => (
+                    <button key={n} onClick={() => { setEveningPulse(prev => ({ ...prev, show_up_rating: n })); setTimeout(saveEvening, 100) }}
+                      className={`flex-1 py-2.5 rounded text-sm font-bold transition ${
+                        n <= (eveningPulse.show_up_rating || 0)
+                          ? n <= 3 ? 'bg-red-900/40 text-red-400' : n <= 6 ? 'bg-amber-900/40 text-amber-400' : 'bg-emerald-900/40 text-emerald-400'
+                          : 'bg-zinc-800 text-zinc-600 hover:bg-zinc-700'
+                      }`}>
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* More prompts */}
+              {[
+                { key: 'not_to_plan', label: "What didn't go to plan?", color: 'text-red-400' },
+                { key: 'proud_of', label: 'What am I proud of today?', color: 'text-gold' },
+                { key: 'love_about_self', label: 'The one thing I love about myself is...', color: 'text-violet-400' },
+              ].map(({ key, label, color }) => (
+                <div key={key}>
+                  <label className={`block text-xs font-bold uppercase tracking-widest mb-2 ${color}`}>{label}</label>
+                  <textarea value={eveningPulse[key] || ''} onChange={e => setEveningPulse(prev => ({ ...prev, [key]: e.target.value }))} onBlur={saveEvening}
+                    rows={2} placeholder="Write here..."
+                    className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition resize-none text-sm" />
+                </div>
+              ))}
+
+              {/* Gratitude — 6 adventure boxes */}
+              <div>
+                <label className="block text-xs font-bold text-gold uppercase tracking-widest mb-1">I am so grateful I just...</label>
+                <p className="text-zinc-600 text-xs mb-4">Rewrite each mini adventure as if it's already happened.</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {Array.from({ length: 6 }, (_, i) => {
+                    const adv = adventuresForm[i] || {}
+                    const key = `gratitude_${i + 1}`
+                    return (
+                      <div key={i} className={`bg-zinc-900 border rounded-lg p-3.5 ${adv.completed ? 'border-gold/30' : 'border-zinc-800'}`}>
+                        <div className="flex items-center gap-2 mb-2">
+                          <div className={`w-4 h-4 rounded border-2 flex-shrink-0 flex items-center justify-center ${adv.completed ? 'bg-gold border-gold' : 'border-zinc-700'}`}>
+                            {adv.completed && <svg className="w-2.5 h-2.5 text-zinc-950" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                          </div>
+                          <p className={`text-xs font-semibold ${adv.title ? (adv.completed ? 'text-zinc-500' : 'text-white') : 'text-zinc-700 italic'}`}>
+                            {adv.title || `Adventure ${i + 1}`}
+                          </p>
+                        </div>
+                        <textarea value={eveningPulse[key] || ''} onChange={e => setEveningPulse(prev => ({ ...prev, [key]: e.target.value }))} onBlur={saveEvening}
+                          rows={2} placeholder={adv.title ? `I'm so grateful I ${adv.title.toLowerCase()}...` : `Adventure ${i + 1}...`}
+                          className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition resize-none text-xs leading-relaxed" />
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* Wins for the day */}
+              <div>
+                <label className="block text-xs font-bold text-gold uppercase tracking-widest mb-1">Wins for the Day</label>
+                <p className="text-zinc-600 text-xs mb-4">Capture your victories — big or small.</p>
+                <div className="space-y-4">
+                  {[1,2,3,4,5].map(n => (
+                    <div key={n} className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                      <div className="flex items-center gap-2 mb-3">
+                        <span className="text-gold font-bold text-sm">Win {n}</span>
+                      </div>
+                      <div className="space-y-2">
+                        <div>
+                          <label className="block text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">Win</label>
+                          <input value={eveningPulse[`win_${n}_title`] || ''} onChange={e => setEveningPulse(prev => ({ ...prev, [`win_${n}_title`]: e.target.value }))} onBlur={saveEvening}
+                            placeholder="What was the win?"
+                            className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm" />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">What I did</label>
+                          <input value={eveningPulse[`win_${n}_action`] || ''} onChange={e => setEveningPulse(prev => ({ ...prev, [`win_${n}_action`]: e.target.value }))} onBlur={saveEvening}
+                            placeholder="How did I make it happen?"
+                            className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm" />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">Further progress</label>
+                          <input value={eveningPulse[`win_${n}_progress`] || ''} onChange={e => setEveningPulse(prev => ({ ...prev, [`win_${n}_progress`]: e.target.value }))} onBlur={saveEvening}
+                            placeholder="What's the next step?"
+                            className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Complete button */}
+            <div className="mt-10 pt-6 border-t border-zinc-800">
+              {eveningPulse.completed ? (
+                <div className="bg-zinc-900 border border-emerald-900/40 rounded-lg p-5 text-center">
+                  <svg className="w-10 h-10 text-emerald-400 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  <p className="text-white font-semibold text-sm mb-1">Debrief Complete</p>
+                  <p className="text-zinc-500 text-xs">
+                    Submitted {eveningPulse.completed_at ? new Date(eveningPulse.completed_at).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' }) + ' at ' + new Date(eveningPulse.completed_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : ''}
+                  </p>
+                </div>
+              ) : (
+                <div className="text-center">
+                  <p className="text-zinc-500 text-xs mb-4 uppercase tracking-widest">End of day. Lock it in.</p>
+                  <button onClick={completeEvening} disabled={eveningSaving}
+                    className="w-full sm:w-auto px-10 py-4 bg-gold hover:bg-gold-light disabled:opacity-40 text-zinc-950 font-bold text-xs uppercase tracking-widest rounded-lg transition">
+                    {eveningSaving ? 'Submitting...' : 'Complete The Debrief™'}
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}
