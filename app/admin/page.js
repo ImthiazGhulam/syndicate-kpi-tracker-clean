@@ -128,6 +128,9 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true)
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
+  // All-clients health data
+  const [clientHealth, setClientHealth] = useState({})
+
   // Client data
   const [dailyKpis, setDailyKpis] = useState([])
   const [weekMorningOps, setWeekMorningOps] = useState([])
@@ -168,8 +171,62 @@ export default function AdminPage() {
 
   const fetchClients = async () => {
     const { data } = await supabase.from('clients').select('*').order('name')
-    if (data) setClients(data)
+    if (data) {
+      setClients(data)
+      fetchAllClientHealth(data)
+    }
     setLoading(false)
+  }
+
+  const fetchAllClientHealth = async (clientList) => {
+    const monday = getMonday()
+    const sunday = getWeekDays(monday)[6]
+    const today = new Date().toISOString().split('T')[0]
+    const todayIdx = getWeekDays(monday).indexOf(today)
+    const elapsed = todayIdx >= 0 ? todayIdx + 1 : 7
+
+    // Fetch this week's morning ops and debriefs for ALL clients
+    const [morningRes, eveningRes, warWeeklyRes, reviewRes, identityRes] = await Promise.all([
+      supabase.from('daily_pulse').select('client_id, date, completed, identity_read').gte('date', monday).lte('date', sunday),
+      supabase.from('evening_pulse').select('client_id, date, completed').gte('date', monday).lte('date', sunday),
+      supabase.from('war_map_weekly').select('client_id, completed').eq('week_of', monday),
+      supabase.from('weekly_review').select('client_id, completed').eq('week_of', monday),
+      supabase.from('identity_change').select('client_id, affirmations'),
+    ])
+
+    const health = {}
+    clientList.forEach(c => {
+      const mp = morningRes.data?.filter(r => r.client_id === c.id) || []
+      const ep = eveningRes.data?.filter(r => r.client_id === c.id) || []
+      const mornings = mp.filter(r => r.completed).length
+      const debriefs = ep.filter(r => r.completed).length
+      const identityReads = mp.filter(r => r.identity_read).length
+      const warMap = warWeeklyRes.data?.find(r => r.client_id === c.id)?.completed ? 1 : 0
+      const lockIn = reviewRes.data?.find(r => r.client_id === c.id)?.completed ? 1 : 0
+      const hasIdentity = identityRes.data?.find(r => r.client_id === c.id)?.affirmations?.trim().length > 0 ? 1 : 0
+
+      const score = Math.round(
+        (elapsed > 0 ? mornings / elapsed : 0) * 25 +
+        (elapsed > 0 ? debriefs / elapsed : 0) * 20 +
+        (elapsed > 0 ? identityReads / elapsed : 0) * 10 +
+        warMap * 15 + lockIn * 15 +
+        0 * 15 // tracker — would need another fetch, skip for overview
+      )
+
+      const alerts = []
+      if (mornings === 0 && elapsed >= 3) alerts.push('No morning ops')
+      if (debriefs === 0 && elapsed >= 3) alerts.push('No debriefs')
+      if (!hasIdentity) alerts.push('No identity set')
+      if (c.programme_renewal) {
+        const dLeft = Math.ceil((new Date(c.programme_renewal) - new Date()) / 86400000)
+        if (dLeft <= 30 && dLeft > 0) alerts.push(`Renews in ${dLeft}d`)
+      }
+
+      const status = score >= 70 ? 'healthy' : score >= 40 ? 'at-risk' : mornings === 0 && debriefs === 0 && elapsed >= 3 ? 'critical' : 'at-risk'
+
+      health[c.id] = { score, mornings, debriefs, identityReads, warMap, lockIn, hasIdentity, alerts, status, elapsed }
+    })
+    setClientHealth(health)
   }
 
   // ── Select Client & Fetch All ──────────────────────────────────────────────
@@ -457,7 +514,15 @@ export default function AdminPage() {
                     ? 'border-gold bg-gold/5 text-white'
                     : 'border-transparent text-zinc-400 hover:text-white hover:bg-zinc-800/50'
                 }`}>
-                <div className="font-medium text-sm">{client.name}</div>
+                <div className="flex items-center justify-between">
+                  <div className="font-medium text-sm">{client.name}</div>
+                  {clientHealth[client.id] && (
+                    <div className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${
+                      clientHealth[client.id].status === 'critical' ? 'bg-red-400 animate-pulse' :
+                      clientHealth[client.id].status === 'at-risk' ? 'bg-amber-400' : 'bg-emerald-400'
+                    }`} />
+                  )}
+                </div>
                 <div className="text-xs text-zinc-600 mt-0.5 truncate">{client.business || client.email}</div>
               </button>
             ))}
@@ -469,23 +534,199 @@ export default function AdminPage() {
 
         {/* Main */}
         <main className="flex-1 overflow-y-auto p-4 md:p-7">
-          {!selectedClient ? (
-            <div className="flex flex-col items-center justify-center h-full text-center py-20">
-              <div className="w-14 h-14 bg-zinc-900 border border-zinc-800 rounded-lg flex items-center justify-center mb-5">
-                <svg className="w-7 h-7 text-zinc-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-                </svg>
+          {!selectedClient ? (() => {
+            const healthEntries = clients.map(c => ({ ...c, health: clientHealth[c.id] || {} }))
+            const critical = healthEntries.filter(c => c.health.status === 'critical')
+            const atRisk = healthEntries.filter(c => c.health.status === 'at-risk')
+            const healthy = healthEntries.filter(c => c.health.status === 'healthy')
+            const avgScore = healthEntries.length > 0 ? Math.round(healthEntries.reduce((s, c) => s + (c.health.score || 0), 0) / healthEntries.length) : 0
+
+            return (
+            <div className="fade-in">
+              {/* Coach Command Centre Header */}
+              <div className="mb-8">
+                <h1 className="text-2xl font-bold text-white tracking-tight">Coach Command Centre</h1>
+                <p className="text-zinc-500 text-sm mt-1">Week of {new Date(getMonday()).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
               </div>
-              <h3 className="text-zinc-300 font-semibold mb-1">No client selected</h3>
-              <p className="text-zinc-600 text-sm">Choose a client from the sidebar.</p>
-              <button onClick={() => setSidebarOpen(true)} className="mt-6 md:hidden px-5 py-2.5 bg-gold text-zinc-950 font-bold text-xs uppercase tracking-widest rounded transition">
+
+              {/* Summary Cards */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 text-center">
+                  <p className="text-3xl font-black text-white">{clients.length}</p>
+                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-1">Total Clients</p>
+                </div>
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 text-center">
+                  <p className={`text-3xl font-black ${avgScore >= 70 ? 'text-emerald-400' : avgScore >= 40 ? 'text-amber-400' : 'text-red-400'}`}>{avgScore}%</p>
+                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-1">Avg Score</p>
+                </div>
+                <div className="bg-zinc-900 border border-red-900/30 rounded-xl p-5 text-center">
+                  <p className="text-3xl font-black text-red-400">{critical.length}</p>
+                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-1">Critical</p>
+                </div>
+                <div className="bg-zinc-900 border border-amber-900/30 rounded-xl p-5 text-center">
+                  <p className="text-3xl font-black text-amber-400">{atRisk.length}</p>
+                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-1">At Risk</p>
+                </div>
+              </div>
+
+              {/* Critical Clients — needs immediate attention */}
+              {critical.length > 0 && (
+                <div className="mb-8">
+                  <h2 className="text-xs font-bold text-red-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" /> Needs Immediate Attention
+                  </h2>
+                  <div className="space-y-2">
+                    {critical.map(c => (
+                      <button key={c.id} onClick={() => selectClient(c)}
+                        className="w-full bg-red-900/10 border border-red-900/30 rounded-xl p-4 flex items-center gap-4 text-left hover:bg-red-900/20 transition">
+                        <div className="relative flex-shrink-0">
+                          <div className="w-12 h-12 rounded-full bg-red-900/30 flex items-center justify-center">
+                            <span className="text-red-400 font-black text-lg">{c.health.score || 0}%</span>
+                          </div>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white font-semibold text-sm">{c.name}</p>
+                          <p className="text-zinc-500 text-xs truncate">{c.business}</p>
+                          <div className="flex flex-wrap gap-1.5 mt-1.5">
+                            {(c.health.alerts || []).map((a, i) => (
+                              <span key={i} className="text-[10px] px-2 py-0.5 bg-red-900/30 text-red-400 rounded font-semibold">{a}</span>
+                            ))}
+                          </div>
+                        </div>
+                        <svg className="w-4 h-4 text-zinc-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* At Risk */}
+              {atRisk.length > 0 && (
+                <div className="mb-8">
+                  <h2 className="text-xs font-bold text-amber-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-amber-400" /> At Risk — Monitor Closely
+                  </h2>
+                  <div className="space-y-2">
+                    {atRisk.sort((a, b) => (a.health.score || 0) - (b.health.score || 0)).map(c => (
+                      <button key={c.id} onClick={() => selectClient(c)}
+                        className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center gap-4 text-left hover:border-amber-900/40 transition">
+                        <div className="relative flex-shrink-0">
+                          <svg className="w-12 h-12 -rotate-90" viewBox="0 0 48 48">
+                            <circle cx="24" cy="24" r="20" fill="none" stroke="#27272a" strokeWidth="3" />
+                            <circle cx="24" cy="24" r="20" fill="none" stroke="#f59e0b" strokeWidth="3"
+                              strokeDasharray={`${((c.health.score || 0) / 100) * 125.7} 125.7`} strokeLinecap="round" />
+                          </svg>
+                          <span className="absolute inset-0 flex items-center justify-center text-amber-400 font-bold text-xs">{c.health.score || 0}%</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white font-semibold text-sm">{c.name}</p>
+                          <p className="text-zinc-500 text-xs truncate">{c.business}</p>
+                          <div className="flex gap-3 mt-1.5 text-[10px] text-zinc-600">
+                            <span>☀️ {c.health.mornings || 0}/{c.health.elapsed || 0}</span>
+                            <span>🌙 {c.health.debriefs || 0}/{c.health.elapsed || 0}</span>
+                            <span>{c.health.warMap ? '⚔️ ✓' : '⚔️ ✗'}</span>
+                            <span>{c.health.lockIn ? '🔒 ✓' : '🔒 ✗'}</span>
+                          </div>
+                        </div>
+                        <svg className="w-4 h-4 text-zinc-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Healthy */}
+              {healthy.length > 0 && (
+                <div className="mb-8">
+                  <h2 className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-emerald-400" /> On Track
+                  </h2>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    {healthy.sort((a, b) => (b.health.score || 0) - (a.health.score || 0)).map(c => (
+                      <button key={c.id} onClick={() => selectClient(c)}
+                        className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center gap-4 text-left hover:border-emerald-900/40 transition">
+                        <div className="relative flex-shrink-0">
+                          <svg className="w-11 h-11 -rotate-90" viewBox="0 0 48 48">
+                            <circle cx="24" cy="24" r="20" fill="none" stroke="#27272a" strokeWidth="3" />
+                            <circle cx="24" cy="24" r="20" fill="none" stroke="#34d399" strokeWidth="3"
+                              strokeDasharray={`${((c.health.score || 0) / 100) * 125.7} 125.7`} strokeLinecap="round" />
+                          </svg>
+                          <span className="absolute inset-0 flex items-center justify-center text-emerald-400 font-bold text-[10px]">{c.health.score || 0}%</span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-white font-medium text-sm">{c.name}</p>
+                          <p className="text-zinc-600 text-xs truncate">{c.business}</p>
+                        </div>
+                        <svg className="w-4 h-4 text-zinc-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Full Roster Table */}
+              <div>
+                <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3">Full Roster</h2>
+                <div className="overflow-x-auto border border-zinc-800 rounded-xl">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-zinc-900 border-b border-zinc-800">
+                        <th className="px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Client</th>
+                        <th className="px-3 py-3 text-center text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Score</th>
+                        <th className="px-3 py-3 text-center text-[10px] font-bold text-zinc-500 uppercase tracking-widest">☀️</th>
+                        <th className="px-3 py-3 text-center text-[10px] font-bold text-zinc-500 uppercase tracking-widest">🌙</th>
+                        <th className="px-3 py-3 text-center text-[10px] font-bold text-zinc-500 uppercase tracking-widest">🪞</th>
+                        <th className="px-3 py-3 text-center text-[10px] font-bold text-zinc-500 uppercase tracking-widest">⚔️</th>
+                        <th className="px-3 py-3 text-center text-[10px] font-bold text-zinc-500 uppercase tracking-widest">🔒</th>
+                        <th className="px-3 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {healthEntries.sort((a, b) => (a.health.score || 0) - (b.health.score || 0)).map(c => {
+                        const h = c.health
+                        return (
+                          <tr key={c.id} onClick={() => selectClient(c)}
+                            className="border-b border-zinc-900 hover:bg-zinc-900/60 cursor-pointer transition">
+                            <td className="px-4 py-3">
+                              <p className="text-white font-medium">{c.name}</p>
+                              <p className="text-zinc-600 text-xs">{c.business}</p>
+                            </td>
+                            <td className="px-3 py-3 text-center">
+                              <span className={`font-bold ${(h.score || 0) >= 70 ? 'text-emerald-400' : (h.score || 0) >= 40 ? 'text-amber-400' : 'text-red-400'}`}>
+                                {h.score || 0}%
+                              </span>
+                            </td>
+                            <td className="px-3 py-3 text-center text-zinc-400">{h.mornings || 0}/{h.elapsed || 0}</td>
+                            <td className="px-3 py-3 text-center text-zinc-400">{h.debriefs || 0}/{h.elapsed || 0}</td>
+                            <td className="px-3 py-3 text-center text-zinc-400">{h.identityReads || 0}/{h.elapsed || 0}</td>
+                            <td className="px-3 py-3 text-center">{h.warMap ? <span className="text-emerald-400">✓</span> : <span className="text-zinc-700">✗</span>}</td>
+                            <td className="px-3 py-3 text-center">{h.lockIn ? <span className="text-emerald-400">✓</span> : <span className="text-zinc-700">✗</span>}</td>
+                            <td className="px-3 py-3">
+                              <span className={`text-xs font-bold uppercase tracking-widest ${
+                                h.status === 'critical' ? 'text-red-400' : h.status === 'at-risk' ? 'text-amber-400' : 'text-emerald-400'
+                              }`}>{h.status === 'at-risk' ? 'At Risk' : h.status === 'critical' ? 'Critical' : 'Healthy'}</span>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <button onClick={() => setSidebarOpen(true)} className="mt-8 md:hidden w-full py-3 bg-gold text-zinc-950 font-bold text-xs uppercase tracking-widest rounded-lg transition">
                 Select Client
               </button>
             </div>
-          ) : (
+            )
+          })() : (
             <div>
               {/* Client Header */}
               <div className="mb-5">
+                <button onClick={() => setSelectedClient(null)} className="flex items-center gap-1.5 text-zinc-500 hover:text-gold text-xs font-semibold uppercase tracking-widest mb-3 transition">
+                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                  All Clients
+                </button>
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <h1 className="text-2xl font-bold text-white tracking-tight">{selectedClient.name}</h1>
