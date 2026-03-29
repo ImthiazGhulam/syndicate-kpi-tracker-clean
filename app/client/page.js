@@ -752,12 +752,22 @@ export default function ClientPage() {
 
   const saveProject = async () => {
     if (!projectForm.name.trim()) return
-    const payload = { ...projectForm, client_id: clientData.id }
+    const payload = { client_id: clientData.id, name: projectForm.name.trim() }
+    if (projectForm.description) payload.description = projectForm.description
+    if (projectForm.status) payload.status = projectForm.status
+    if (projectForm.priority) payload.priority = projectForm.priority
+    if (projectForm.start_date) payload.start_date = projectForm.start_date
+    if (projectForm.end_date) payload.end_date = projectForm.end_date
+    if (projectForm.links) payload.links = projectForm.links
+    if (projectForm.resources) payload.resources = projectForm.resources
+
     if (editingProject) {
-      const { data } = await supabase.from('projects').update(payload).eq('id', editingProject).select().single()
+      const { data, error } = await supabase.from('projects').update(payload).eq('id', editingProject).select().single()
+      if (error) { console.error('Update project error:', error); alert('Failed to save: ' + error.message); return }
       if (data) { setProjects(prev => prev.map(p => p.id === editingProject ? data : p)); flash() }
     } else {
-      const { data } = await supabase.from('projects').insert([payload]).select().single()
+      const { data, error } = await supabase.from('projects').insert([payload]).select().single()
+      if (error) { console.error('Insert project error:', error); alert('Failed to save: ' + error.message); return }
       if (data) { setProjects(prev => [data, ...prev]); setProjectTasks(prev => ({ ...prev, [data.id]: [] })); flash() }
     }
     resetProjectForm()
