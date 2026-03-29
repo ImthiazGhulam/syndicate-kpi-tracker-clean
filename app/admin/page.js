@@ -140,6 +140,7 @@ export default function AdminPage() {
   const [monthlyReview, setMonthlyReview] = useState(null)
   const [allMonthlyReviews, setAllMonthlyReviews] = useState([])
   const [clientPlaybook, setClientPlaybook] = useState(null)
+  const [clientPremiumPos, setClientPremiumPos] = useState(null)
   const [identityChange, setIdentityChange] = useState(null)
   const [lifeDesign, setLifeDesign] = useState(null)
   const [adventures, setAdventures] = useState(defaultAdventures())
@@ -257,7 +258,7 @@ export default function AdminPage() {
     const [
       dkpiRes, morningRes, eveningRes, warWeeklyRes, reviewRes,
       monthlyRes, allMonthlyRes, identityRes, designRes, adventuresRes, warTasksRes,
-      projectsRes, leadsRes, weekKpisRes, playbookRes,
+      projectsRes, leadsRes, weekKpisRes, playbookRes, premiumPosRes,
     ] = await Promise.all([
       supabase.from('daily_kpis').select('*').eq('client_id', client.id).gte('date', mStart).lte('date', mEnd).order('date'),
       supabase.from('daily_pulse').select('*').eq('client_id', client.id).gte('date', monday).lte('date', sunday),
@@ -274,6 +275,7 @@ export default function AdminPage() {
       supabase.from('leads').select('*').eq('client_id', client.id).order('created_at', { ascending: true }),
       supabase.from('daily_kpis').select('*').eq('client_id', client.id).gte('date', monday).lte('date', sunday),
       supabase.from('offer_playbooks').select('*').eq('client_id', client.id).order('updated_at', { ascending: false }).limit(1).maybeSingle(),
+      supabase.from('premium_position').select('*').eq('client_id', client.id).maybeSingle(),
     ])
 
     setDailyKpis(dkpiRes.data || [])
@@ -287,6 +289,7 @@ export default function AdminPage() {
     setLifeDesign(designRes.data || null)
     setWeekKpis(weekKpisRes.data || [])
     setClientPlaybook(playbookRes.data || null)
+    setClientPremiumPos(premiumPosRes.data || null)
 
     if (adventuresRes.data?.length > 0) {
       const merged = defaultAdventures().map(def =>
@@ -458,6 +461,7 @@ export default function AdminPage() {
     ]},
     { heading: 'Build™', items: [
       { id: 'playbook',     label: 'Sold Out™ Playbook' },
+      { id: 'premium-pos',  label: 'Premium Position™' },
     ]},
   ]
 
@@ -1061,6 +1065,55 @@ export default function AdminPage() {
                             { label: 'ICP', score: pbScores.icp_score || 0, max: 15, color: 'bg-sky-400' },
                             { label: 'Dip', score: pbScores.dip_score || 0, max: 10, color: 'bg-violet-400' },
                             { label: 'Offer', score: pbScores.bb_score || 0, max: 15, color: 'bg-gold' },
+                          ].map(s => (
+                            <div key={s.label}>
+                              <div className="flex justify-between text-[10px] mb-1">
+                                <span className="text-zinc-500 font-bold uppercase tracking-widest">{s.label}</span>
+                                <span className="text-white font-bold">{s.score}/{s.max}</span>
+                              </div>
+                              <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                                <div className={`h-full rounded-full ${s.color}`} style={{ width: `${(s.score / s.max) * 100}%` }} />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  })()}
+
+                  {/* Premium Position™ Score */}
+                  {clientPremiumPos && (() => {
+                    const ppScores = clientPremiumPos.scores || {}
+                    const ppTotal = (ppScores.bucket_score || 0) + (ppScores.star_score || 0) + (ppScores.hero_score || 0) + (ppScores.remarkable_score || 0)
+                    const ppBand = ppTotal >= 41 ? 'Offer-Ready' : ppTotal >= 31 ? 'Strong' : ppTotal >= 21 ? 'Getting There' : 'Needs Work'
+                    return (
+                      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-xs font-bold text-white uppercase tracking-widest flex items-center gap-2">
+                            <span className="text-base">👑</span> Premium Position™
+                          </h3>
+                          <span className={`text-xs font-bold uppercase tracking-widest ${ppTotal >= 41 ? 'text-emerald-400' : ppTotal >= 31 ? 'text-gold' : ppTotal >= 21 ? 'text-amber-400' : 'text-red-400'}`}>{ppBand}</span>
+                        </div>
+                        <div className="flex items-center gap-4 mb-4">
+                          <div className="relative flex-shrink-0">
+                            <svg className="w-16 h-16 -rotate-90" viewBox="0 0 64 64">
+                              <circle cx="32" cy="32" r="28" fill="none" stroke="#27272a" strokeWidth="4" />
+                              <circle cx="32" cy="32" r="28" fill="none" stroke="#C9A84C" strokeWidth="4"
+                                strokeDasharray={`${(ppTotal / 50) * 175.9} 175.9`} strokeLinecap="round" />
+                            </svg>
+                            <span className="absolute inset-0 flex items-center justify-center text-lg font-black text-white">{ppTotal}</span>
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-white font-semibold text-sm">Brand Positioning</p>
+                            <p className="text-zinc-600 text-xs">Stage {clientPremiumPos.current_stage || 1} of 5</p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-4 gap-2">
+                          {[
+                            { label: 'Bucket', score: ppScores.bucket_score || 0, max: 10, color: 'bg-sky-400' },
+                            { label: 'Star', score: ppScores.star_score || 0, max: 10, color: 'bg-violet-400' },
+                            { label: 'Hero', score: ppScores.hero_score || 0, max: 15, color: 'bg-gold' },
+                            { label: 'Factor', score: ppScores.remarkable_score || 0, max: 15, color: 'bg-emerald-400' },
                           ].map(s => (
                             <div key={s.label}>
                               <div className="flex justify-between text-[10px] mb-1">
@@ -2282,6 +2335,164 @@ export default function AdminPage() {
                         <div className="mt-3 pt-3 border-t border-zinc-800">
                           <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Continuity</p>
                           <p className="text-zinc-300 text-sm">{bb.continuity_offer}{bb.continuity_price ? ` — £${Number(bb.continuity_price).toLocaleString()}` : ''}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                )
+              })()}
+
+              {/* ══════════════════════════════════════════════════════════════ */}
+              {/* ── PREMIUM POSITION™ ─────────────────────────────────────── */}
+              {/* ══════════════════════════════════════════════════════════════ */}
+              {activeTab === 'premium-pos' && (() => {
+                if (!clientPremiumPos) return (
+                  <div className="fade-in text-center py-16">
+                    <span className="text-4xl mb-4 block">👑</span>
+                    <p className="text-zinc-500 text-sm font-medium">Client hasn't started their Premium Position™ Blueprint yet.</p>
+                  </div>
+                )
+
+                const pp = clientPremiumPos
+                const scores = pp.scores || {}
+                const totalScore = (scores.bucket_score || 0) + (scores.star_score || 0) + (scores.hero_score || 0) + (scores.remarkable_score || 0)
+                const maxScore = 50
+                const band = totalScore >= 41 ? 'Offer-Ready' : totalScore >= 31 ? 'Strong Foundation' : totalScore >= 21 ? 'Getting There' : 'Needs Work'
+                const bucket = pp.bucket || {}
+                const star = pp.brand_star || {}
+                const hero = pp.hero || {}
+                const remarkable = pp.remarkable || {}
+
+                return (
+                <div className="fade-in">
+                  {/* Score Hero */}
+                  <div className="bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-800 border border-zinc-700/50 rounded-2xl p-6 sm:p-8 mb-6">
+                    <div className="flex flex-col sm:flex-row items-center gap-6">
+                      <div className="relative flex-shrink-0">
+                        <svg className="w-28 h-28 -rotate-90" viewBox="0 0 120 120">
+                          <circle cx="60" cy="60" r="52" fill="none" stroke="#27272a" strokeWidth="6" />
+                          <circle cx="60" cy="60" r="52" fill="none" stroke="#C9A84C" strokeWidth="6"
+                            strokeDasharray={`${(totalScore / maxScore) * 326.7} 326.7`} strokeLinecap="round" />
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                          <span className="text-3xl font-black text-white">{totalScore}</span>
+                          <span className="text-[10px] font-bold text-zinc-500">/ {maxScore}</span>
+                        </div>
+                      </div>
+                      <div className="text-center sm:text-left">
+                        <h2 className="text-lg font-black text-white uppercase tracking-wider">Premium Position™</h2>
+                        <div className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border ${
+                          totalScore >= 41 ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
+                          totalScore >= 31 ? 'bg-gold/20 text-gold border-gold/30' :
+                          totalScore >= 21 ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
+                          'bg-red-500/20 text-red-400 border-red-500/30'
+                        }`}>{band}</div>
+                        <p className="text-zinc-600 text-xs mt-2">Stage {pp.current_stage || 1} of 5 · Updated {pp.updated_at ? new Date(pp.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'}</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-4 gap-3 mt-6">
+                      {[
+                        { label: 'Brand Bucket', score: scores.bucket_score || 0, max: 10, color: 'bg-sky-400' },
+                        { label: 'Brand Star', score: scores.star_score || 0, max: 10, color: 'bg-violet-400' },
+                        { label: 'Hero', score: scores.hero_score || 0, max: 15, color: 'bg-gold' },
+                        { label: 'Remarkable', score: scores.remarkable_score || 0, max: 15, color: 'bg-emerald-400' },
+                      ].map(s => (
+                        <div key={s.label}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{s.label}</span>
+                            <span className="text-xs font-bold text-white">{s.score}/{s.max}</span>
+                          </div>
+                          <div className="h-2 bg-zinc-800 rounded-full overflow-hidden">
+                            <div className={`h-full rounded-full ${s.color}`} style={{ width: `${(s.score / s.max) * 100}%` }} />
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Brand Bucket Diagnosis */}
+                  {bucket.likerts && (
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-4">
+                      <h3 className="text-xs font-bold text-sky-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <span className="text-base">🪣</span> Brand Bucket™ Diagnosis
+                      </h3>
+                      <div className="grid grid-cols-3 gap-4 mb-4">
+                        {[
+                          { label: 'Visibility', score: (bucket.likerts?.v1 || 0) + (bucket.likerts?.v2 || 0) + (bucket.likerts?.v3 || 0) + (bucket.likerts?.v4 || 0), color: 'text-sky-400' },
+                          { label: 'Engagement', score: (bucket.likerts?.e1 || 0) + (bucket.likerts?.e2 || 0) + (bucket.likerts?.e3 || 0) + (bucket.likerts?.e4 || 0), color: 'text-violet-400' },
+                          { label: 'Trust', score: (bucket.likerts?.t1 || 0) + (bucket.likerts?.t2 || 0) + (bucket.likerts?.t3 || 0) + (bucket.likerts?.t4 || 0), color: 'text-gold' },
+                        ].map(l => {
+                          const verdict = l.score >= 15 ? 'Healthy' : l.score >= 9 ? 'Needs attention' : 'Critical leak'
+                          const vColor = l.score >= 15 ? 'text-emerald-400' : l.score >= 9 ? 'text-amber-400' : 'text-red-400'
+                          return (
+                            <div key={l.label} className="text-center">
+                              <p className={`text-2xl font-black ${l.color}`}>{l.score}/20</p>
+                              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-1">{l.label}</p>
+                              <p className={`text-[10px] font-bold uppercase tracking-widest mt-0.5 ${vColor}`}>{verdict}</p>
+                            </div>
+                          )
+                        })}
+                      </div>
+                      {bucket.gap_description && (
+                        <div className="mt-3 pt-3 border-t border-zinc-800">
+                          <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">In Their Own Words</p>
+                          <p className="text-zinc-300 text-sm leading-relaxed">{bucket.gap_description}</p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Brand Star Summary */}
+                  {(star.name || star.specific_description || star.contrarian_belief) && (
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-4">
+                      <h3 className="text-xs font-bold text-violet-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <span className="text-base">⭐</span> Colt Brand Star™
+                      </h3>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        {star.name && <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Brand</p><p className="text-white text-sm font-semibold">{star.name}</p></div>}
+                        {star.specific_description && <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Who They Serve</p><p className="text-zinc-300 text-sm">{star.specific_description}</p></div>}
+                        {star.what_you_do && <div className="sm:col-span-2"><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">What They Do</p><p className="text-zinc-300 text-sm">{star.what_you_do}</p></div>}
+                        {star.contrarian_belief && <div className="sm:col-span-2"><p className="text-[10px] font-bold text-gold uppercase tracking-widest mb-1">Contrarian Belief</p><p className="text-white text-sm leading-relaxed italic">"{star.contrarian_belief}"</p></div>}
+                        {star.refuse && <div className="sm:col-span-2"><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">What They Refuse</p><p className="text-zinc-300 text-sm">{star.refuse}</p></div>}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Hero Framework Summary */}
+                  {(hero.origin || hero.turning_point || hero.gift) && (
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-4">
+                      <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <span className="text-base">🦸</span> Hero Framework
+                      </h3>
+                      <div className="space-y-3">
+                        {hero.origin && <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Origin</p><p className="text-zinc-300 text-sm leading-relaxed">{hero.origin}</p></div>}
+                        {hero.turning_point && <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Turning Point</p><p className="text-zinc-300 text-sm leading-relaxed">{hero.turning_point}</p></div>}
+                        {hero.gift && <div><p className="text-[10px] font-bold text-gold uppercase tracking-widest mb-1">The Gift</p><p className="text-white text-sm leading-relaxed">{hero.gift}</p></div>}
+                        {hero.identity_label && <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Identity Label</p><p className="text-violet-400 text-sm font-semibold">{hero.identity_label}</p></div>}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Remarkable Factor Summary */}
+                  {(remarkable.category || remarkable.mechanism || remarkable.provocation) && (
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-4">
+                      <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <span className="text-base">💎</span> Remarkable Factor
+                      </h3>
+                      {remarkable.category && <div className="mb-3"><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Category Owned</p><p className="text-white text-sm font-semibold">{remarkable.category}</p></div>}
+                      {remarkable.mechanism && <div className="mb-3"><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Unique Mechanism</p><p className="text-zinc-300 text-sm">{remarkable.mechanism}</p></div>}
+                      {remarkable.provocation && <div className="mb-3"><p className="text-[10px] font-bold text-gold uppercase tracking-widest mb-1">Provocation</p><p className="text-white text-sm leading-relaxed italic">"{remarkable.provocation}"</p></div>}
+                      {remarkable.signals?.length > 0 && (
+                        <div className="mt-3 pt-3 border-t border-zinc-800">
+                          <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1.5">Premium Signals</p>
+                          <div className="flex flex-wrap gap-1">{remarkable.signals.map(s => <span key={s} className="px-2 py-0.5 bg-emerald-900/20 text-emerald-400 rounded text-[10px] font-semibold">{s}</span>)}</div>
+                        </div>
+                      )}
+                      {remarkable.signal_gaps?.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1.5">Signal Gaps</p>
+                          <div className="flex flex-wrap gap-1">{remarkable.signal_gaps.map(s => <span key={s} className="px-2 py-0.5 bg-red-900/20 text-red-400 rounded text-[10px] font-semibold">{s}</span>)}</div>
                         </div>
                       )}
                     </div>
