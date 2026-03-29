@@ -204,6 +204,14 @@ export default function ClientPage() {
   const [kpiMonth, setKpiMonth] = useState(new Date().getMonth())
   const [kpiYear, setKpiYear] = useState(new Date().getFullYear())
 
+  // Projects — CRUD
+  const [showProjectForm, setShowProjectForm] = useState(false)
+  const [editingProject, setEditingProject] = useState(null)
+  const [projectForm, setProjectForm] = useState({ name: '', description: '', status: 'planning', priority: 'medium', start_date: '', end_date: '', links: '', resources: '' })
+  const [projectTasks, setProjectTasks] = useState({})
+  const [newTaskInputs, setNewTaskInputs] = useState({})
+  const [expandedProjects, setExpandedProjects] = useState({})
+
   // Hot List — lead pipeline
   const [leads, setLeads] = useState([])
   const [addingLeadCol, setAddingLeadCol] = useState(null)
@@ -352,7 +360,17 @@ export default function ClientPage() {
       setMonthlyKpis(obj)
     }
     if (checkinsRes.data) setCheckins(checkinsRes.data)
-    if (projectsRes.data) setProjects(projectsRes.data)
+    if (projectsRes.data) {
+      setProjects(projectsRes.data)
+      // Fetch tasks for all projects
+      const taskPromises = projectsRes.data.map(p =>
+        supabase.from('project_tasks').select('*').eq('project_id', p.id).order('created_at')
+      )
+      const taskResults = await Promise.all(taskPromises)
+      const tasksMap = {}
+      projectsRes.data.forEach((p, i) => { tasksMap[p.id] = taskResults[i].data || [] })
+      setProjectTasks(tasksMap)
+    }
 
     if (designRes.data) {
       setLifeDesign(designRes.data)
@@ -711,6 +729,57 @@ export default function ClientPage() {
     }, { onConflict: 'client_id,week_of' }).select().single()
     if (data) setWeeklyReview(data)
     setReviewSaving(false)
+  }
+
+  // Projects CRUD
+  const resetProjectForm = () => {
+    setProjectForm({ name: '', description: '', status: 'planning', priority: 'medium', start_date: '', end_date: '', links: '', resources: '' })
+    setEditingProject(null)
+    setShowProjectForm(false)
+  }
+
+  const saveProject = async () => {
+    if (!projectForm.name.trim()) return
+    const payload = { ...projectForm, client_id: clientData.id }
+    if (editingProject) {
+      const { data } = await supabase.from('projects').update(payload).eq('id', editingProject).select().single()
+      if (data) { setProjects(prev => prev.map(p => p.id === editingProject ? data : p)); flash() }
+    } else {
+      const { data } = await supabase.from('projects').insert([payload]).select().single()
+      if (data) { setProjects(prev => [data, ...prev]); setProjectTasks(prev => ({ ...prev, [data.id]: [] })); flash() }
+    }
+    resetProjectForm()
+  }
+
+  const editProject = (p) => {
+    setProjectForm({ name: p.name || '', description: p.description || '', status: p.status || 'planning', priority: p.priority || 'medium', start_date: p.start_date || '', end_date: p.end_date || '', links: p.links || '', resources: p.resources || '' })
+    setEditingProject(p.id)
+    setShowProjectForm(true)
+  }
+
+  const deleteProject = async (id) => {
+    await supabase.from('projects').delete().eq('id', id)
+    setProjects(prev => prev.filter(p => p.id !== id))
+  }
+
+  const addProjectTask = async (projectId) => {
+    const title = newTaskInputs[projectId]?.trim()
+    if (!title) return
+    const { data } = await supabase.from('project_tasks').insert([{ project_id: projectId, client_id: clientData.id, title }]).select().single()
+    if (data) setProjectTasks(prev => ({ ...prev, [projectId]: [...(prev[projectId] || []), data] }))
+    setNewTaskInputs(prev => ({ ...prev, [projectId]: '' }))
+  }
+
+  const toggleProjectTask = async (projectId, taskId, completed) => {
+    await supabase.from('project_tasks').update({ completed: !completed }).eq('id', taskId)
+    setProjectTasks(prev => ({
+      ...prev, [projectId]: (prev[projectId] || []).map(t => t.id === taskId ? { ...t, completed: !completed } : t)
+    }))
+  }
+
+  const deleteProjectTask = async (projectId, taskId) => {
+    await supabase.from('project_tasks').delete().eq('id', taskId)
+    setProjectTasks(prev => ({ ...prev, [projectId]: (prev[projectId] || []).filter(t => t.id !== taskId) }))
   }
 
   const submitCheckin = async (e) => {
@@ -3040,14 +3109,91 @@ export default function ClientPage() {
         {/* ── PROJECTS ─────────────────────────────────────────────────────── */}
         {activeTab === 'projects' && (
           <div className="fade-in">
-            <h2 className="text-base font-semibold text-white uppercase tracking-wider mb-5">Your Projects</h2>
-            {projects.length === 0 ? (
+            <div className="flex items-center justify-between mb-5">
+              <h2 className="text-base font-semibold text-white uppercase tracking-wider">Projects</h2>
+              <button onClick={() => { resetProjectForm(); setShowProjectForm(true) }}
+                className="px-4 py-2 bg-gold text-zinc-950 font-bold text-xs uppercase tracking-widest rounded-lg hover:bg-gold/90 transition">
+                + Add Project
+              </button>
+            </div>
+
+            {/* Project Form */}
+            {showProjectForm && (
+              <div className="bg-zinc-900 border border-gold/30 rounded-xl p-5 mb-6">
+                <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-4">{editingProject ? 'Edit Project' : 'New Project'}</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">Name *</label>
+                    <input value={projectForm.name} onChange={e => setProjectForm(f => ({ ...f, name: e.target.value }))}
+                      placeholder="Project name"
+                      className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm" />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">Description</label>
+                    <textarea value={projectForm.description} onChange={e => setProjectForm(f => ({ ...f, description: e.target.value }))}
+                      rows={2} placeholder="Brief description..."
+                      className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition resize-none text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">Status</label>
+                    <select value={projectForm.status} onChange={e => setProjectForm(f => ({ ...f, status: e.target.value }))}
+                      className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm">
+                      <option value="planning">Planning</option>
+                      <option value="active">Active</option>
+                      <option value="paused">Paused</option>
+                      <option value="completed">Completed</option>
+                      <option value="cancelled">Cancelled</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">Priority</label>
+                    <select value={projectForm.priority} onChange={e => setProjectForm(f => ({ ...f, priority: e.target.value }))}
+                      className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm">
+                      <option value="low">Low</option>
+                      <option value="medium">Medium</option>
+                      <option value="high">High</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">Start Date</label>
+                    <input type="date" value={projectForm.start_date} onChange={e => setProjectForm(f => ({ ...f, start_date: e.target.value }))}
+                      className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm" />
+                  </div>
+                  <div>
+                    <label className="block text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">End Date</label>
+                    <input type="date" value={projectForm.end_date} onChange={e => setProjectForm(f => ({ ...f, end_date: e.target.value }))}
+                      className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm" />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">Links <span className="text-zinc-700">(one per line)</span></label>
+                    <textarea value={projectForm.links} onChange={e => setProjectForm(f => ({ ...f, links: e.target.value }))}
+                      rows={2} placeholder="https://..."
+                      className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition resize-none text-sm" />
+                  </div>
+                  <div className="sm:col-span-2">
+                    <label className="block text-[10px] font-semibold text-zinc-500 uppercase tracking-widest mb-1">Resources <span className="text-zinc-700">(one per line)</span></label>
+                    <textarea value={projectForm.resources} onChange={e => setProjectForm(f => ({ ...f, resources: e.target.value }))}
+                      rows={2} placeholder="Resource notes..."
+                      className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition resize-none text-sm" />
+                  </div>
+                </div>
+                <div className="flex gap-3 mt-5">
+                  <button onClick={saveProject} className="px-6 py-2.5 bg-gold text-zinc-950 font-bold text-xs uppercase tracking-widest rounded-lg hover:bg-gold/90 transition">
+                    {editingProject ? 'Update' : 'Create'}
+                  </button>
+                  <button onClick={resetProjectForm} className="px-4 py-2.5 text-zinc-500 hover:text-white text-xs uppercase tracking-widest font-semibold transition">Cancel</button>
+                </div>
+              </div>
+            )}
+
+            {/* Project List */}
+            {projects.length === 0 && !showProjectForm ? (
               <div className="text-center py-16">
                 <div className="inline-flex items-center justify-center w-12 h-12 bg-zinc-900 border border-zinc-800 rounded-lg mb-4">
                   <svg className="w-6 h-6 text-zinc-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
                 </div>
                 <p className="text-zinc-500 text-sm font-medium">No projects yet</p>
-                <p className="text-zinc-700 text-xs mt-1">Your coach will add them when you're ready.</p>
+                <p className="text-zinc-700 text-xs mt-1">Click "+ Add Project" to create one.</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -3059,18 +3205,94 @@ export default function ClientPage() {
                     cancelled: 'bg-red-500/10 text-red-400 border-red-500/30',
                     planning: 'bg-violet-500/10 text-violet-400 border-violet-500/30',
                   }
+                  const tasks = projectTasks[p.id] || []
+                  const completedTasks = tasks.filter(t => t.completed).length
+                  const expanded = expandedProjects[p.id]
                   return (
-                    <div key={p.id} className="bg-zinc-900 border border-zinc-800 rounded-lg p-5 card-lift">
-                      <div className="flex items-center gap-2.5 mb-2 flex-wrap">
-                        <h3 className="font-semibold text-white">{p.name}</h3>
-                        <span className={`px-2.5 py-0.5 rounded border text-xs font-semibold uppercase tracking-wide ${statusColors[p.status] || 'bg-zinc-700 text-zinc-300 border-zinc-600'}`}>{p.status}</span>
-                        {p.priority && <span className="text-xs text-zinc-600 uppercase tracking-wider">{p.priority} priority</span>}
+                    <div key={p.id} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
+                      <div className="p-5">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2.5 mb-2 flex-wrap">
+                              <h3 className="font-semibold text-white">{p.name}</h3>
+                              <span className={`px-2.5 py-0.5 rounded border text-xs font-semibold uppercase tracking-wide ${statusColors[p.status] || 'bg-zinc-700 text-zinc-300 border-zinc-600'}`}>{p.status}</span>
+                              {p.priority && <span className="text-xs text-zinc-600 uppercase tracking-wider">{p.priority}</span>}
+                            </div>
+                            {p.description && <p className="text-zinc-400 text-sm leading-relaxed">{p.description}</p>}
+                            <div className="flex flex-wrap gap-x-5 gap-y-1 mt-3 text-xs text-zinc-600 uppercase tracking-wide">
+                              {p.start_date && <span>Start: {formatDate(p.start_date)}</span>}
+                              {p.end_date && <span>End: {formatDate(p.end_date)}</span>}
+                              {tasks.length > 0 && <span>Tasks: {completedTasks}/{tasks.length}</span>}
+                            </div>
+                            {p.links && (
+                              <div className="mt-3">
+                                <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest mb-1">Links</p>
+                                {p.links.split('\n').filter(Boolean).map((link, i) => (
+                                  <a key={i} href={link.trim()} target="_blank" rel="noopener noreferrer" className="block text-xs text-gold hover:text-gold/80 truncate transition">{link.trim()}</a>
+                                ))}
+                              </div>
+                            )}
+                            {p.resources && (
+                              <div className="mt-2">
+                                <p className="text-[10px] font-semibold text-zinc-600 uppercase tracking-widest mb-1">Resources</p>
+                                {p.resources.split('\n').filter(Boolean).map((r, i) => (
+                                  <p key={i} className="text-xs text-zinc-400">{r.trim()}</p>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1 flex-shrink-0">
+                            <button onClick={() => editProject(p)} className="p-2 text-zinc-600 hover:text-gold active:text-gold transition rounded">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                            </button>
+                            <button onClick={() => deleteProject(p.id)} className="p-2 text-zinc-600 hover:text-red-400 active:text-red-400 transition rounded">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                            <button onClick={() => setExpandedProjects(prev => ({ ...prev, [p.id]: !prev[p.id] }))}
+                              className="p-2 text-zinc-600 hover:text-white active:text-white transition rounded">
+                              <svg className={`w-4 h-4 transition-transform ${expanded ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                            </button>
+                          </div>
+                        </div>
+                        {tasks.length > 0 && (
+                          <div className="mt-4">
+                            <div className="h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+                              <div className="h-full bg-gold rounded-full transition-all duration-500" style={{ width: `${(completedTasks / tasks.length) * 100}%` }} />
+                            </div>
+                          </div>
+                        )}
                       </div>
-                      {p.description && <p className="text-zinc-400 text-sm leading-relaxed">{p.description}</p>}
-                      <div className="flex gap-5 mt-3 text-xs text-zinc-600 uppercase tracking-wide">
-                        {p.start_date && <span>Start: {formatDate(p.start_date)}</span>}
-                        {p.end_date && <span>End: {formatDate(p.end_date)}</span>}
-                      </div>
+                      {expanded && (
+                        <div className="border-t border-zinc-800 px-5 py-4 bg-zinc-950/50">
+                          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Tasks</p>
+                          {tasks.length > 0 && (
+                            <div className="space-y-1.5 mb-3">
+                              {tasks.map(task => (
+                                <div key={task.id} className="flex items-center gap-3 group">
+                                  <button onClick={() => toggleProjectTask(p.id, task.id, task.completed)}
+                                    className={`w-5 h-5 rounded border-2 flex-shrink-0 flex items-center justify-center transition ${task.completed ? 'bg-emerald-500 border-emerald-500' : 'border-zinc-600 hover:border-zinc-400'}`}>
+                                    {task.completed && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                                  </button>
+                                  <p className={`text-sm flex-1 ${task.completed ? 'line-through text-zinc-500' : 'text-white'}`}>{task.title}</p>
+                                  <button onClick={() => deleteProjectTask(p.id, task.id)} className="p-1 text-zinc-700 hover:text-red-400 sm:opacity-0 sm:group-hover:opacity-100 transition">
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                          <div className="flex gap-2">
+                            <input value={newTaskInputs[p.id] || ''} onChange={e => setNewTaskInputs(prev => ({ ...prev, [p.id]: e.target.value }))}
+                              onKeyDown={e => { if (e.key === 'Enter') addProjectTask(p.id) }}
+                              placeholder="Add a task..."
+                              className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm" />
+                            <button onClick={() => addProjectTask(p.id)}
+                              className="px-3 py-2 bg-gold/20 text-gold border border-gold/30 rounded text-xs font-bold uppercase tracking-widest hover:bg-gold/30 active:bg-gold/30 transition">
+                              Add
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )
                 })}
