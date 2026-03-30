@@ -260,6 +260,8 @@ export default function ClientPage() {
   const [weeklyReview, setWeeklyReview] = useState({})
   const [reviewWeek, setReviewWeek] = useState(() => getMonday())
   const [reviewSaving, setReviewSaving] = useState(false)
+  const [allLockIns, setAllLockIns] = useState([])
+  const [allWarMaps, setAllWarMaps] = useState([])
 
   // Monthly Review
   const [monthlyReview, setMonthlyReview] = useState({})
@@ -355,7 +357,7 @@ export default function ClientPage() {
     const today = new Date().toISOString().split('T')[0]
     const mStart = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`
     const mEnd = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0]
-    const [dkpiRes, checkinsRes, projectsRes, designRes, adventuresRes, warRes, weeklyRes, pulseRes, leadsRes, identityRes, eveningRes, reviewRes, weekPulsesRes, weekDebriefsRes, weekKpisRes, monthlyRes, lastMonthlyRes] = await Promise.all([
+    const [dkpiRes, checkinsRes, projectsRes, designRes, adventuresRes, warRes, weeklyRes, pulseRes, leadsRes, identityRes, eveningRes, reviewRes, weekPulsesRes, weekDebriefsRes, weekKpisRes, monthlyRes, lastMonthlyRes, allLockInsRes, allWarMapsRes] = await Promise.all([
       supabase.from('daily_kpis').select('*').eq('client_id', client.id).gte('date', mStart).lte('date', mEnd),
       supabase.from('checkins').select('*').eq('client_id', client.id).order('checkin_date', { ascending: false }),
       supabase.from('projects').select('*').eq('client_id', client.id).order('start_date', { ascending: false }),
@@ -368,6 +370,8 @@ export default function ClientPage() {
       supabase.from('identity_change').select('*').eq('client_id', client.id).maybeSingle(),
       supabase.from('evening_pulse').select('*').eq('client_id', client.id).eq('date', today).maybeSingle(),
       supabase.from('weekly_review').select('*').eq('client_id', client.id).eq('week_of', monday).maybeSingle(),
+      supabase.from('weekly_review').select('week_of, completed, completed_at, revenue, week_rating').eq('client_id', client.id).order('week_of', { ascending: false }),
+      supabase.from('war_map_weekly').select('week_of, completed, completed_at, number_one_priority').eq('client_id', client.id).order('week_of', { ascending: false }),
       supabase.from('daily_pulse').select('*').eq('client_id', client.id).gte('date', monday).lte('date', new Date(new Date(monday).getTime() + 6*86400000).toISOString().split('T')[0]),
       supabase.from('evening_pulse').select('*').eq('client_id', client.id).gte('date', monday).lte('date', new Date(new Date(monday).getTime() + 6*86400000).toISOString().split('T')[0]),
       supabase.from('daily_kpis').select('*').eq('client_id', client.id).gte('date', monday).lte('date', new Date(new Date(monday).getTime() + 6*86400000).toISOString().split('T')[0]),
@@ -431,6 +435,8 @@ export default function ClientPage() {
     if (monthlyRes.data) setMonthlyReview(monthlyRes.data)
     else setMonthlyReview({})
     setLastMonthReview(lastMonthlyRes.data || null)
+    if (allLockInsRes.data) setAllLockIns(allLockInsRes.data)
+    if (allWarMapsRes.data) setAllWarMaps(allWarMapsRes.data)
     setLoading(false)
   }
 
@@ -2412,6 +2418,31 @@ export default function ClientPage() {
               )}
             </div>
 
+            {/* Past War Maps */}
+            {allWarMaps.length > 0 && (
+              <div className="mt-10 pt-6 border-t border-zinc-800">
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-4">History</h3>
+                <div className="space-y-2">
+                  {allWarMaps.map(wm => (
+                    <button key={wm.week_of} onClick={() => setWarMapWeek(wm.week_of)}
+                      className={`w-full flex items-center justify-between px-4 py-3 rounded-lg border transition text-left ${
+                        warMapWeek === wm.week_of ? 'border-gold/30 bg-gold/5' : 'border-zinc-800 bg-zinc-900 hover:border-zinc-700'
+                      }`}>
+                      <div>
+                        <p className="text-sm text-white font-medium">{formatWeekRange(wm.week_of)}</p>
+                        {wm.number_one_priority && <p className="text-[10px] text-zinc-500 mt-0.5 truncate max-w-[250px]">{wm.number_one_priority}</p>}
+                      </div>
+                      {wm.completed ? (
+                        <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Done</span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">Draft</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* ── TASK MODAL ────────────────────────────────────────────── */}
             {taskModal && (
               <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center sm:p-4"
@@ -3224,6 +3255,34 @@ export default function ClientPage() {
                 </div>
               )}
             </div>
+
+            {/* Past Lock Ins */}
+            {allLockIns.length > 0 && (
+              <div className="mt-10 pt-6 border-t border-zinc-800">
+                <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-4">History</h3>
+                <div className="space-y-2">
+                  {allLockIns.map(li => (
+                    <button key={li.week_of} onClick={() => setReviewWeek(li.week_of)}
+                      className={`w-full flex items-center justify-between px-4 py-3 rounded-lg border transition text-left ${
+                        reviewWeek === li.week_of ? 'border-gold/30 bg-gold/5' : 'border-zinc-800 bg-zinc-900 hover:border-zinc-700'
+                      }`}>
+                      <div>
+                        <p className="text-sm text-white font-medium">{formatWeekRange(li.week_of)}</p>
+                        <div className="flex items-center gap-3 mt-1">
+                          {li.week_rating && <span className="text-[10px] text-zinc-500">Rating: {li.week_rating}/10</span>}
+                          {li.revenue > 0 && <span className="text-[10px] text-emerald-400">£{Number(li.revenue).toLocaleString()}</span>}
+                        </div>
+                      </div>
+                      {li.completed ? (
+                        <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Done</span>
+                      ) : (
+                        <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">Draft</span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 

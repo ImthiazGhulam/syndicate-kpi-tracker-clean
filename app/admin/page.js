@@ -24,6 +24,19 @@ function getMonday(d = new Date()) {
   return date.toISOString().split('T')[0]
 }
 
+function shiftWeek(weekStr, n) {
+  const d = new Date(weekStr)
+  d.setDate(d.getDate() + n * 7)
+  return d.toISOString().split('T')[0]
+}
+
+function formatWeekRange(weekStr) {
+  const start = new Date(weekStr)
+  const end = new Date(weekStr)
+  end.setDate(end.getDate() + 6)
+  return `${start.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${end.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
+}
+
 function getWeekDays(mondayStr) {
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(mondayStr)
@@ -137,6 +150,10 @@ export default function AdminPage() {
   const [weekDebriefs, setWeekDebriefs] = useState([])
   const [warMapWeekly, setWarMapWeekly] = useState(null)
   const [weeklyReview, setWeeklyReview] = useState(null)
+  const [allClientLockIns, setAllClientLockIns] = useState([])
+  const [allClientWarMaps, setAllClientWarMaps] = useState([])
+  const [adminReviewWeek, setAdminReviewWeek] = useState(() => getMonday())
+  const [adminWarMapWeek, setAdminWarMapWeek] = useState(() => getMonday())
   const [monthlyReview, setMonthlyReview] = useState(null)
   const [allMonthlyReviews, setAllMonthlyReviews] = useState([])
   const [clientPlaybook, setClientPlaybook] = useState(null)
@@ -269,12 +286,15 @@ export default function AdminPage() {
       dkpiRes, morningRes, eveningRes, warWeeklyRes, reviewRes,
       monthlyRes, allMonthlyRes, identityRes, designRes, adventuresRes, warTasksRes,
       projectsRes, leadsRes, weekKpisRes, playbookRes, premiumPosRes,
+      allLockInsRes, allWarMapsRes,
     ] = await Promise.all([
       supabase.from('daily_kpis').select('*').eq('client_id', client.id).gte('date', mStart).lte('date', mEnd).order('date'),
       supabase.from('daily_pulse').select('*').eq('client_id', client.id).gte('date', monday).lte('date', sunday),
       supabase.from('evening_pulse').select('*').eq('client_id', client.id).gte('date', monday).lte('date', sunday),
       supabase.from('war_map_weekly').select('*').eq('client_id', client.id).eq('week_of', monday).maybeSingle(),
       supabase.from('weekly_review').select('*').eq('client_id', client.id).eq('week_of', monday).maybeSingle(),
+      supabase.from('weekly_review').select('week_of, completed, completed_at, revenue, week_rating').eq('client_id', client.id).order('week_of', { ascending: false }),
+      supabase.from('war_map_weekly').select('week_of, completed, completed_at, number_one_priority').eq('client_id', client.id).order('week_of', { ascending: false }),
       supabase.from('monthly_review').select('*').eq('client_id', client.id).eq('month', new Date().getMonth()).eq('year', year).maybeSingle(),
       supabase.from('monthly_review').select('*').eq('client_id', client.id).order('year').order('month'),
       supabase.from('identity_change').select('*').eq('client_id', client.id).maybeSingle(),
@@ -300,6 +320,10 @@ export default function AdminPage() {
     setWeekKpis(weekKpisRes.data || [])
     setClientPlaybook(playbookRes.data || null)
     setClientPremiumPos(premiumPosRes.data || null)
+    setAllClientLockIns(allLockInsRes.data || [])
+    setAllClientWarMaps(allWarMapsRes.data || [])
+    setAdminReviewWeek(monday)
+    setAdminWarMapWeek(monday)
 
     if (adventuresRes.data?.length > 0) {
       const merged = defaultAdventures().map(def =>
@@ -1903,13 +1927,23 @@ export default function AdminPage() {
                   <div className="flex items-center justify-between mb-6">
                     <div>
                       <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">The Lock In — Weekly Review</h3>
-                      <p className="text-zinc-600 text-xs mt-1">Week of {formatDate(getMonday())}</p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button onClick={async () => { const w = shiftWeek(adminReviewWeek, -1); setAdminReviewWeek(w); const { data } = await supabase.from('weekly_review').select('*').eq('client_id', selectedClient.id).eq('week_of', w).maybeSingle(); setWeeklyReview(data || null) }}
+                        className="p-2 text-zinc-500 hover:text-white transition rounded hover:bg-zinc-800">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                      </button>
+                      <span className="text-xs font-semibold text-white min-w-[160px] text-center">{formatWeekRange(adminReviewWeek)}</span>
+                      <button onClick={async () => { const w = shiftWeek(adminReviewWeek, 1); setAdminReviewWeek(w); const { data } = await supabase.from('weekly_review').select('*').eq('client_id', selectedClient.id).eq('week_of', w).maybeSingle(); setWeeklyReview(data || null) }}
+                        className="p-2 text-zinc-500 hover:text-white transition rounded hover:bg-zinc-800">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                      </button>
                     </div>
                     {weeklyReview ? (weeklyReview.completed ? <CompletedBadge /> : <PendingBadge />) : <NotStartedBadge />}
                   </div>
 
                   {!weeklyReview ? (
-                    <p className="text-center py-12 text-zinc-600 text-sm">Client hasn't started their weekly review yet.</p>
+                    <p className="text-center py-12 text-zinc-600 text-sm">No review for this week.</p>
                   ) : (
                     <div className="space-y-4">
                       {/* Revenue */}
@@ -1980,6 +2014,21 @@ export default function AdminPage() {
                           Submitted {new Date(weeklyReview.completed_at).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
                         </p>
                       )}
+                    </div>
+                  )}
+                  {/* History */}
+                  {allClientLockIns.length > 0 && (
+                    <div className="mt-8 pt-6 border-t border-zinc-800">
+                      <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3">All Lock Ins</h3>
+                      <div className="space-y-1.5">
+                        {allClientLockIns.map(li => (
+                          <button key={li.week_of} onClick={async () => { setAdminReviewWeek(li.week_of); const { data } = await supabase.from('weekly_review').select('*').eq('client_id', selectedClient.id).eq('week_of', li.week_of).maybeSingle(); setWeeklyReview(data || null) }}
+                            className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg border transition text-left ${adminReviewWeek === li.week_of ? 'border-gold/30 bg-gold/5' : 'border-zinc-800 bg-zinc-900 hover:border-zinc-700'}`}>
+                            <span className="text-xs text-white">{formatWeekRange(li.week_of)}</span>
+                            {li.completed ? <span className="text-[10px] font-bold text-emerald-400 uppercase">Done</span> : <span className="text-[10px] font-bold text-amber-400 uppercase">Draft</span>}
+                          </button>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>
