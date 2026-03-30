@@ -335,30 +335,45 @@ function AdminPageInner() {
 
     const safe = async (fn) => { try { return await fn } catch(e) { console.error('Query failed:', e); return { data: null } } }
 
+    // IMPORTANT: destructuring order MUST match query order exactly
     const [
-      dkpiRes, morningRes, eveningRes, warWeeklyRes, reviewRes,
-      monthlyRes, allMonthlyRes, identityRes, designRes, adventuresRes, warTasksRes,
-      projectsRes, leadsRes, weekKpisRes, playbookRes, premiumPosRes,
-      allLockInsRes, allWarMapsRes,
+      dkpiRes,          // 1. daily_kpis (month)
+      morningRes,       // 2. daily_pulse (week)
+      eveningRes,       // 3. evening_pulse (week)
+      warWeeklyRes,     // 4. war_map_weekly (this week, single)
+      reviewRes,        // 5. weekly_review (this week, single)
+      monthlyRes,       // 6. monthly_review (this month, single)
+      allMonthlyRes,    // 7. monthly_review (all)
+      identityRes,      // 8. identity_change
+      designRes,        // 9. life_design
+      adventuresRes,    // 10. mini_adventures
+      warTasksRes,      // 11. war_map_tasks
+      projectsRes,      // 12. projects
+      leadsRes,         // 13. leads
+      weekKpisRes,      // 14. daily_kpis (week)
+      playbookRes,      // 15. offer_playbooks
+      premiumPosRes,    // 16. premium_position
+      allLockInsRes,    // 17. weekly_review (all)
+      allWarMapsRes,    // 18. war_map_weekly (all)
     ] = await Promise.all([
-      safe(supabase.from('daily_kpis').select('*').eq('client_id', client.id).gte('date', mStart).lte('date', mEnd).order('date')),
-      safe(supabase.from('daily_pulse').select('*').eq('client_id', client.id).gte('date', monday).lte('date', sunday)),
-      safe(supabase.from('evening_pulse').select('*').eq('client_id', client.id).gte('date', monday).lte('date', sunday)),
-      safe(supabase.from('war_map_weekly').select('*').eq('client_id', client.id).eq('week_of', monday).maybeSingle()),
-      safe(supabase.from('weekly_review').select('*').eq('client_id', client.id).eq('week_of', monday).maybeSingle()),
-      safe(supabase.from('weekly_review').select('week_of, completed, completed_at, revenue, week_rating').eq('client_id', client.id).order('week_of', { ascending: false })),
-      safe(supabase.from('war_map_weekly').select('week_of, completed, completed_at, number_one_priority').eq('client_id', client.id).order('week_of', { ascending: false })),
-      safe(supabase.from('monthly_review').select('*').eq('client_id', client.id).eq('month', new Date().getMonth()).eq('year', year).maybeSingle()),
-      safe(supabase.from('monthly_review').select('*').eq('client_id', client.id).order('year').order('month')),
-      safe(supabase.from('identity_change').select('*').eq('client_id', client.id).maybeSingle()),
-      safe(supabase.from('life_design').select('*').eq('client_id', client.id).eq('year', year).maybeSingle()),
-      safe(supabase.from('mini_adventures').select('*').eq('client_id', client.id).eq('year', year).order('order_index')),
-      safe(supabase.from('war_map_tasks').select('*').eq('client_id', client.id).order('created_at', { ascending: false })),
-      safe(supabase.from('projects').select('*').eq('client_id', client.id).order('start_date', { ascending: false })),
-      safe(supabase.from('leads').select('*').eq('client_id', client.id).order('created_at', { ascending: true })),
-      safe(supabase.from('daily_kpis').select('*').eq('client_id', client.id).gte('date', monday).lte('date', sunday)),
-      safe(supabase.from('offer_playbooks').select('*').eq('client_id', client.id).order('updated_at', { ascending: false }).limit(1).maybeSingle()),
-      safe(supabase.from('premium_position').select('*').eq('client_id', client.id).maybeSingle()),
+      safe(supabase.from('daily_kpis').select('*').eq('client_id', client.id).gte('date', mStart).lte('date', mEnd).order('date')),       // 1
+      safe(supabase.from('daily_pulse').select('*').eq('client_id', client.id).gte('date', monday).lte('date', sunday)),                    // 2
+      safe(supabase.from('evening_pulse').select('*').eq('client_id', client.id).gte('date', monday).lte('date', sunday)),                  // 3
+      safe(supabase.from('war_map_weekly').select('*').eq('client_id', client.id).eq('week_of', monday).maybeSingle()),                     // 4
+      safe(supabase.from('weekly_review').select('*').eq('client_id', client.id).eq('week_of', monday).maybeSingle()),                      // 5
+      safe(supabase.from('monthly_review').select('*').eq('client_id', client.id).eq('month', new Date().getMonth()).eq('year', year).maybeSingle()), // 6
+      safe(supabase.from('monthly_review').select('*').eq('client_id', client.id).order('year').order('month')),                            // 7
+      safe(supabase.from('identity_change').select('*').eq('client_id', client.id).maybeSingle()),                                          // 8
+      safe(supabase.from('life_design').select('*').eq('client_id', client.id).eq('year', year).maybeSingle()),                             // 9
+      safe(supabase.from('mini_adventures').select('*').eq('client_id', client.id).eq('year', year).order('order_index')),                  // 10
+      safe(supabase.from('war_map_tasks').select('*').eq('client_id', client.id).order('created_at', { ascending: false })),                // 11
+      safe(supabase.from('projects').select('*').eq('client_id', client.id).order('start_date', { ascending: false })),                     // 12
+      safe(supabase.from('leads').select('*').eq('client_id', client.id).order('created_at', { ascending: true })),                         // 13
+      safe(supabase.from('daily_kpis').select('*').eq('client_id', client.id).gte('date', monday).lte('date', sunday)),                     // 14
+      safe(supabase.from('offer_playbooks').select('*').eq('client_id', client.id).order('updated_at', { ascending: false }).limit(1).maybeSingle()), // 15
+      safe(supabase.from('premium_position').select('*').eq('client_id', client.id).maybeSingle()),                                         // 16
+      safe(supabase.from('weekly_review').select('week_of, completed, completed_at, revenue, week_rating').eq('client_id', client.id).order('week_of', { ascending: false })), // 17
+      safe(supabase.from('war_map_weekly').select('week_of, completed, completed_at, number_one_priority').eq('client_id', client.id).order('week_of', { ascending: false })), // 18
     ])
 
     setDailyKpis(Array.isArray(dkpiRes.data) ? dkpiRes.data : [])
