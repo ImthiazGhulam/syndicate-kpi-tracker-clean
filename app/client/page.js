@@ -499,11 +499,12 @@ export default function ClientPage() {
   const completePulse = async () => {
     if (!clientData) return
     setPulseSaving(true)
-    const { data } = await supabase.from('daily_pulse').upsert({
+    const { data, error } = await supabase.from('daily_pulse').upsert({
       ...buildPulsePayload(),
       completed: true,
       completed_at: new Date().toISOString(),
     }, { onConflict: 'client_id,date' }).select().single()
+    if (error) { console.error('Morning Ops save error:', error); alert('Failed to save: ' + error.message); setPulseSaving(false); return }
     if (data) setDailyPulse(data)
     setPulseSaving(false)
   }
@@ -672,9 +673,10 @@ export default function ClientPage() {
   const completeEvening = async () => {
     if (!clientData) return
     setEveningSaving(true)
-    const { data } = await supabase.from('evening_pulse').upsert({
+    const { data, error } = await supabase.from('evening_pulse').upsert({
       ...buildEveningPayload(), completed: true, completed_at: new Date().toISOString(),
     }, { onConflict: 'client_id,date' }).select().single()
+    if (error) { console.error('Debrief save error:', error); alert('Failed to save: ' + error.message); setEveningSaving(false); return }
     if (data) setEveningPulse(data)
     setEveningSaving(false)
   }
@@ -726,7 +728,8 @@ export default function ClientPage() {
       mindset_shift: monthlyReview.mindset_shift || '', energy_focus: monthlyReview.energy_focus || '', revenue_target: monthlyReview.revenue_target || null,
       completed: true, completed_at: new Date().toISOString(),
     }
-    const { data } = await supabase.from('monthly_review').upsert(payload, { onConflict: 'client_id,month,year' }).select().single()
+    const { data, error } = await supabase.from('monthly_review').upsert(payload, { onConflict: 'client_id,month,year' }).select().single()
+    if (error) { console.error('Monthly save error:', error); alert('Failed to save: ' + error.message); setMonthlySaving(false); return }
     if (data) setMonthlyReview(data)
     setMonthlySaving(false)
   }
@@ -777,7 +780,8 @@ export default function ClientPage() {
   const saveReview = async (overrides = {}) => {
     if (!clientData) return
     const payload = { ...buildReviewPayload(), ...overrides }
-    await supabase.from('weekly_review').upsert(payload, { onConflict: 'client_id,week_of' })
+    const { error } = await supabase.from('weekly_review').upsert(payload, { onConflict: 'client_id,week_of' })
+    if (error) { console.error('Lock In auto-save error:', error); return }
     flash()
   }
 
@@ -785,8 +789,12 @@ export default function ClientPage() {
     if (!clientData) return
     setReviewSaving(true)
     const payload = { ...buildReviewPayload(), completed: true, completed_at: new Date().toISOString() }
-    const { data } = await supabase.from('weekly_review').upsert(payload, { onConflict: 'client_id,week_of' }).select().single()
+    const { data, error } = await supabase.from('weekly_review').upsert(payload, { onConflict: 'client_id,week_of' }).select().single()
+    if (error) { console.error('Lock In save error:', error); alert('Failed to save: ' + error.message); setReviewSaving(false); return }
     if (data) setWeeklyReview(data)
+    // Refresh history
+    const { data: allRes } = await supabase.from('weekly_review').select('week_of, completed, completed_at, revenue, week_rating').eq('client_id', clientData.id).order('week_of', { ascending: false })
+    if (allRes) setAllLockIns(allRes)
     setReviewSaving(false)
   }
 
@@ -933,7 +941,7 @@ export default function ClientPage() {
 
   const completeWarMap = async () => {
     setPrioritiesSaving(true)
-    const { data } = await supabase.from('war_map_weekly').upsert({
+    const { data, error } = await supabase.from('war_map_weekly').upsert({
       client_id: clientData.id,
       week_of: warMapWeek,
       number_one_priority: weeklyPriorities.number_one_priority || '',
@@ -944,7 +952,11 @@ export default function ClientPage() {
       completed: true,
       completed_at: new Date().toISOString(),
     }, { onConflict: 'client_id,week_of' }).select().single()
+    if (error) { console.error('War Map save error:', error); alert('Failed to save: ' + error.message); setPrioritiesSaving(false); return }
     if (data) setWeeklyPriorities(data)
+    // Refresh history
+    const { data: allRes } = await supabase.from('war_map_weekly').select('week_of, completed, completed_at, number_one_priority').eq('client_id', clientData.id).order('week_of', { ascending: false })
+    if (allRes) setAllWarMaps(allRes)
     setPrioritiesSaving(false)
   }
 
