@@ -2547,7 +2547,7 @@ export default function ClientPage() {
             </div>
 
             {/* KPI Table */}
-            <div className="overflow-x-auto scrollbar-thin border border-zinc-800 rounded-lg -mx-4 sm:mx-0">
+            <div className="overflow-x-scroll border border-zinc-800 rounded-lg -mx-4 md:-mx-8 pb-2" style={{ scrollbarColor: '#3f3f46 transparent' }}>
               <table className="text-[11px] w-max min-w-full">
                 <thead>
                   {/* Group headers */}
