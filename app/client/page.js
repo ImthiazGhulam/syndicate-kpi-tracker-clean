@@ -1077,8 +1077,8 @@ export default function ClientPage() {
       { id: 'debrief',     label: 'The Debrief™',        icon: '🌙' },
     ]},
     { heading: 'Weekly', items: [
-      { id: 'war-map',     label: 'Weekly War Map™',     icon: '⚔️' },
       { id: 'lock-in',     label: 'The Lock In™',        icon: '🔒' },
+      { id: 'war-map',     label: 'Weekly War Map™',     icon: '⚔️' },
     ]},
     { heading: 'Monthly', items: [
       { id: 'monthly',     label: 'Monthly Review',       icon: '📅' },
