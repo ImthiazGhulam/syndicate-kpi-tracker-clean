@@ -317,9 +317,10 @@ export default function MagnetisePage() {
           niche: clientData?.business || '',
         }),
       })
-      const { text } = await res.json()
-      updateDraft('build_output', text)
-    } catch (e) { console.error(e) }
+      const result = await res.json()
+      if (result.error) { alert('Generate failed: ' + result.error); setGenerating(false); return }
+      updateDraft('build_output', result.text || '')
+    } catch (e) { console.error(e); alert('Generate failed: ' + e.message) }
     setGenerating(false)
   }
 
@@ -335,9 +336,10 @@ export default function MagnetisePage() {
           contrarian: draft.contrarian,
         }),
       })
-      const { text } = await res.json()
-      updateDraft('payoff', text)
-    } catch (e) { console.error(e) }
+      const result = await res.json()
+      if (result.error) { alert('Generate failed: ' + result.error); setGenerating(false); return }
+      updateDraft('payoff', result.text || '')
+    } catch (e) { console.error(e); alert('Generate failed: ' + e.message) }
     setGenerating(false)
   }
 
@@ -355,9 +357,10 @@ export default function MagnetisePage() {
           ctaType: draft.cta_type,
         }),
       })
-      const { text } = await res.json()
-      updateDraft('cta_line', text)
-    } catch (e) { console.error(e) }
+      const result = await res.json()
+      if (result.error) { alert('Generate failed: ' + result.error); setGenerating(false); return }
+      updateDraft('cta_line', result.text || '')
+    } catch (e) { console.error(e); alert('Generate failed: ' + e.message) }
     setGenerating(false)
   }
 
