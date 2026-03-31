@@ -266,7 +266,7 @@ function AdminPageInner() {
       safe(supabase.from('war_map_weekly').select('client_id, completed').eq('week_of', monday)),
       safe(supabase.from('weekly_review').select('client_id, completed').eq('week_of', monday)),
       safe(supabase.from('identity_change').select('client_id, affirmations')),
-      safe(supabase.from('monthly_review').select('client_id, completed').eq('month', prevMonth).eq('year', prevYear)),
+      safe(supabase.from('monthly_review').select('client_id, completed, feedback_sent').eq('month', prevMonth).eq('year', prevYear)),
     ])
 
     const health = {}
@@ -279,7 +279,9 @@ function AdminPageInner() {
       const warMap = (Array.isArray(warWeeklyRes.data) ? warWeeklyRes.data : []).find(r => r.client_id === c.id)?.completed ? 1 : 0
       const lockIn = (Array.isArray(reviewRes.data) ? reviewRes.data : []).find(r => r.client_id === c.id)?.completed ? 1 : 0
       const hasIdentity = (Array.isArray(identityRes.data) ? identityRes.data : []).find(r => r.client_id === c.id)?.affirmations?.trim().length > 0 ? 1 : 0
-      const monthlyDone = (Array.isArray(monthlyRes.data) ? monthlyRes.data : []).find(r => r.client_id === c.id)?.completed ? true : false
+      const monthlyRecord = (Array.isArray(monthlyRes.data) ? monthlyRes.data : []).find(r => r.client_id === c.id)
+      const monthlyDone = monthlyRecord?.completed ? true : false
+      const awaitingFeedback = monthlyRecord?.completed && !monthlyRecord?.feedback_sent ? true : false
 
       // Score out of 85 (no tracker data in overview), scaled to 100
       const rawScore =
@@ -310,7 +312,8 @@ function AdminPageInner() {
 
       const status = score >= 70 ? 'healthy' : score >= 40 ? 'at-risk' : mornings === 0 && debriefs === 0 && elapsed >= 3 ? 'critical' : 'at-risk'
 
-      health[c.id] = { score, mornings, debriefs, identityReads, warMap, lockIn, hasIdentity, monthlyDone, alerts, status, elapsed }
+      if (awaitingFeedback) alerts.push('Monthly review — awaiting your feedback')
+      health[c.id] = { score, mornings, debriefs, identityReads, warMap, lockIn, hasIdentity, monthlyDone, awaitingFeedback, alerts, status, elapsed }
     })
     setClientHealth(health)
   }
@@ -996,6 +999,32 @@ function AdminPageInner() {
                             <p className="text-zinc-600 text-xs">{c.business}</p>
                           </div>
                           <span className="text-amber-400 text-xs font-bold uppercase tracking-widest">Overdue</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
+
+              {/* Awaiting Feedback */}
+              {(() => {
+                const awaiting = healthEntries.filter(c => c.health.awaitingFeedback)
+                if (awaiting.length === 0) return null
+                const prevMonthName = MONTH_NAMES[new Date().getMonth() === 0 ? 11 : new Date().getMonth() - 1]
+                return (
+                  <div className="mb-8">
+                    <h2 className="text-xs font-bold text-sky-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                      <span className="text-base">💬</span> Awaiting Your Feedback — {awaiting.length} review{awaiting.length > 1 ? 's' : ''}
+                    </h2>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {awaiting.map(c => (
+                        <button key={c.id} onClick={() => { selectClient(c); setActiveTab('monthly') }}
+                          className="bg-zinc-900 border border-sky-900/30 rounded-lg px-4 py-3 flex items-center justify-between text-left hover:border-sky-900/50 transition">
+                          <div>
+                            <p className="text-white text-sm font-medium">{c.name}</p>
+                            <p className="text-zinc-600 text-xs">{prevMonthName} review submitted</p>
+                          </div>
+                          <span className="text-sky-400 text-xs font-bold uppercase tracking-widest">Review</span>
                         </button>
                       ))}
                     </div>
@@ -2509,6 +2538,27 @@ function AdminPageInner() {
                         <p className="text-zinc-600 text-xs text-center mt-4">
                           Submitted {new Date(monthlyReview.completed_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
                         </p>
+                      )}
+
+                      {/* Feedback button */}
+                      {monthlyReview.completed && (
+                        <div className="mt-6 pt-4 border-t border-zinc-800 text-center">
+                          {monthlyReview.feedback_sent ? (
+                            <div className="flex items-center justify-center gap-2">
+                              <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                              <span className="text-emerald-400 text-xs font-bold uppercase tracking-widest">Feedback Sent</span>
+                            </div>
+                          ) : (
+                            <button onClick={async () => {
+                              await supabase.from('monthly_review').update({ feedback_sent: true }).eq('client_id', selectedClient.id).eq('month', adminMonthlyMonth).eq('year', adminMonthlyYear)
+                              setMonthlyReview(prev => ({ ...prev, feedback_sent: true }))
+                              // Refresh health data
+                              fetchAllClientHealth(clients)
+                            }} className="px-6 py-3 bg-sky-600 hover:bg-sky-500 text-white font-bold text-xs uppercase tracking-widest rounded-lg transition">
+                              💬 Mark Feedback Sent
+                            </button>
+                          )}
+                        </div>
                       )}
                     </div>
                   )}
