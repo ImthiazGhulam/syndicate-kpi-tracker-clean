@@ -1391,6 +1391,46 @@ export default function ClientPage() {
               ))}
             </div>
 
+            {/* Action Items — how to improve your score */}
+            {(() => {
+              const actions = []
+              const todayDone = weekMorningOps.some(p => p.date === todayStr && p.completed)
+              const todayDebrief = weekDebriefs.some(p => p.date === todayStr && p.completed)
+              const todayIdentity = weekMorningOps.some(p => p.date === todayStr && p.identity_read)
+              const todayKpi = weekKpis.some(k => k.date === todayStr)
+              const isSunday = new Date().getDay() === 0
+              const isSatOrSun = new Date().getDay() === 0 || new Date().getDay() === 6
+
+              if (!todayIdentity) actions.push({ icon: '🪞', label: 'Read your Identity Chamber™', sub: 'Tick the checkbox in Morning Ops', tab: 'morning-ops' })
+              if (!todayDone) actions.push({ icon: '☀️', label: 'Complete your Morning Ops™', sub: 'Set your intention and plan your day', tab: 'morning-ops' })
+              if (!todayKpi) actions.push({ icon: '📊', label: 'Fill in today\'s Business Tracker', sub: 'Log your daily numbers', tab: 'dashboard' })
+              if (!todayDebrief) actions.push({ icon: '🌙', label: 'Complete The Debrief™', sub: 'Reflect on your day before bed', tab: 'debrief' })
+              if (isSatOrSun && !weeklyReview.completed) actions.push({ icon: '🔒', label: 'Complete The Lock In™', sub: 'Review your week — due Sunday', tab: 'lock-in' })
+              if (isSatOrSun && !weeklyPriorities.completed) actions.push({ icon: '⚔️', label: 'Complete your Weekly War Map™', sub: 'Plan next week — due Sunday', tab: 'war-map' })
+
+              if (actions.length === 0) return null
+              return (
+                <div className="mb-6">
+                  <h3 className="text-xs font-bold text-white uppercase tracking-widest mb-3 flex items-center gap-2">
+                    <span className="text-base">⚡</span> Actions to hit 100%
+                  </h3>
+                  <div className="space-y-2">
+                    {actions.map((a, i) => (
+                      <button key={i} onClick={() => switchTab(a.tab)}
+                        className="w-full flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-left hover:border-gold/30 active:border-gold/30 transition">
+                        <span className="text-lg flex-shrink-0">{a.icon}</span>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-white">{a.label}</p>
+                          <p className="text-xs text-zinc-500">{a.sub}</p>
+                        </div>
+                        <svg className="w-4 h-4 text-zinc-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })()}
+
             {/* This Week — Day by Day Grid */}
             <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 sm:p-6 mb-6">
               <h3 className="text-xs font-bold text-white uppercase tracking-widest mb-5">This Week at a Glance</h3>
