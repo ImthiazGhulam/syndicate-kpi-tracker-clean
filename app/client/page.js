@@ -57,24 +57,32 @@ const KPI_GROUPS = [
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
+// Local date string (avoids UTC timezone shift)
+function localDateStr(d = new Date()) {
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
 function getMonday(d = new Date()) {
   const date = new Date(d)
   const day = date.getDay()
   date.setDate(date.getDate() - day + (day === 0 ? -6 : 1))
-  return date.toISOString().split('T')[0]
+  return localDateStr(date)
 }
 
 function shiftWeek(weekStr, n) {
-  const d = new Date(weekStr)
+  const d = new Date(weekStr + 'T12:00:00')
   d.setDate(d.getDate() + n * 7)
-  return d.toISOString().split('T')[0]
+  return localDateStr(d)
 }
 
 function getWeekDays(mondayStr) {
   return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(mondayStr)
+    const d = new Date(mondayStr + 'T12:00:00')
     d.setDate(d.getDate() + i)
-    return d.toISOString().split('T')[0]
+    return localDateStr(d)
   })
 }
 
@@ -263,7 +271,7 @@ export default function ClientPage() {
 
   // Check-in form
   const [checkinForm, setCheckinForm] = useState({
-    checkin_date: new Date().toISOString().split('T')[0],
+    checkin_date: localDateStr(),
     rating: 3, well: '', challenges: '', next_focus: '',
   })
   const [checkinLoading, setCheckinLoading] = useState(false)
@@ -275,7 +283,7 @@ export default function ClientPage() {
 
   // Evening Ops
   const [eveningPulse, setEveningPulse] = useState({})
-  const [eveningPulseDate, setEveningPulseDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [eveningPulseDate, setEveningPulseDate] = useState(() => localDateStr())
   const [eveningSaving, setEveningSaving] = useState(false)
 
   // The Lock In — weekly review
@@ -305,7 +313,7 @@ export default function ClientPage() {
 
   // Morning Ops
   const [dailyPulse, setDailyPulse] = useState({ intention: '', feeling: '', win: '', money_task: '', todo_1: '', todo_2: '', todo_3: '', gratitude: '', let_go: '', identity_read: false, completed: false, completed_at: null })
-  const [dailyPulseDate, setDailyPulseDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [dailyPulseDate, setDailyPulseDate] = useState(() => localDateStr())
   const [pulseSaving, setPulseSaving] = useState(false)
 
   // Design™
@@ -334,7 +342,7 @@ export default function ClientPage() {
   const [calendarYear, setCalendarYear] = useState(new Date().getFullYear())
   const [calendarMonth, setCalendarMonth] = useState(new Date().getMonth())
   const [selectedDay, setSelectedDay] = useState(null)
-  const [dayViewDate, setDayViewDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [dayViewDate, setDayViewDate] = useState(() => localDateStr())
   const [taskModal, setTaskModal] = useState(null)
   const [modalForm, setModalForm] = useState({ title: '', date: '', time: '', duration: 60, recurring: 'none' })
   const [delegatingTask, setDelegatingTask] = useState(null)
@@ -357,7 +365,7 @@ export default function ClientPage() {
   const fetchMonthlyKpis = async (y, m) => {
     if (!clientData) return
     const s = `${y}-${String(m + 1).padStart(2, '0')}-01`
-    const e = new Date(y, m + 1, 0).toISOString().split('T')[0]
+    const e = localDateStr(new Date(y, m + 1, 0))
     const { data } = await supabase.from('daily_kpis').select('*').eq('client_id', clientData.id).gte('date', s).lte('date', e)
     const obj = {}
     data?.forEach(row => { obj[row.date] = row })
@@ -388,9 +396,9 @@ export default function ClientPage() {
 
     const year = new Date().getFullYear()
     const monday = getMonday()
-    const today = new Date().toISOString().split('T')[0]
+    const today = localDateStr()
     const mStart = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`
-    const mEnd = new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0).toISOString().split('T')[0]
+    const mEnd = localDateStr(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0))
     const [dkpiRes, checkinsRes, projectsRes, designRes, adventuresRes, warRes, weeklyRes, pulseRes, leadsRes, identityRes, eveningRes, reviewRes, weekPulsesRes, weekDebriefsRes, weekKpisRes, monthlyRes, lastMonthlyRes, allLockInsRes, allWarMapsRes] = await Promise.all([
       supabase.from('daily_kpis').select('*').eq('client_id', client.id).gte('date', mStart).lte('date', mEnd),
       supabase.from('checkins').select('*').eq('client_id', client.id).order('checkin_date', { ascending: false }),
@@ -406,9 +414,9 @@ export default function ClientPage() {
       supabase.from('weekly_review').select('*').eq('client_id', client.id).eq('week_of', monday).maybeSingle(),
       supabase.from('weekly_review').select('week_of, completed, completed_at, revenue, week_rating').eq('client_id', client.id).order('week_of', { ascending: false }),
       supabase.from('war_map_weekly').select('week_of, completed, completed_at, number_one_priority').eq('client_id', client.id).order('week_of', { ascending: false }),
-      supabase.from('daily_pulse').select('*').eq('client_id', client.id).gte('date', monday).lte('date', new Date(new Date(monday).getTime() + 6*86400000).toISOString().split('T')[0]),
-      supabase.from('evening_pulse').select('*').eq('client_id', client.id).gte('date', monday).lte('date', new Date(new Date(monday).getTime() + 6*86400000).toISOString().split('T')[0]),
-      supabase.from('daily_kpis').select('*').eq('client_id', client.id).gte('date', monday).lte('date', new Date(new Date(monday).getTime() + 6*86400000).toISOString().split('T')[0]),
+      supabase.from('daily_pulse').select('*').eq('client_id', client.id).gte('date', monday).lte('date', getWeekDays(monday)[6]),
+      supabase.from('evening_pulse').select('*').eq('client_id', client.id).gte('date', monday).lte('date', getWeekDays(monday)[6]),
+      supabase.from('daily_kpis').select('*').eq('client_id', client.id).gte('date', monday).lte('date', getWeekDays(monday)[6]),
       supabase.from('monthly_review').select('*').eq('client_id', client.id).eq('month', new Date().getMonth()).eq('year', new Date().getFullYear()).maybeSingle(),
       supabase.from('monthly_review').select('*').eq('client_id', client.id).eq('month', new Date().getMonth() === 0 ? 11 : new Date().getMonth() - 1).eq('year', new Date().getMonth() === 0 ? new Date().getFullYear() - 1 : new Date().getFullYear()).maybeSingle(),
     ])
@@ -831,6 +839,7 @@ export default function ClientPage() {
     // Refresh history
     const { data: allRes } = await supabase.from('weekly_review').select('week_of, completed, completed_at, revenue, week_rating').eq('client_id', clientData.id).order('week_of', { ascending: false })
     if (allRes) setAllLockIns(allRes)
+    refreshDashboard()
     setReviewSaving(false)
   }
 
@@ -900,7 +909,7 @@ export default function ClientPage() {
     const { error } = await supabase.from('checkins').insert([{ client_id: clientData.id, ...checkinForm, rating: Number(checkinForm.rating) }])
     if (!error) {
       setCheckinSuccess(true)
-      setCheckinForm({ checkin_date: new Date().toISOString().split('T')[0], rating: 3, well: '', challenges: '', next_focus: '' })
+      setCheckinForm({ checkin_date: localDateStr(), rating: 3, well: '', challenges: '', next_focus: '' })
       fetchAll(user.email)
       setTimeout(() => setCheckinSuccess(false), 3000)
     }
@@ -1015,6 +1024,7 @@ export default function ClientPage() {
     // Refresh history
     const { data: allRes } = await supabase.from('war_map_weekly').select('week_of, completed, completed_at, number_one_priority').eq('client_id', clientData.id).order('week_of', { ascending: false })
     if (allRes) setAllWarMaps(allRes)
+    refreshDashboard()
     setPrioritiesSaving(false)
   }
 
@@ -1080,10 +1090,10 @@ export default function ClientPage() {
 
   // ── Computed ──────────────────────────────────────────────────────────────────
 
-  const todayStr = new Date().toISOString().split('T')[0]
+  const todayStr = localDateStr()
   const weekDays = getWeekDays(warMapWeek)
   const monthStart = `${calendarYear}-${String(calendarMonth + 1).padStart(2, '0')}-01`
-  const monthEnd = new Date(calendarYear, calendarMonth + 1, 0).toISOString().split('T')[0]
+  const monthEnd = localDateStr(new Date(calendarYear, calendarMonth + 1, 0))
   const tasksForWeek = expandTasksForRange(warMapTasks, weekDays[0], weekDays[6])
   const tasksForMonth = expandTasksForRange(warMapTasks, monthStart, monthEnd)
   const tasksForDay = expandTasksForRange(warMapTasks, dayViewDate, dayViewDate)
@@ -1621,15 +1631,15 @@ export default function ClientPage() {
                 </p>
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={() => setDailyPulseDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() - 1); return dt.toISOString().split('T')[0] })}
+                <button onClick={() => setDailyPulseDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() - 1); return localDateStr(dt) })}
                   className="p-2 text-zinc-500 hover:text-white active:text-white transition rounded hover:bg-zinc-800">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                 </button>
-                <button onClick={() => setDailyPulseDate(new Date().toISOString().split('T')[0])}
+                <button onClick={() => setDailyPulseDate(localDateStr())}
                   className="px-2.5 py-1 text-xs text-zinc-500 hover:text-gold uppercase tracking-wider font-semibold transition">
                   Today
                 </button>
-                <button onClick={() => setDailyPulseDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() + 1); return dt.toISOString().split('T')[0] })}
+                <button onClick={() => setDailyPulseDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() + 1); return localDateStr(dt) })}
                   className="p-2 text-zinc-500 hover:text-white active:text-white transition rounded hover:bg-zinc-800">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                 </button>
@@ -2131,7 +2141,7 @@ export default function ClientPage() {
               <div className="flex items-center justify-between sm:justify-start gap-1">
                 <div className="flex items-center gap-0.5">
                   <button onClick={() => {
-                      if (calendarView === 'day') setDayViewDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() - 1); return dt.toISOString().split('T')[0] })
+                      if (calendarView === 'day') setDayViewDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() - 1); return localDateStr(dt) })
                       else if (calendarView === 'week') setWarMapWeek(w => shiftWeek(w, -1))
                       else { if (calendarMonth === 0) { setCalendarMonth(11); setCalendarYear(y => y - 1) } else setCalendarMonth(m => m - 1) }
                     }}
@@ -2146,7 +2156,7 @@ export default function ClientPage() {
                         : `${MONTH_NAMES[calendarMonth]} ${calendarYear}`}
                   </span>
                   <button onClick={() => {
-                      if (calendarView === 'day') setDayViewDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() + 1); return dt.toISOString().split('T')[0] })
+                      if (calendarView === 'day') setDayViewDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() + 1); return localDateStr(dt) })
                       else if (calendarView === 'week') setWarMapWeek(w => shiftWeek(w, 1))
                       else { if (calendarMonth === 11) { setCalendarMonth(0); setCalendarYear(y => y + 1) } else setCalendarMonth(m => m + 1) }
                     }}
@@ -2991,13 +3001,13 @@ export default function ClientPage() {
                 </p>
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={() => setEveningPulseDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() - 1); return dt.toISOString().split('T')[0] })}
+                <button onClick={() => setEveningPulseDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() - 1); return localDateStr(dt) })}
                   className="p-2 text-zinc-500 hover:text-white active:text-white transition rounded hover:bg-zinc-800">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                 </button>
-                <button onClick={() => setEveningPulseDate(new Date().toISOString().split('T')[0])}
+                <button onClick={() => setEveningPulseDate(localDateStr())}
                   className="px-2.5 py-1 text-xs text-zinc-500 hover:text-gold uppercase tracking-wider font-semibold transition">Today</button>
-                <button onClick={() => setEveningPulseDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() + 1); return dt.toISOString().split('T')[0] })}
+                <button onClick={() => setEveningPulseDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() + 1); return localDateStr(dt) })}
                   className="p-2 text-zinc-500 hover:text-white active:text-white transition rounded hover:bg-zinc-800">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                 </button>
