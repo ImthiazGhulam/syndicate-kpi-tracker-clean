@@ -24,12 +24,13 @@ export async function POST(req) {
     rawInputs = `Desired outcome: "${inputs.outcome || ''}"\nSteps: "${inputs.steps || ''}"`
   }
 
-  const message = await client.messages.create({
-    model: 'claude-opus-4-5',
-    max_tokens: 1024,
-    messages: [{
-      role: 'user',
-      content: `You are writing the BUILD section of a short-form content piece for a coach, consultant or service provider.
+  try {
+    const message = await client.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 1024,
+      messages: [{
+        role: 'user',
+        content: `You are writing the BUILD section of a short-form content piece for a coach, consultant or service provider.
 
 Hook: "${hook}"
 Their niche context: "${niche}"
@@ -44,9 +45,13 @@ Instructions:
 - ${formatInstructions}
 - Tone: direct, human, conversational. No corporate speak, no emojis.
 - Return only the build text. Nothing else.`,
-    }],
-  })
+      }],
+    })
 
-  const text = message.content[0].type === 'text' ? message.content[0].text : ''
-  return NextResponse.json({ text })
+    const text = message.content[0].type === 'text' ? message.content[0].text : ''
+    return NextResponse.json({ text })
+  } catch (err) {
+    console.error('Generate build error:', err)
+    return NextResponse.json({ error: err.message || 'Failed to generate' }, { status: 500 })
+  }
 }
