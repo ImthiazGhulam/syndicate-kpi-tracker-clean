@@ -891,9 +891,31 @@ export default function ClientPage() {
       .upsert({ client_id: clientData.id, year, ...designForm, updated_at: new Date().toISOString() }, { onConflict: 'client_id,year' })
       .select().single()
     if (saved) setLifeDesign(saved)
-    await supabase.from('mini_adventures').delete().eq('client_id', clientData.id).eq('year', year)
-    const toSave = adventuresForm.filter(a => a.title?.trim()).map(a => ({ ...a, client_id: clientData.id, year }))
-    if (toSave.length > 0) await supabase.from('mini_adventures').insert(toSave)
+
+    // Save each adventure individually — update existing or insert new
+    for (const adv of adventuresForm) {
+      const payload = {
+        client_id: clientData.id,
+        year,
+        order_index: adv.order_index,
+        title: adv.title || '',
+        who_with: adv.who_with || '',
+        when_planned: adv.when_planned || '',
+        where_planned: adv.where_planned || '',
+        completed: adv.completed || false,
+      }
+      if (adv.id) {
+        // Update existing adventure
+        await supabase.from('mini_adventures').update(payload).eq('id', adv.id)
+      } else if (payload.title.trim()) {
+        // Insert new adventure only if it has a title
+        const { data: newAdv } = await supabase.from('mini_adventures').insert([payload]).select().single()
+        if (newAdv) {
+          setAdventuresForm(prev => prev.map(a => a.order_index === adv.order_index && !a.id ? newAdv : a))
+        }
+      }
+    }
+
     setDesignEditing(false)
     setDesignLoading(false)
     flash()
