@@ -570,6 +570,18 @@ export default function ClientPage() {
     flash()
   }
 
+  // Save all days that have data before switching months
+  const saveAllKpis = async () => {
+    if (!clientData) return
+    const promises = kpiDays.filter(d => monthlyKpis[d] && Object.values(monthlyKpis[d]).some(v => v > 0)).map(d => {
+      const row = monthlyKpis[d]
+      const payload = { client_id: clientData.id, date: d }
+      KPI_COLS.filter(c => c.input).forEach(c => { payload[c.key] = Number(row[c.key]) || 0 })
+      return supabase.from('daily_kpis').upsert(payload, { onConflict: 'client_id,date' })
+    })
+    await Promise.all(promises)
+  }
+
   // Hot List
   const LEAD_STAGES = [
     { id: 'new_lead', label: 'New Lead', color: 'border-sky-500/40 bg-sky-500/5' },
@@ -2669,12 +2681,12 @@ export default function ClientPage() {
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-base font-bold text-white uppercase tracking-widest">Dashboard</h2>
               <div className="flex items-center gap-1">
-                <button onClick={() => { if (kpiMonth === 0) { setKpiMonth(11); setKpiYear(y => y - 1) } else setKpiMonth(m => m - 1) }}
+                <button onClick={async () => { await saveAllKpis(); if (kpiMonth === 0) { setKpiMonth(11); setKpiYear(y => y - 1) } else setKpiMonth(m => m - 1) }}
                   className="p-2 text-zinc-500 hover:text-white transition rounded hover:bg-zinc-800">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                 </button>
                 <span className="text-sm font-semibold text-white min-w-[160px] text-center">{MONTH_NAMES[kpiMonth]} {kpiYear}</span>
-                <button onClick={() => { if (kpiMonth === 11) { setKpiMonth(0); setKpiYear(y => y + 1) } else setKpiMonth(m => m + 1) }}
+                <button onClick={async () => { await saveAllKpis(); if (kpiMonth === 11) { setKpiMonth(0); setKpiYear(y => y + 1) } else setKpiMonth(m => m + 1) }}
                   className="p-2 text-zinc-500 hover:text-white transition rounded hover:bg-zinc-800">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                 </button>
