@@ -3135,10 +3135,32 @@ function AdminPageInner() {
                         </div>
                       )
                     })}
+                  {/* Generated Plan */}
+                  {ww.generated_plan && (
+                    <div className="bg-zinc-900 border border-gold/30 rounded-xl p-6 mt-6">
+                      <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-4">Generated 30-Day Action Plan</h3>
+                      <div className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">{ww.generated_plan}</div>
+                    </div>
+                  )}
                   </div>
                 </div>
                 )
               })()}
+
+              {/* Show generated plans for Sold Out and Premium Position too */}
+              {activeTab === 'playbook' && clientPlaybook?.generated_plan && (
+                <div className="bg-zinc-900 border border-gold/30 rounded-xl p-6 mt-6">
+                  <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-4">Generated Offer Launch Plan</h3>
+                  <div className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">{clientPlaybook.generated_plan}</div>
+                </div>
+              )}
+
+              {activeTab === 'premium-pos' && clientPremiumPos?.generated_plan && (
+                <div className="bg-zinc-900 border border-gold/30 rounded-xl p-6 mt-6">
+                  <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-4">Generated Positioning Action Plan</h3>
+                  <div className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">{clientPremiumPos.generated_plan}</div>
+                </div>
+              )}
 
             </div>
           ) } catch(renderErr) { console.error('Render error:', renderErr); return (
