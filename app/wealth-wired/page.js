@@ -565,8 +565,6 @@ export default function WealthWiredPage() {
           })}
         </div>
 
-        )}
-
         {/* Back navigation */}
         <div className="flex justify-start mt-8">
           <button onClick={() => goToModule(8)} className="px-6 py-2.5 bg-zinc-800 text-zinc-300 font-semibold text-sm rounded-lg hover:bg-zinc-700 transition">
