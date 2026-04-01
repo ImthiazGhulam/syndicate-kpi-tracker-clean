@@ -1083,12 +1083,6 @@ export default function PremiumPositionPage() {
                     </span>
                     <p className="text-sm text-zinc-300">{flag.message}</p>
                   </div>
-                  <button
-                    onClick={() => goToStage(flag.stage)}
-                    className="shrink-0 px-3 py-1 text-xs font-semibold text-gold border border-gold/30 rounded hover:bg-gold/10 transition"
-                  >
-                    Fix it
-                  </button>
                 </div>
               ))}
             </div>
