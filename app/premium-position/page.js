@@ -1217,8 +1217,8 @@ export default function PremiumPositionPage() {
             // Bucket
             const likerts = bucketData.likerts || {}
             const answered = Object.values(likerts).filter(v => v > 0).length
-            if (answered < 12) improvements.push({ stage: 1, label: 'Brand Bucket™', msg: `Answer all 12 diagnostic questions (${answered}/12 done)` })
-            if (!bucketData.gap_description || wc(bucketData.gap_description) < 10) improvements.push({ stage: 1, label: 'Brand Bucket™', msg: 'Add more detail to your gap description' })
+            if (answered < 12) improvements.push({ stage: 1, label: 'Brand Bucket™', msg: `Complete all 12 diagnostic questions (${answered}/12 done)` })
+            // Gap description is optional — don't block on it
             // Star
             if (!starData.name) improvements.push({ stage: 2, label: 'Brand Star™', msg: 'Add your brand name' })
             if (!starData.specific_description || wc(starData.specific_description) < 4) improvements.push({ stage: 2, label: 'Brand Star™', msg: 'Describe your ideal client in more detail' })
