@@ -1898,8 +1898,6 @@ export default function PlaybookPage() {
     )
   }
 
-  }
-
   // ── Main Render ───────────────────────────────────────────────────────────
 
   return (
