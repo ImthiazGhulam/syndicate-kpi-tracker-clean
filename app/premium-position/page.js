@@ -1177,16 +1177,6 @@ export default function PremiumPositionPage() {
           </div>
         </div>
 
-        {/* Generate AI Prompt */}
-        <div className="mt-8 flex flex-col items-center">
-          <button
-            onClick={generateAIPrompt}
-            className="px-8 py-3 bg-gold text-black font-bold text-sm rounded-lg hover:bg-gold-light transition uppercase tracking-wider"
-          >
-            Generate AI Prompt
-          </button>
-          <p className="text-zinc-600 text-xs mt-2">Copies all blueprint data to clipboard for use with AI</p>
-        </div>
 
         {/* Back navigation */}
         <div className="flex justify-start mt-8">

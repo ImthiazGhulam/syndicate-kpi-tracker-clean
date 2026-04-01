@@ -197,6 +197,7 @@ function AdminPageInner() {
   const [allMonthlyReviews, setAllMonthlyReviews] = useState([])
   const [clientPlaybook, setClientPlaybook] = useState(null)
   const [clientPremiumPos, setClientPremiumPos] = useState(null)
+  const [clientWealthWired, setClientWealthWired] = useState(null)
   const [identityChange, setIdentityChange] = useState(null)
   const [lifeDesign, setLifeDesign] = useState(null)
   const [adventures, setAdventures] = useState(defaultAdventures())
@@ -347,6 +348,7 @@ function AdminPageInner() {
     setWeekKpis([])
     setClientPlaybook(null)
     setClientPremiumPos(null)
+    setClientWealthWired(null)
     setAllClientLockIns([])
     setAllClientWarMaps([])
 
@@ -379,6 +381,7 @@ function AdminPageInner() {
       weekKpisRes,      // 14. daily_kpis (week)
       playbookRes,      // 15. offer_playbooks
       premiumPosRes,    // 16. premium_position
+      wealthWiredRes,   // 16b. wealth_wired
       allLockInsRes,    // 17. weekly_review (all)
       allWarMapsRes,    // 18. war_map_weekly (all)
     ] = await Promise.all([
@@ -398,6 +401,7 @@ function AdminPageInner() {
       safe(supabase.from('daily_kpis').select('*').eq('client_id', client.id).gte('date', monday).lte('date', sunday)),                     // 14
       safe(supabase.from('offer_playbooks').select('*').eq('client_id', client.id).order('updated_at', { ascending: false }).limit(1).maybeSingle()), // 15
       safe(supabase.from('premium_position').select('*').eq('client_id', client.id).maybeSingle()),                                         // 16
+      safe(supabase.from('wealth_wired').select('*').eq('client_id', client.id).maybeSingle()),                                              // 16b
       safe(supabase.from('weekly_review').select('week_of, completed, completed_at, revenue, week_rating').eq('client_id', client.id).order('week_of', { ascending: false })), // 17
       safe(supabase.from('war_map_weekly').select('week_of, completed, completed_at, number_one_priority').eq('client_id', client.id).order('week_of', { ascending: false })), // 18
     ])
@@ -414,6 +418,7 @@ function AdminPageInner() {
     setWeekKpis(Array.isArray(weekKpisRes.data) ? weekKpisRes.data : [])
     setClientPlaybook(playbookRes.data && !Array.isArray(playbookRes.data) ? playbookRes.data : null)
     setClientPremiumPos(premiumPosRes.data && !Array.isArray(premiumPosRes.data) ? premiumPosRes.data : null)
+    setClientWealthWired(wealthWiredRes.data && !Array.isArray(wealthWiredRes.data) ? wealthWiredRes.data : null)
     setAllClientLockIns(Array.isArray(allLockInsRes.data) ? allLockInsRes.data : [])
     setAllClientWarMaps(Array.isArray(allWarMapsRes.data) ? allWarMapsRes.data : [])
     setAdminReviewWeek(monday)
@@ -609,6 +614,9 @@ function AdminPageInner() {
     { heading: 'Build™', items: [
       { id: 'playbook',     label: 'Sold Out™ Playbook' },
       { id: 'premium-pos',  label: 'Premium Position™' },
+    ]},
+    { heading: 'Rewire™', items: [
+      { id: 'wealth-wired', label: 'Wealth Wired™' },
     ]},
   ]
 
@@ -3039,6 +3047,95 @@ function AdminPageInner() {
                       )}
                     </div>
                   )}
+                </div>
+                )
+              })()}
+
+              {/* ══════════════════════════════════════════════════════════════ */}
+              {/* ── WEALTH WIRED™ ──────────────────────────────────────────── */}
+              {/* ══════════════════════════════════════════════════════════════ */}
+              {activeTab === 'wealth-wired' && (() => {
+                if (!clientWealthWired) return (
+                  <div className="fade-in text-center py-16">
+                    <span className="text-4xl mb-4 block">🧠</span>
+                    <p className="text-zinc-500 text-sm font-medium">Client hasn't started their Wealth Wired™ Workbook yet.</p>
+                  </div>
+                )
+
+                const ww = clientWealthWired
+                const scores = ww.scores || {}
+                const totalScore = scores.total || 0
+                const band = totalScore >= 35 ? 'Wealth Ready' : totalScore >= 26 ? 'Strong' : totalScore >= 16 ? 'Getting There' : 'Needs Work'
+                const MODULES = [
+                  'The Trinity Trap', 'The Ascension Ladder', 'The Brokie Venn', 'The Rewire Triangle',
+                  'The Matrix', 'The Transition Bridge', 'The Financial Sabotage Loop', 'The Wealth Cycle'
+                ]
+
+                return (
+                <div className="fade-in">
+                  {/* Score Hero */}
+                  <div className="bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-800 border border-zinc-700/50 rounded-2xl p-6 sm:p-8 mb-6">
+                    <div className="flex flex-col sm:flex-row items-center gap-6">
+                      <div className="relative flex-shrink-0">
+                        <svg className="w-28 h-28 -rotate-90" viewBox="0 0 120 120">
+                          <circle cx="60" cy="60" r="52" fill="none" stroke="#27272a" strokeWidth="6" />
+                          <circle cx="60" cy="60" r="52" fill="none" stroke="#C9A84C" strokeWidth="6"
+                            strokeDasharray={`${(totalScore / 40) * 326.7} 326.7`} strokeLinecap="round" />
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                          <span className="text-3xl font-black text-white">{totalScore}</span>
+                          <span className="text-[10px] font-bold text-zinc-500">/ 40</span>
+                        </div>
+                      </div>
+                      <div className="text-center sm:text-left">
+                        <h2 className="text-lg font-black text-white uppercase tracking-wider">Wealth Wired™</h2>
+                        <div className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border ${
+                          totalScore >= 35 ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
+                          totalScore >= 26 ? 'bg-gold/20 text-gold border-gold/30' :
+                          totalScore >= 16 ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
+                          'bg-red-500/20 text-red-400 border-red-500/30'
+                        }`}>{band}</div>
+                        <p className="text-zinc-600 text-xs mt-2">Module {ww.current_module || 1} of 8 · Updated {ww.updated_at ? new Date(ww.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Module Answers */}
+                  <div className="space-y-4">
+                    {MODULES.map((name, i) => {
+                      const mod = ww[`module_${i + 1}`] || {}
+                      const hasMod = mod.reflection || mod.audit || mod.go_deeper
+                      return (
+                        <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+                          <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-3">Module {i + 1} — {name}</h3>
+                          {!hasMod ? (
+                            <p className="text-zinc-600 text-sm">Not started</p>
+                          ) : (
+                            <div className="space-y-3">
+                              {mod.reflection && (
+                                <div>
+                                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Reflection</p>
+                                  <p className="text-zinc-300 text-sm leading-relaxed">{mod.reflection}</p>
+                                </div>
+                              )}
+                              {mod.audit && (
+                                <div>
+                                  <p className="text-[10px] font-bold text-sky-400 uppercase tracking-widest mb-1">Audit</p>
+                                  <p className="text-zinc-300 text-sm leading-relaxed">{mod.audit}</p>
+                                </div>
+                              )}
+                              {mod.go_deeper && (
+                                <div>
+                                  <p className="text-[10px] font-bold text-violet-400 uppercase tracking-widest mb-1">Go Deeper</p>
+                                  <p className="text-zinc-300 text-sm leading-relaxed">{mod.go_deeper}</p>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
                 )
               })()}

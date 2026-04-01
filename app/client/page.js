@@ -1230,6 +1230,9 @@ export default function ClientPage() {
       { id: 'premium-pos', label: 'Premium Position™',    icon: '👑', href: '/premium-position' },
       { id: 'playbook',    label: 'Sold Out™ Playbook',   icon: '📖', href: '/playbook' },
     ]},
+    { heading: 'Rewire™', items: [
+      { id: 'wealth-wired', label: 'Wealth Wired™',       icon: '🧠', href: '/wealth-wired' },
+    ]},
     { heading: 'Learn', items: [
       { id: 'classroom',   label: 'Classroom',            icon: '🎓', href: 'https://www.skool.com/imthiazghulam/classroom', external: true },
     ]},
