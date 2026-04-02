@@ -1182,7 +1182,7 @@ export default function PremiumPositionPage() {
             record.generated_plan ? (
               <div>
                 <div className="bg-zinc-900 border border-gold/30 rounded-xl p-6">
-                  <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-4">Your Premium Position™ Action Plan</h3>
+                  <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-4">Your Premium Position™ Action Plan v2</h3>
                   <div className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">{record.generated_plan}</div>
                 </div>
                 <div className="text-center mt-4">
