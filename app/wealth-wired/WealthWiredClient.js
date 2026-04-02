@@ -671,27 +671,20 @@ Review it weekly. Adjust as you grow. Stay in The Wealth Cycle™.
         {/* Action Plan */}
         <div className="mt-8 pt-6 border-t border-zinc-800">
           {scores.total >= 32 ? (
-            generatedPlan ? (
-              <div>
+            <>
+              <div className="text-center mb-6">
+                <button onClick={generateActionPlan} disabled={planLoading} className={`px-8 py-4 ${generatedPlan ? 'bg-zinc-800 hover:bg-zinc-700 text-gold border border-gold/30' : 'bg-gold hover:bg-gold-light text-zinc-950'} disabled:opacity-50 font-bold text-xs uppercase tracking-widest rounded-lg transition`}>
+                  {planLoading ? 'Generating your plan...' : generatedPlan ? 'Regenerate My 30-Day Action Plan' : 'Generate My 30-Day Action Plan'}
+                </button>
+                {generatedPlan && <p className="text-zinc-600 text-xs mt-2">Updated your answers? Hit regenerate to refresh your plan.</p>}
+              </div>
+              {generatedPlan && (
                 <div className="bg-zinc-900 border border-gold/30 rounded-xl p-6">
                   <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-4">Your 30-Day Wealth Wired™ Action Plan</h3>
                   <div className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">{generatedPlan}</div>
                 </div>
-                <div className="text-center mt-4">
-                  <p className="text-zinc-600 text-xs mb-3">Updated your answers? Regenerate your plan to reflect your changes.</p>
-                  <button onClick={generateActionPlan} disabled={planLoading} className="px-6 py-3 bg-zinc-800 hover:bg-zinc-700 disabled:opacity-50 text-gold border border-gold/30 font-bold text-xs uppercase tracking-widest rounded-lg transition">
-                    {planLoading ? 'Regenerating...' : 'Regenerate My 30-Day Action Plan'}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center">
-                <p className="text-zinc-500 text-xs mb-4 uppercase tracking-widest">You've hit the threshold. Your answers are ready to become your plan.</p>
-                <button onClick={generateActionPlan} disabled={planLoading} className="px-8 py-4 bg-gold hover:bg-gold-light disabled:opacity-50 text-zinc-950 font-bold text-xs uppercase tracking-widest rounded-lg transition">
-                  {planLoading ? 'Generating your plan...' : 'Generate My 30-Day Action Plan'}
-                </button>
-              </div>
-            )
+              )}
+            </>
           ) : (() => {
             // Build specific improvement actions
             const improvements = []
