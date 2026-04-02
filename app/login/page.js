@@ -39,7 +39,7 @@ export default function LoginPage() {
         {/* Branding */}
         <div className="text-center mb-10">
           <img src="/logo.png" alt="The Syndicate" className="h-20 w-auto mx-auto mb-4" />
-          <p className="text-zinc-600 text-xs tracking-widest uppercase">The Motherboard</p>
+          <p className="text-zinc-600 text-xs tracking-widest uppercase">The Motherboard v2</p>
         </div>
 
         {/* Card */}
