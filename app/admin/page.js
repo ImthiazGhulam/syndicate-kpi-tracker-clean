@@ -1437,8 +1437,8 @@ function AdminPageInner() {
                 <div className="mb-10">
                   <div className="flex items-center gap-2 mb-4">
                     <div className="w-1 h-5 bg-red-500 rounded-full animate-pulse" />
-                    <h2 className="text-xs font-bold text-red-400 uppercase tracking-[0.2em]">Needs Immediate Attention
-                  </h2>
+                    <h2 className="text-xs font-bold text-red-400 uppercase tracking-[0.2em]">Needs Immediate Attention</h2>
+                  </div>
                   <div className="space-y-2">
                     {critical.map(c => (
                       <button key={c.id} onClick={() => selectClient(c)}
@@ -1506,7 +1506,7 @@ function AdminPageInner() {
                   <div className="flex items-center gap-2 mb-4">
                     <div className="w-1 h-5 bg-emerald-500 rounded-full" />
                     <h2 className="text-xs font-bold text-emerald-400 uppercase tracking-[0.2em]">On Track</h2>
-                  </h2>
+                  </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {healthy.sort((a, b) => (b.health.score || 0) - (a.health.score || 0)).map(c => (
                       <button key={c.id} onClick={() => selectClient(c)}
