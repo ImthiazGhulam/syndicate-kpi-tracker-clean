@@ -499,7 +499,7 @@ function AdminPageInner() {
 
     const safe = async (fn) => { try { return await fn } catch(e) { return { data: [] } } }
 
-    const [checklistRes, morningRes, debriefRes, kpiRes, warMapRes, lockInRes, monthlyRes, playbookRes, premiumRes, wealthRes] = await Promise.all([
+    const [checklistRes, morningRes, debriefRes, kpiRes, warMapRes, lockInRes, monthlyRes, playbookRes, premiumRes, wealthRes, projectsRes, projectTasksRes, flywheelRes] = await Promise.all([
       safe(supabase.from('admin_daily_checklist').select('*').eq('checklist_date', today)),
       safe(supabase.from('daily_pulse').select('client_id, completed').eq('date', today)),
       safe(supabase.from('evening_pulse').select('client_id, completed').eq('date', new Date(Date.now() - 86400000).toISOString().split('T')[0])),
@@ -510,6 +510,9 @@ function AdminPageInner() {
       safe(supabase.from('offer_playbooks').select('client_id, updated_at').order('updated_at', { ascending: false }).limit(50)),
       safe(supabase.from('premium_position').select('client_id, updated_at').order('updated_at', { ascending: false }).limit(50)),
       safe(supabase.from('wealth_wired').select('client_id, updated_at').order('updated_at', { ascending: false }).limit(50)),
+      safe(supabase.from('projects').select('id, client_id, name, status, end_date').in('status', ['in_progress', 'not_started'])),
+      safe(supabase.from('project_tasks').select('project_id, completed')),
+      safe(supabase.from('unshakeable_playbook').select('client_id, title, generated_plan, updated_at, created_at').order('created_at', { ascending: false })),
     ])
 
     const mornings = Array.isArray(morningRes.data) ? morningRes.data : []
@@ -544,11 +547,46 @@ function AdminPageInner() {
     // Clients at risk (score < 40)
     const atRiskClients = clients.filter(c => clientHealth[c.id]?.status === 'critical' || clientHealth[c.id]?.status === 'at-risk' && clientHealth[c.id]?.score < 40)
 
+    // Project alerts
+    const allProjects = Array.isArray(projectsRes.data) ? projectsRes.data : []
+    const allProjTasks = Array.isArray(projectTasksRes.data) ? projectTasksRes.data : []
+    const flywheelEntries = Array.isArray(flywheelRes.data) ? flywheelRes.data : []
+
+    // Near-completion projects (1-2 tasks left)
+    const nearComplete = allProjects.map(p => {
+      const tasks = allProjTasks.filter(t => t.project_id === p.id)
+      const remaining = tasks.filter(t => !t.completed).length
+      const total = tasks.length
+      const client = clients.find(c => c.id === p.client_id)
+      return { ...p, remaining, total, clientName: client?.name || 'Unknown' }
+    }).filter(p => p.total > 0 && p.remaining > 0 && p.remaining <= 2)
+
+    // Overdue projects (end_date passed, still in progress)
+    const overdueProjects = allProjects.filter(p => {
+      if (!p.end_date) return false
+      return new Date(p.end_date) < new Date() && p.status === 'in_progress'
+    }).map(p => {
+      const client = clients.find(c => c.id === p.client_id)
+      const daysOver = Math.ceil((new Date() - new Date(p.end_date)) / 86400000)
+      return { ...p, clientName: client?.name || 'Unknown', daysOver }
+    })
+
+    // Recent flywheel deployments (plans generated in last 48h)
+    const recentFlywheels = flywheelEntries.filter(f => {
+      if (!f.generated_plan) return false
+      const updated = new Date(f.updated_at)
+      return (Date.now() - updated.getTime()) < 48 * 60 * 60 * 1000
+    }).map(f => {
+      const client = clients.find(c => c.id === f.client_id)
+      return { ...f, clientName: client?.name || 'Unknown' }
+    })
+
     setDailyOpsData({
       totalClients, morningsDone, debriefsDone, kpisDone,
       warMapsDone, lockInsDone, monthlysDone,
       awaitingFeedback, renewingSoon, expired,
       noMorningOps, atRiskClients, dayOfWeek, dayOfMonth,
+      nearComplete, overdueProjects, recentFlywheels,
     })
 
     // Build checklist items
@@ -777,28 +815,28 @@ function AdminPageInner() {
         </button>
       </header>
 
-      {/* Top nav: Clients / Content */}
-      <div className="bg-zinc-950 border-b border-zinc-800 px-4 py-2 flex items-center gap-2">
-        <button onClick={() => { setAdminView('clients'); fetchContentData() }}
-          className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition ${adminView === 'clients' ? 'bg-gold/10 text-gold border border-gold/30' : 'text-zinc-500 hover:text-white border border-transparent'}`}>
-          👥 Clients
-        </button>
+      {/* Top nav */}
+      <div className="bg-zinc-950 border-b border-zinc-800 px-4 py-2 flex items-center gap-2 overflow-x-auto">
         <button onClick={() => { setAdminView('daily-ops'); fetchDailyOps() }}
-          className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition ${adminView === 'daily-ops' ? 'bg-gold/10 text-gold border border-gold/30' : 'text-zinc-500 hover:text-white border border-transparent'}`}>
+          className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition whitespace-nowrap ${adminView === 'daily-ops' ? 'bg-gold/10 text-gold border border-gold/30' : 'text-zinc-500 hover:text-white border border-transparent'}`}>
           ✅ Daily Ops
         </button>
-        <button onClick={() => { setAdminView('content'); fetchContentData() }}
-          className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition ${adminView === 'content' ? 'bg-gold/10 text-gold border border-gold/30' : 'text-zinc-500 hover:text-white border border-transparent'}`}>
-          📱 Content Intel
+        <button onClick={() => { setAdminView('clients'); fetchContentData() }}
+          className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition whitespace-nowrap ${adminView === 'clients' ? 'bg-gold/10 text-gold border border-gold/30' : 'text-zinc-500 hover:text-white border border-transparent'}`}>
+          👥 Clients
         </button>
         <a href="https://admin.typeform.com/accounts/01GF2ZJC64DV92SE0MDZ0RN7H8/workspaces/hWF3Jh" target="_blank" rel="noopener noreferrer"
-          className="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition text-zinc-500 hover:text-white border border-transparent">
+          className="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition text-zinc-500 hover:text-white border border-transparent whitespace-nowrap">
           📋 Typeform
         </a>
         <a href="https://www.skool.com/imthiazghulam/classroom" target="_blank" rel="noopener noreferrer"
-          className="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition text-zinc-500 hover:text-white border border-transparent">
+          className="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition text-zinc-500 hover:text-white border border-transparent whitespace-nowrap">
           🎓 Skool
         </a>
+        <button onClick={() => { setAdminView('content'); fetchContentData() }}
+          className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition whitespace-nowrap ${adminView === 'content' ? 'bg-gold/10 text-gold border border-gold/30' : 'text-zinc-500 hover:text-white border border-transparent'}`}>
+          📱 Content Intel
+        </button>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
@@ -862,6 +900,24 @@ function AdminPageInner() {
                 const isMonday = d.dayOfWeek === 1
                 const isFriday = d.dayOfWeek === 5
                 const isFirstWeek = d.dayOfMonth <= 7
+
+                // ── LIVE ALERTS (not checklist items — auto-generated from data) ──
+                const alerts = []
+                if (d.recentFlywheels && d.recentFlywheels.length > 0) {
+                  d.recentFlywheels.forEach(f => {
+                    alerts.push({ icon: '🔥', color: 'text-gold', bg: 'bg-gold/10 border-gold/30', label: `${f.clientName} deployed a Performance Flywheel™ plan`, sub: f.title || 'New plan generated — review and follow up' })
+                  })
+                }
+                if (d.nearComplete && d.nearComplete.length > 0) {
+                  d.nearComplete.forEach(p => {
+                    alerts.push({ icon: '🏁', color: 'text-emerald-400', bg: 'bg-emerald-500/10 border-emerald-500/30', label: `${p.clientName} has ${p.remaining} task${p.remaining > 1 ? 's' : ''} left on "${p.name}"`, sub: `${p.total - p.remaining}/${p.total} complete — send encouragement` })
+                  })
+                }
+                if (d.overdueProjects && d.overdueProjects.length > 0) {
+                  d.overdueProjects.forEach(p => {
+                    alerts.push({ icon: '⏰', color: 'text-red-400', bg: 'bg-red-500/10 border-red-500/30', label: `${p.clientName}'s project "${p.name}" is ${p.daysOver} day${p.daysOver > 1 ? 's' : ''} overdue`, sub: 'Check in — do they need help or a deadline extension?' })
+                  })
+                }
 
                 const sections = []
 
@@ -934,6 +990,26 @@ function AdminPageInner() {
 
                 return (
                   <div>
+                    {/* Live Alerts */}
+                    {alerts.length > 0 && (
+                      <div className="mb-8">
+                        <h2 className="text-xs font-bold text-white uppercase tracking-widest mb-4 flex items-center gap-2">
+                          <span className="text-base">🚨</span> Live Alerts
+                        </h2>
+                        <div className="space-y-2">
+                          {alerts.map((alert, ai) => (
+                            <div key={ai} className={`flex items-start gap-3 p-4 rounded-lg border ${alert.bg}`}>
+                              <span className="text-lg flex-shrink-0">{alert.icon}</span>
+                              <div className="flex-1 min-w-0">
+                                <p className={`text-sm font-semibold ${alert.color}`}>{alert.label}</p>
+                                <p className="text-xs text-zinc-500 mt-0.5">{alert.sub}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Progress bar */}
                     <div className="mb-8 bg-zinc-900 border border-zinc-800 rounded-lg p-5">
                       <div className="flex items-center justify-between mb-3">
