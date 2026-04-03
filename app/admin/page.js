@@ -172,6 +172,7 @@ function AdminPageInner() {
   const [loading, setLoading] = useState(true)
   const [clientLoading, setClientLoading] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [openNavSection, setOpenNavSection] = useState(null)
   const [adminView, setAdminView] = useState('clients') // 'clients' | 'content' | 'daily-ops'
   const [competitors, setCompetitors] = useState([])
   const [competitorPosts, setCompetitorPosts] = useState([])
@@ -1729,43 +1730,46 @@ function AdminPageInner() {
                   ))}
                 </div>
 
-                {/* Section dropdowns */}
-                <div className="flex flex-wrap gap-2">
+                {/* Section dropdowns — click to toggle */}
+                {openNavSection !== null && <div className="fixed inset-0 z-10" onClick={() => setOpenNavSection(null)} />}
+                <div className="flex flex-wrap gap-2 relative z-20">
                   {navSections.slice(1).map((section, si) => {
                     const sectionActive = section.items.some(t => t.id === activeTab)
+                    const isOpen = openNavSection === si
                     return (
-                      <div key={si} className="relative group">
-                        {/* Section heading button */}
+                      <div key={si} className="relative">
                         <button
+                          onClick={() => setOpenNavSection(isOpen ? null : si)}
                           className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition whitespace-nowrap ${
                             sectionActive
                               ? 'bg-gold/10 text-gold border border-gold/30'
                               : 'text-zinc-500 hover:text-white bg-zinc-900 border border-zinc-800 hover:border-zinc-700'
                           }`}>
                           {section.heading}
-                          {sectionActive && (
+                          {sectionActive && !isOpen && (
                             <span className="text-gold/60 font-normal normal-case tracking-normal">
                               — {section.items.find(t => t.id === activeTab)?.label}
                             </span>
                           )}
-                          <svg className="w-3 h-3 ml-0.5 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                          <svg className={`w-3 h-3 ml-0.5 text-zinc-600 transition-transform ${isOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
                         </button>
 
-                        {/* Dropdown */}
-                        <div className="absolute top-full left-0 mt-1 z-20 hidden group-hover:block">
-                          <div className="bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl shadow-black/40 py-1.5 min-w-[180px]">
-                            {section.items.map(tab => (
-                              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                                className={`w-full text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-wider transition ${
-                                  activeTab === tab.id
-                                    ? 'text-gold bg-gold/5'
-                                    : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
-                                }`}>
-                                {tab.label}
-                              </button>
-                            ))}
+                        {isOpen && (
+                          <div className="absolute top-full left-0 mt-1 z-20">
+                            <div className="bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl shadow-black/40 py-1.5 min-w-[200px]">
+                              {section.items.map(tab => (
+                                <button key={tab.id} onClick={() => { setActiveTab(tab.id); setOpenNavSection(null) }}
+                                  className={`w-full text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-wider transition ${
+                                    activeTab === tab.id
+                                      ? 'text-gold bg-gold/5'
+                                      : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
+                                  }`}>
+                                  {tab.label}
+                                </button>
+                              ))}
+                            </div>
                           </div>
-                        </div>
+                        )}
                       </div>
                     )
                   })}
