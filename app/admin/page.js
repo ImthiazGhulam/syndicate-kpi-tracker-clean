@@ -791,52 +791,64 @@ function AdminPageInner() {
   return (
     <div className="min-h-screen bg-zinc-950 flex flex-col">
 
-      {/* Header */}
-      <header className="bg-zinc-950 border-b border-zinc-800 px-4 py-4 flex items-center justify-between sticky top-0 z-30">
-        <div className="flex items-center gap-3">
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className="md:hidden text-zinc-500 hover:text-white p-2 -ml-2 rounded transition" aria-label="Toggle sidebar">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
-          </button>
+      {/* Header + Nav — unified sticky bar */}
+      <div className="sticky top-0 z-30">
+        <header className="bg-gradient-to-b from-zinc-950 to-zinc-950/95 backdrop-blur-xl border-b border-zinc-800/50 px-4 sm:px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <img src="/logo.png" alt="The Syndicate" className="h-8 w-auto flex-shrink-0" />
-            <div className="hidden sm:block">
-              <p className="text-white text-sm font-bold tracking-wider uppercase leading-none">The Syndicate</p>
-              <p className="text-zinc-600 text-xs tracking-widest uppercase mt-0.5">Admin</p>
+            <button onClick={() => setSidebarOpen(!sidebarOpen)} className="md:hidden text-zinc-500 hover:text-white p-2 -ml-2 rounded transition" aria-label="Toggle sidebar">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </button>
+            <div className="flex items-center gap-3">
+              <img src="/logo.png" alt="The Syndicate" className="h-9 w-auto flex-shrink-0" />
+              <div className="hidden sm:block">
+                <p className="text-white text-sm font-bold tracking-wider uppercase leading-none">The Syndicate</p>
+                <p className="text-gold/60 text-[10px] tracking-[0.25em] uppercase mt-0.5 font-semibold">Command Centre</p>
+              </div>
             </div>
           </div>
-        </div>
-        <button onClick={handleSignOut} className="text-zinc-500 hover:text-white text-xs uppercase tracking-widest font-semibold flex items-center gap-2 transition">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-          </svg>
-          <span className="hidden sm:inline">Sign Out</span>
-        </button>
-      </header>
+          <button onClick={handleSignOut} className="text-zinc-600 hover:text-white text-xs uppercase tracking-widest font-semibold flex items-center gap-2 transition">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            <span className="hidden sm:inline">Sign Out</span>
+          </button>
+        </header>
 
-      {/* Top nav */}
-      <div className="bg-zinc-950 border-b border-zinc-800 px-4 py-2 flex items-center gap-2 overflow-x-auto">
-        <button onClick={() => { setAdminView('daily-ops'); fetchDailyOps() }}
-          className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition whitespace-nowrap ${adminView === 'daily-ops' ? 'bg-gold/10 text-gold border border-gold/30' : 'text-zinc-500 hover:text-white border border-transparent'}`}>
-          ✅ Daily Ops
-        </button>
-        <button onClick={() => { setAdminView('clients'); fetchContentData() }}
-          className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition whitespace-nowrap ${adminView === 'clients' ? 'bg-gold/10 text-gold border border-gold/30' : 'text-zinc-500 hover:text-white border border-transparent'}`}>
-          👥 Clients
-        </button>
-        <a href="https://admin.typeform.com/accounts/01GF2ZJC64DV92SE0MDZ0RN7H8/workspaces/hWF3Jh" target="_blank" rel="noopener noreferrer"
-          className="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition text-zinc-500 hover:text-white border border-transparent whitespace-nowrap">
-          📋 Typeform
-        </a>
-        <a href="https://www.skool.com/imthiazghulam/classroom" target="_blank" rel="noopener noreferrer"
-          className="px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition text-zinc-500 hover:text-white border border-transparent whitespace-nowrap">
-          🎓 Skool
-        </a>
-        <button onClick={() => { setAdminView('content'); fetchContentData() }}
-          className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest transition whitespace-nowrap ${adminView === 'content' ? 'bg-gold/10 text-gold border border-gold/30' : 'text-zinc-500 hover:text-white border border-transparent'}`}>
-          📱 Content Intel
-        </button>
+        {/* Top nav — pill style with bottom indicator */}
+        <nav className="bg-zinc-950/90 backdrop-blur-xl border-b border-zinc-800/50 px-4 sm:px-6 flex items-end gap-1 overflow-x-auto scrollbar-none">
+          {[
+            { key: 'daily-ops', label: 'Daily Ops', icon: '✅', onClick: () => { setAdminView('daily-ops'); fetchDailyOps() } },
+            { key: 'clients', label: 'Clients', icon: '👥', onClick: () => { setAdminView('clients'); fetchContentData() } },
+          ].map(tab => (
+            <button key={tab.key} onClick={tab.onClick}
+              className={`relative px-4 py-3 text-xs font-bold uppercase tracking-widest transition whitespace-nowrap ${
+                adminView === tab.key ? 'text-gold' : 'text-zinc-500 hover:text-zinc-300'
+              }`}>
+              <span className="flex items-center gap-1.5">{tab.icon} {tab.label}</span>
+              {adminView === tab.key && <div className="absolute bottom-0 left-2 right-2 h-[2px] bg-gold rounded-full" />}
+            </button>
+          ))}
+          <div className="w-px h-5 bg-zinc-800 self-center mx-1 flex-shrink-0" />
+          {[
+            { href: 'https://admin.typeform.com/accounts/01GF2ZJC64DV92SE0MDZ0RN7H8/workspaces/hWF3Jh', label: 'Typeform', icon: '📋' },
+            { href: 'https://www.skool.com/imthiazghulam/classroom', label: 'Skool', icon: '🎓' },
+          ].map(link => (
+            <a key={link.label} href={link.href} target="_blank" rel="noopener noreferrer"
+              className="px-4 py-3 text-xs font-bold uppercase tracking-widest transition text-zinc-600 hover:text-zinc-300 whitespace-nowrap">
+              <span className="flex items-center gap-1.5">{link.icon} {link.label}</span>
+            </a>
+          ))}
+          <div className="w-px h-5 bg-zinc-800 self-center mx-1 flex-shrink-0" />
+          <button onClick={() => { setAdminView('content'); fetchContentData() }}
+            className={`relative px-4 py-3 text-xs font-bold uppercase tracking-widest transition whitespace-nowrap ${
+              adminView === 'content' ? 'text-gold' : 'text-zinc-500 hover:text-zinc-300'
+            }`}>
+            <span className="flex items-center gap-1.5">📱 Content Intel</span>
+            {adminView === 'content' && <div className="absolute bottom-0 left-2 right-2 h-[2px] bg-gold rounded-full" />}
+          </button>
+        </nav>
       </div>
 
       <div className="flex flex-1 overflow-hidden">
@@ -886,10 +898,11 @@ function AdminPageInner() {
           {/* ════════ DAILY OPS VIEW ════════ */}
           {adminView === 'daily-ops' ? (
             <div className="fade-in max-w-4xl mx-auto">
-              <div className="mb-8">
-                <h1 className="text-2xl font-bold text-white tracking-tight">✅ Daily Ops</h1>
-                <p className="text-zinc-500 text-sm mt-1">Your daily coaching checklist — refreshes every day, Mon–Fri.</p>
-                <p className="text-zinc-600 text-xs mt-1">{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+              {/* Hero header */}
+              <div className="mb-10">
+                <p className="text-gold text-[10px] font-bold uppercase tracking-[0.3em] mb-2">{new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                <h1 className="text-3xl font-black text-white tracking-tight">Daily Ops</h1>
+                <p className="text-zinc-500 text-sm mt-2">Your coaching checklist. Refreshes every day.</p>
               </div>
 
               {dailyOpsLoading ? (
@@ -992,17 +1005,18 @@ function AdminPageInner() {
                   <div>
                     {/* Live Alerts */}
                     {alerts.length > 0 && (
-                      <div className="mb-8">
-                        <h2 className="text-xs font-bold text-white uppercase tracking-widest mb-4 flex items-center gap-2">
-                          <span className="text-base">🚨</span> Live Alerts
-                        </h2>
-                        <div className="space-y-2">
+                      <div className="mb-10">
+                        <div className="flex items-center gap-2 mb-4">
+                          <div className="w-1 h-5 bg-gold rounded-full" />
+                          <h2 className="text-xs font-bold text-white uppercase tracking-[0.2em]">Live Alerts</h2>
+                        </div>
+                        <div className="space-y-2.5">
                           {alerts.map((alert, ai) => (
-                            <div key={ai} className={`flex items-start gap-3 p-4 rounded-lg border ${alert.bg}`}>
-                              <span className="text-lg flex-shrink-0">{alert.icon}</span>
+                            <div key={ai} className={`flex items-start gap-4 p-4 sm:p-5 rounded-xl border backdrop-blur-sm ${alert.bg}`}>
+                              <span className="text-xl flex-shrink-0 mt-0.5">{alert.icon}</span>
                               <div className="flex-1 min-w-0">
-                                <p className={`text-sm font-semibold ${alert.color}`}>{alert.label}</p>
-                                <p className="text-xs text-zinc-500 mt-0.5">{alert.sub}</p>
+                                <p className={`text-sm font-bold ${alert.color}`}>{alert.label}</p>
+                                <p className="text-xs text-zinc-500 mt-1 leading-relaxed">{alert.sub}</p>
                               </div>
                             </div>
                           ))}
@@ -1010,48 +1024,54 @@ function AdminPageInner() {
                       </div>
                     )}
 
-                    {/* Progress bar */}
-                    <div className="mb-8 bg-zinc-900 border border-zinc-800 rounded-lg p-5">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Today's Progress</span>
-                        <span className={`text-sm font-bold ${completedCount === allItems.length ? 'text-emerald-400' : 'text-gold'}`}>
-                          {completedCount}/{allItems.length}
+                    {/* Hero progress bar */}
+                    <div className="mb-10 bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-800 border border-zinc-700/50 rounded-2xl p-6 sm:p-8">
+                      <div className="flex items-end justify-between mb-4">
+                        <div>
+                          <p className="text-zinc-500 text-xs font-bold uppercase tracking-[0.2em]">Today's Progress</p>
+                          <p className="text-4xl font-black text-white mt-1">
+                            {allItems.length > 0 ? Math.round((completedCount / allItems.length) * 100) : 0}<span className="text-lg text-zinc-600 font-bold">%</span>
+                          </p>
+                        </div>
+                        <span className={`text-sm font-bold ${completedCount === allItems.length ? 'text-emerald-400' : 'text-zinc-500'}`}>
+                          {completedCount} / {allItems.length} tasks
                         </span>
                       </div>
-                      <div className="w-full h-3 bg-zinc-800 rounded-full overflow-hidden">
-                        <div className={`h-full rounded-full transition-all duration-500 ${completedCount === allItems.length ? 'bg-emerald-500' : 'bg-gold'}`}
+                      <div className="w-full h-2.5 bg-zinc-800 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full transition-all duration-700 ${completedCount === allItems.length ? 'bg-emerald-500' : 'bg-gradient-to-r from-gold/80 to-gold'}`}
                           style={{ width: `${allItems.length > 0 ? (completedCount / allItems.length) * 100 : 0}%` }} />
                       </div>
                       {completedCount === allItems.length && allItems.length > 0 && (
-                        <p className="text-emerald-400 text-xs font-semibold mt-3 text-center">All done for today. You're a machine. 💪</p>
+                        <p className="text-emerald-400 text-sm font-bold mt-4 text-center tracking-wide">All done for today. You're a machine.</p>
                       )}
                     </div>
 
                     {/* Sections */}
                     {sections.map((section, si) => (
-                      <div key={si} className="mb-8">
-                        <div className="flex items-center gap-3 mb-4">
-                          <h2 className="text-sm font-bold text-white uppercase tracking-widest">{section.title}</h2>
-                          <span className="text-xs text-zinc-600">{section.subtitle}</span>
+                      <div key={si} className="mb-10">
+                        <div className="flex items-center gap-2 mb-4">
+                          <div className="w-1 h-5 bg-gold/40 rounded-full" />
+                          <h2 className="text-xs font-bold text-white uppercase tracking-[0.2em]">{section.title}</h2>
+                          <span className="text-[10px] text-zinc-600 uppercase tracking-widest">{section.subtitle}</span>
                         </div>
-                        <div className="space-y-2">
+                        <div className="space-y-2.5">
                           {section.items.map((item) => {
                             const checked = isDailyOpsChecked(item.key)
                             return (
                               <div key={item.key}
-                                className={`flex items-start gap-4 p-4 rounded-lg border transition cursor-pointer ${
+                                className={`flex items-start gap-4 p-4 sm:p-5 rounded-xl border transition-all duration-200 cursor-pointer ${
                                   checked
-                                    ? 'bg-zinc-900/50 border-zinc-800/50'
+                                    ? 'bg-zinc-900/30 border-zinc-800/30'
                                     : item.highlight
-                                      ? 'bg-amber-950/20 border-amber-900/40 hover:border-amber-800/60'
-                                      : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'
+                                      ? 'bg-amber-950/20 border-amber-900/40 hover:border-amber-700/60 hover:bg-amber-950/30'
+                                      : 'bg-zinc-900/80 border-zinc-800 hover:border-zinc-600 hover:bg-zinc-900'
                                 }`}
                                 onClick={() => toggleDailyOpsItem(item.key)}>
-                                <div className={`flex-shrink-0 w-6 h-6 rounded border-2 flex items-center justify-center mt-0.5 transition ${
-                                  checked ? 'bg-emerald-500 border-emerald-500' : 'border-zinc-600 hover:border-gold'
+                                <div className={`flex-shrink-0 w-6 h-6 rounded-md border-2 flex items-center justify-center mt-0.5 transition-all duration-200 ${
+                                  checked ? 'bg-emerald-500 border-emerald-500 scale-110' : 'border-zinc-600 hover:border-gold'
                                 }`}>
                                   {checked && (
-                                    <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                     </svg>
                                   )}
@@ -1060,14 +1080,14 @@ function AdminPageInner() {
                                   <p className={`text-sm font-semibold transition ${checked ? 'text-zinc-600 line-through' : 'text-white'}`}>
                                     {item.label}
                                   </p>
-                                  <p className={`text-xs mt-1 leading-relaxed ${checked ? 'text-zinc-700' : item.highlight ? 'text-amber-400/70' : 'text-zinc-500'}`}>
+                                  <p className={`text-xs mt-1.5 leading-relaxed ${checked ? 'text-zinc-700' : item.highlight ? 'text-amber-400/70' : 'text-zinc-500'}`}>
                                     {item.sub}
                                   </p>
                                 </div>
                                 {item.link && !checked && (
                                   <a href={item.link} target="_blank" rel="noopener noreferrer"
                                     onClick={(e) => e.stopPropagation()}
-                                    className="flex-shrink-0 px-3 py-1.5 text-xs font-bold text-gold border border-gold/30 rounded hover:bg-gold/10 transition uppercase tracking-wider">
+                                    className="flex-shrink-0 px-3.5 py-2 text-[10px] font-bold text-gold bg-gold/5 border border-gold/20 rounded-lg hover:bg-gold/10 hover:border-gold/40 transition-all uppercase tracking-widest">
                                     Open
                                   </a>
                                 )}
