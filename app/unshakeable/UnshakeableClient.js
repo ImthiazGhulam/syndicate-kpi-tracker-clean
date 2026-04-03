@@ -379,6 +379,7 @@ export default function UnshakeablePage() {
   const [generatedTasks, setGeneratedTasks] = useState([])
   const [planSummary, setPlanSummary] = useState('')
   const [deployedToCalendar, setDeployedToCalendar] = useState(false)
+  const [identityAffirmation, setIdentityAffirmation] = useState('')
 
   const generateActionPlan = async () => {
     setPlanLoading(true)
@@ -462,6 +463,29 @@ export default function UnshakeablePage() {
     }))
 
     await supabase.from('project_tasks').insert(taskInserts)
+
+    // Auto-populate Identity Chamber from The Identity Shift™ (framework_1) go_deeper answer
+    const identityAnswer = frameworkData.framework_1?.go_deeper?.trim()
+    if (identityAnswer) {
+      // Paraphrase into an "I am" affirmation
+      const affirmation = identityAnswer.startsWith('I ') ? identityAnswer : `I am ${identityAnswer.charAt(0).toLowerCase()}${identityAnswer.slice(1)}`
+      // Clean it up — remove trailing period, ensure it reads as a statement
+      const cleanAffirmation = affirmation.replace(/\.$/, '').trim()
+      const marker = `\n\n— Performance Flywheel™: ${record?.title || 'My Commitment'} —\n${cleanAffirmation}`
+
+      // Fetch existing affirmations and append
+      const { data: existing } = await supabase.from('identity_change').select('affirmations').eq('client_id', clientData.id).maybeSingle()
+      const currentAffirmations = existing?.affirmations || ''
+      const updated = currentAffirmations.trim() ? `${currentAffirmations.trim()}${marker}` : cleanAffirmation
+
+      await supabase.from('identity_change').upsert({
+        client_id: clientData.id,
+        affirmations: updated,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'client_id' })
+
+      setIdentityAffirmation(cleanAffirmation)
+    }
 
     setDeployedToCalendar(true)
     setPlanLoading(false)
@@ -721,9 +745,53 @@ export default function UnshakeablePage() {
                   {/* Deploy button */}
                   <div className="text-center">
                     {deployedToCalendar ? (
-                      <div className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-900/20 border border-emerald-500/30 rounded-lg">
-                        <svg className="w-5 h-5 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                        <span className="text-emerald-400 font-bold text-xs uppercase tracking-widest">Deployed to your calendar</span>
+                      <div className="bg-gradient-to-br from-emerald-950/40 to-zinc-900 border border-emerald-500/30 rounded-2xl p-6 sm:p-8 text-left">
+                        <div className="flex items-center gap-3 mb-5">
+                          <div className="w-10 h-10 rounded-xl bg-emerald-500/20 flex items-center justify-center">
+                            <svg className="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                          </div>
+                          <div>
+                            <h3 className="text-lg font-black text-white">Plan Deployed</h3>
+                            <p className="text-emerald-400 text-xs font-bold uppercase tracking-widest">Your flywheel is in motion</p>
+                          </div>
+                        </div>
+
+                        <div className="space-y-4">
+                          <div className="flex items-start gap-3 p-3 bg-zinc-900/60 rounded-xl">
+                            <span className="text-lg">📋</span>
+                            <div>
+                              <p className="text-sm font-bold text-white">Project Created</p>
+                              <p className="text-xs text-zinc-400 mt-0.5">{generatedTasks.length} tasks added to your <span className="text-gold font-semibold">Projects</span> tab with scheduled dates</p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-start gap-3 p-3 bg-zinc-900/60 rounded-xl">
+                            <span className="text-lg">☀️</span>
+                            <div>
+                              <p className="text-sm font-bold text-white">Morning Ops Updated</p>
+                              <p className="text-xs text-zinc-400 mt-0.5">Your tasks will appear in <span className="text-gold font-semibold">Today's Schedule</span> every morning</p>
+                            </div>
+                          </div>
+
+                          {identityAffirmation && (
+                            <div className="flex items-start gap-3 p-3 bg-zinc-900/60 rounded-xl">
+                              <span className="text-lg">🪞</span>
+                              <div>
+                                <p className="text-sm font-bold text-white">Identity Chamber Updated</p>
+                                <p className="text-xs text-zinc-400 mt-0.5">Your identity shift has been added to your <span className="text-gold font-semibold">Identity Chamber</span> affirmations:</p>
+                                <p className="text-sm text-gold font-semibold mt-2 italic">"{identityAffirmation}"</p>
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="flex items-start gap-3 p-3 bg-zinc-900/60 rounded-xl">
+                            <span className="text-lg">📅</span>
+                            <div>
+                              <p className="text-sm font-bold text-white">Calendar</p>
+                              <p className="text-xs text-zinc-400 mt-0.5">Tasks run from <span className="text-white font-medium">{generatedTasks[0]?.scheduled_date && new Date(generatedTasks[0].scheduled_date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span> to <span className="text-white font-medium">{generatedTasks[generatedTasks.length - 1]?.scheduled_date && new Date(generatedTasks[generatedTasks.length - 1].scheduled_date + 'T12:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span> — check your <span className="text-gold font-semibold">War Map</span> calendar</p>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     ) : (
                       <button onClick={deployToCalendar} disabled={planLoading}
@@ -731,7 +799,7 @@ export default function UnshakeablePage() {
                         {planLoading ? 'Deploying...' : 'Deploy to Calendar'}
                       </button>
                     )}
-                    <p className="text-zinc-600 text-xs mt-2">{deployedToCalendar ? 'Check your Projects tab and Morning Ops to see your tasks.' : 'This will create a project with all these tasks on your calendar.'}</p>
+                    {!deployedToCalendar && <p className="text-zinc-600 text-xs mt-2">This will create a project with all these tasks on your calendar and update your Identity Chamber.</p>}
                   </div>
                 </div>
               )}
