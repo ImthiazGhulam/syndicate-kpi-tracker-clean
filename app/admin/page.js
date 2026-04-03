@@ -1713,27 +1713,63 @@ function AdminPageInner() {
                 </div>
               </div>
 
-              {/* Tab Navigation — grouped with labels */}
-              <div className="mb-8 -mx-1">
-                {navSections.map((section, si) => (
-                  <div key={si} className="inline-flex items-center flex-wrap">
-                    {section.heading && (
-                      <span className="text-[9px] font-bold text-zinc-700 uppercase tracking-[0.25em] px-2 hidden sm:inline">{section.heading}</span>
-                    )}
-                    {section.items.map(tab => (
-                      <button key={tab.id} onClick={() => setActiveTab(tab.id)}
-                        className={`relative px-3 py-2 text-[11px] font-bold uppercase tracking-wider transition whitespace-nowrap ${
-                          activeTab === tab.id
-                            ? 'text-gold'
-                            : 'text-zinc-600 hover:text-zinc-300'
-                        }`}>
-                        {tab.label}
-                        {activeTab === tab.id && <div className="absolute bottom-0 left-1 right-1 h-[2px] bg-gold rounded-full" />}
-                      </button>
-                    ))}
-                    {si < navSections.length - 1 && <div className="w-px h-3.5 bg-zinc-800 mx-1 hidden sm:inline-block" />}
-                  </div>
-                ))}
+              {/* Tab Navigation — dropdown sections */}
+              <div className="mb-8">
+                {/* Top-level: Command Centre + Projects always visible */}
+                <div className="flex items-center gap-1 mb-3">
+                  {navSections[0].items.map(tab => (
+                    <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                      className={`px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition whitespace-nowrap ${
+                        activeTab === tab.id
+                          ? 'bg-gold/10 text-gold border border-gold/30'
+                          : 'text-zinc-500 hover:text-white bg-zinc-900 border border-zinc-800 hover:border-zinc-700'
+                      }`}>
+                      {tab.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Section dropdowns */}
+                <div className="flex flex-wrap gap-2">
+                  {navSections.slice(1).map((section, si) => {
+                    const sectionActive = section.items.some(t => t.id === activeTab)
+                    return (
+                      <div key={si} className="relative group">
+                        {/* Section heading button */}
+                        <button
+                          className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-wider transition whitespace-nowrap ${
+                            sectionActive
+                              ? 'bg-gold/10 text-gold border border-gold/30'
+                              : 'text-zinc-500 hover:text-white bg-zinc-900 border border-zinc-800 hover:border-zinc-700'
+                          }`}>
+                          {section.heading}
+                          {sectionActive && (
+                            <span className="text-gold/60 font-normal normal-case tracking-normal">
+                              — {section.items.find(t => t.id === activeTab)?.label}
+                            </span>
+                          )}
+                          <svg className="w-3 h-3 ml-0.5 text-zinc-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+                        </button>
+
+                        {/* Dropdown */}
+                        <div className="absolute top-full left-0 mt-1 z-20 hidden group-hover:block">
+                          <div className="bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl shadow-black/40 py-1.5 min-w-[180px]">
+                            {section.items.map(tab => (
+                              <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+                                className={`w-full text-left px-4 py-2.5 text-xs font-semibold uppercase tracking-wider transition ${
+                                  activeTab === tab.id
+                                    ? 'text-gold bg-gold/5'
+                                    : 'text-zinc-400 hover:text-white hover:bg-zinc-800'
+                                }`}>
+                                {tab.label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
               </div>
 
               {/* ══════════════════════════════════════════════════════════════ */}
