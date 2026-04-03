@@ -694,6 +694,10 @@ function AdminPageInner() {
               Clients <span className="text-zinc-600">({clients.length})</span>
             </p>
           </div>
+          <a href="https://admin.typeform.com/accounts/01GF2ZJC64DV92SE0MDZ0RN7H8/workspaces/hWF3Jh" target="_blank" rel="noopener noreferrer" className="mx-4 mt-3 mb-1 flex items-center gap-2 px-3 py-2.5 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-lg transition text-sm text-zinc-300 hover:text-white">
+            <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+            <span className="font-medium">Typeform</span>
+          </a>
           <div className="flex-1 overflow-y-auto py-1">
             {clients.map(client => (
               <button key={client.id} onClick={() => selectClient(client)}
