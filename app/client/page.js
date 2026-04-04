@@ -2913,135 +2913,6 @@ export default function ClientPage() {
               </div>
             )}
 
-            {/* ── TASK MODAL ────────────────────────────────────────────── */}
-            {taskModal && (
-              <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center sm:p-4"
-                onClick={() => setTaskModal(null)}>
-                <div className="bg-zinc-900 border border-zinc-800 rounded-t-xl sm:rounded-lg p-5 sm:p-6 w-full sm:max-w-md shadow-2xl max-h-[90vh] overflow-y-auto scrollbar-thin slide-up"
-                  onClick={e => e.stopPropagation()}>
-
-                  {/* Mobile drag handle */}
-                  <div className="flex justify-center mb-3 sm:hidden">
-                    <div className="w-10 h-1 bg-zinc-700 rounded-full" />
-                  </div>
-
-                  <div className="flex items-center justify-between mb-5">
-                    <h3 className="text-sm font-bold text-white uppercase tracking-widest">
-                      {taskModal.mode === 'view' ? 'Task' : taskModal.mode === 'edit' ? 'Edit Task' : taskModal.mode === 'schedule' ? 'Schedule Task' : 'Add Task'}
-                    </h3>
-                    <button onClick={() => setTaskModal(null)} className="text-zinc-500 hover:text-white active:text-white transition p-1">
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                  </div>
-
-                  {taskModal.mode === 'view' ? (
-                    <div className="space-y-4">
-                      {taskModal.task._isProjectTask && taskModal.task._projectName && (
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] font-bold text-gold/70 uppercase tracking-widest bg-gold/10 px-2 py-0.5 rounded">Project: {taskModal.task._projectName}</span>
-                        </div>
-                      )}
-                      <div>
-                        <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-1">Task</p>
-                        <p className="text-white font-medium">{taskModal.task.title}</p>
-                      </div>
-                      {taskModal.task.scheduled_date && (
-                        <div>
-                          <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-1">Date</p>
-                          <p className="text-zinc-300 text-sm">{new Date(taskModal.task.scheduled_date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
-                        </div>
-                      )}
-                      {taskModal.task.scheduled_time && (
-                        <div>
-                          <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-1">Time</p>
-                          <p className="text-zinc-300 text-sm">{formatTime(taskModal.task.scheduled_time)}{taskModal.task.duration_minutes ? ` · ${taskModal.task.duration_minutes} min` : ''}</p>
-                        </div>
-                      )}
-                      {taskModal.task.recurring && taskModal.task.recurring !== 'none' && (
-                        <div>
-                          <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-1">Repeats</p>
-                          <p className="text-zinc-300 text-sm capitalize">{taskModal.task.recurring}</p>
-                        </div>
-                      )}
-                      <div className="flex gap-3 pt-2">
-                        {!taskModal.task.completed && (
-                          <button onClick={() => openEditModal(taskModal.task)}
-                            className="flex-1 py-2.5 border border-zinc-700 hover:border-gold hover:text-gold text-zinc-300 font-bold text-xs uppercase tracking-widest rounded transition">
-                            Edit
-                          </button>
-                        )}
-                        <button onClick={() => { deleteTask(taskModal.task.id, taskModal.task._isProjectTask); setTaskModal(null) }}
-                          className="flex-1 py-2.5 border border-red-900 hover:bg-red-900/20 text-red-400 font-bold text-xs uppercase tracking-widest rounded transition">
-                          Delete
-                        </button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Task</label>
-                        <input autoFocus={taskModal.mode === 'new' || taskModal.mode === 'edit'} value={modalForm.title}
-                          onChange={e => setModalForm({ ...modalForm, title: e.target.value })}
-                          readOnly={taskModal.mode === 'schedule'}
-                          placeholder="What needs to be done?"
-                          className={`w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm ${taskModal.mode === 'schedule' ? 'opacity-70' : ''}`} />
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Date</label>
-                          <input type="date" value={modalForm.date} onChange={e => setModalForm({ ...modalForm, date: e.target.value })}
-                            className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm" />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Time</label>
-                          <select value={modalForm.time} onChange={e => setModalForm({ ...modalForm, time: e.target.value })}
-                            className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm">
-                            <option value="">No time</option>
-                            {TIME_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
-                          </select>
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Duration</label>
-                          <select value={modalForm.duration} onChange={e => setModalForm({ ...modalForm, duration: Number(e.target.value) })}
-                            className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm">
-                            <option value={30}>30 min</option>
-                            <option value={60}>1 hour</option>
-                            <option value={90}>1.5 hours</option>
-                            <option value={120}>2 hours</option>
-                            <option value={180}>3 hours</option>
-                            <option value={240}>4 hours</option>
-                          </select>
-                        </div>
-                        {!taskModal.isProjectTask && (
-                          <div>
-                            <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Repeat</label>
-                            <select value={modalForm.recurring} onChange={e => setModalForm({ ...modalForm, recurring: e.target.value })}
-                              className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm">
-                              <option value="none">Does not repeat</option>
-                              <option value="daily">Daily</option>
-                              <option value="weekly">Weekly</option>
-                              <option value="monthly">Monthly</option>
-                            </select>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex gap-3 pt-1">
-                        <button onClick={saveTaskModal} disabled={!modalForm.title.trim() || !modalForm.date}
-                          className="flex-1 py-3 bg-gold hover:bg-gold-light disabled:opacity-40 text-zinc-950 font-bold text-xs uppercase tracking-widest rounded transition">
-                          {taskModal.mode === 'edit' ? 'Save Changes' : taskModal.mode === 'schedule' ? 'Schedule Task' : 'Add to Calendar'}
-                        </button>
-                        <button onClick={() => setTaskModal(null)}
-                          className="px-4 py-3 border border-zinc-700 text-zinc-400 hover:text-white text-xs uppercase tracking-widest font-semibold rounded transition">
-                          Cancel
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
           </div>
         )}
 
@@ -4396,26 +4267,31 @@ export default function ClientPage() {
                           {tasks.length > 0 && (
                             <div className="space-y-1.5 mb-3">
                               {tasks.map(task => (
-                                <div key={task.id} className="flex items-center gap-3 group">
-                                  <button onClick={() => toggleProjectTask(p.id, task.id, task.completed)}
-                                    className={`w-5 h-5 rounded border-2 flex-shrink-0 flex items-center justify-center transition ${task.completed ? 'bg-emerald-500 border-emerald-500' : 'border-zinc-600 hover:border-zinc-400'}`}>
-                                    {task.completed && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
-                                  </button>
-                                  <div className="flex-1 min-w-0 flex items-center gap-2">
-                                    <p className={`text-sm ${task.completed ? 'line-through text-zinc-500' : 'text-white'}`}>{task.title}</p>
-                                    {task.scheduled_date && (
-                                      <span className="text-[10px] text-gold/60">
-                                        {new Date(task.scheduled_date + 'T00:00:00').toLocaleDateString('en-GB', { month: 'short', day: 'numeric' })}{task.scheduled_time ? ` · ${formatTime(task.scheduled_time)}` : ''}
-                                      </span>
-                                    )}
+                                <div key={task.id} className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2.5">
+                                  <div className="flex items-center gap-3">
+                                    <button onClick={() => toggleProjectTask(p.id, task.id, task.completed)}
+                                      className={`w-5 h-5 rounded border-2 flex-shrink-0 flex items-center justify-center transition ${task.completed ? 'bg-emerald-500 border-emerald-500' : 'border-zinc-600 hover:border-zinc-400'}`}>
+                                      {task.completed && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                                    </button>
+                                    <div className="flex-1 min-w-0">
+                                      <p className={`text-sm ${task.completed ? 'line-through text-zinc-500' : 'text-white'}`}>{task.title}</p>
+                                      {task.scheduled_date && (
+                                        <p className="text-[10px] text-gold/60 mt-0.5">
+                                          Scheduled: {new Date(task.scheduled_date + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })}{task.scheduled_time ? ` at ${formatTime(task.scheduled_time)}` : ''}{task.duration_minutes ? ` · ${task.duration_minutes}min` : ''}
+                                        </p>
+                                      )}
+                                    </div>
                                   </div>
+                                  <div className="flex items-center gap-2 mt-2 pl-8">
                                   <button onClick={(e) => { e.stopPropagation(); setModalForm({ title: task.title, date: task.scheduled_date || localDateStr(), time: task.scheduled_time ? task.scheduled_time.slice(0,5) : '', duration: task.duration_minutes || 60, recurring: 'none' }); setTaskModal({ mode: 'edit', taskId: task.id, isProjectTask: true }) }}
-                                    className="p-1 text-zinc-700 hover:text-gold sm:opacity-0 sm:group-hover:opacity-100 transition">
-                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+                                    className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest rounded transition flex-shrink-0 border border-gold/30 text-gold hover:bg-gold/10 active:bg-gold/10">
+                                    {task.scheduled_date ? 'Reschedule' : 'Schedule'}
                                   </button>
-                                  <button onClick={() => deleteProjectTask(p.id, task.id)} className="p-1 text-zinc-700 hover:text-red-400 sm:opacity-0 sm:group-hover:opacity-100 transition">
-                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                  <button onClick={() => deleteProjectTask(p.id, task.id)}
+                                    className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest rounded transition flex-shrink-0 border border-red-900/50 text-red-400 hover:bg-red-900/20 active:bg-red-900/20">
+                                    Delete
                                   </button>
+                                  </div>
                                 </div>
                               ))}
                             </div>
@@ -4437,6 +4313,136 @@ export default function ClientPage() {
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── TASK MODAL (global — works from any tab) ──────────────── */}
+        {taskModal && (
+          <div className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center sm:p-4"
+            onClick={() => setTaskModal(null)}>
+            <div className="bg-zinc-900 border border-zinc-800 rounded-t-xl sm:rounded-lg p-5 sm:p-6 w-full sm:max-w-md shadow-2xl max-h-[90vh] overflow-y-auto scrollbar-thin slide-up"
+              onClick={e => e.stopPropagation()}>
+
+              {/* Mobile drag handle */}
+              <div className="flex justify-center mb-3 sm:hidden">
+                <div className="w-10 h-1 bg-zinc-700 rounded-full" />
+              </div>
+
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="text-sm font-bold text-white uppercase tracking-widest">
+                  {taskModal.mode === 'view' ? 'Task' : taskModal.mode === 'edit' ? 'Edit Task' : taskModal.mode === 'schedule' ? 'Schedule Task' : 'Add Task'}
+                </h3>
+                <button onClick={() => setTaskModal(null)} className="text-zinc-500 hover:text-white active:text-white transition p-1">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                </button>
+              </div>
+
+              {taskModal.mode === 'view' ? (
+                <div className="space-y-4">
+                  {taskModal.task._isProjectTask && taskModal.task._projectName && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-bold text-gold/70 uppercase tracking-widest bg-gold/10 px-2 py-0.5 rounded">Project: {taskModal.task._projectName}</span>
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-1">Task</p>
+                    <p className="text-white font-medium">{taskModal.task.title}</p>
+                  </div>
+                  {taskModal.task.scheduled_date && (
+                    <div>
+                      <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-1">Date</p>
+                      <p className="text-zinc-300 text-sm">{new Date(taskModal.task.scheduled_date).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                    </div>
+                  )}
+                  {taskModal.task.scheduled_time && (
+                    <div>
+                      <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-1">Time</p>
+                      <p className="text-zinc-300 text-sm">{formatTime(taskModal.task.scheduled_time)}{taskModal.task.duration_minutes ? ` · ${taskModal.task.duration_minutes} min` : ''}</p>
+                    </div>
+                  )}
+                  {taskModal.task.recurring && taskModal.task.recurring !== 'none' && (
+                    <div>
+                      <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-1">Repeats</p>
+                      <p className="text-zinc-300 text-sm capitalize">{taskModal.task.recurring}</p>
+                    </div>
+                  )}
+                  <div className="flex gap-3 pt-2">
+                    {!taskModal.task.completed && (
+                      <button onClick={() => openEditModal(taskModal.task)}
+                        className="flex-1 py-2.5 border border-zinc-700 hover:border-gold hover:text-gold text-zinc-300 font-bold text-xs uppercase tracking-widest rounded transition">
+                        Edit
+                      </button>
+                    )}
+                    <button onClick={() => { deleteTask(taskModal.task.id, taskModal.task._isProjectTask); setTaskModal(null) }}
+                      className="flex-1 py-2.5 border border-red-900 hover:bg-red-900/20 text-red-400 font-bold text-xs uppercase tracking-widest rounded transition">
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Task</label>
+                    <input autoFocus={taskModal.mode === 'new' || taskModal.mode === 'edit'} value={modalForm.title}
+                      onChange={e => setModalForm({ ...modalForm, title: e.target.value })}
+                      readOnly={taskModal.mode === 'schedule'}
+                      placeholder="What needs to be done?"
+                      className={`w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm ${taskModal.mode === 'schedule' ? 'opacity-70' : ''}`} />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Date</label>
+                      <input type="date" value={modalForm.date} onChange={e => setModalForm({ ...modalForm, date: e.target.value })}
+                        className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Time</label>
+                      <select value={modalForm.time} onChange={e => setModalForm({ ...modalForm, time: e.target.value })}
+                        className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm">
+                        <option value="">No time</option>
+                        {TIME_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+                      </select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Duration</label>
+                      <select value={modalForm.duration} onChange={e => setModalForm({ ...modalForm, duration: Number(e.target.value) })}
+                        className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm">
+                        <option value={30}>30 min</option>
+                        <option value={60}>1 hour</option>
+                        <option value={90}>1.5 hours</option>
+                        <option value={120}>2 hours</option>
+                        <option value={180}>3 hours</option>
+                        <option value={240}>4 hours</option>
+                      </select>
+                    </div>
+                    {!taskModal.isProjectTask && (
+                      <div>
+                        <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Repeat</label>
+                        <select value={modalForm.recurring} onChange={e => setModalForm({ ...modalForm, recurring: e.target.value })}
+                          className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm">
+                          <option value="none">Does not repeat</option>
+                          <option value="daily">Daily</option>
+                          <option value="weekly">Weekly</option>
+                          <option value="monthly">Monthly</option>
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex gap-3 pt-1">
+                    <button onClick={saveTaskModal} disabled={!modalForm.title.trim() || !modalForm.date}
+                      className="flex-1 py-3 bg-gold hover:bg-gold-light disabled:opacity-40 text-zinc-950 font-bold text-xs uppercase tracking-widest rounded transition">
+                      {taskModal.mode === 'edit' ? 'Save Changes' : taskModal.mode === 'schedule' ? 'Schedule Task' : 'Add to Calendar'}
+                    </button>
+                    <button onClick={() => setTaskModal(null)}
+                      className="px-4 py-3 border border-zinc-700 text-zinc-400 hover:text-white text-xs uppercase tracking-widest font-semibold rounded transition">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         )}
 
