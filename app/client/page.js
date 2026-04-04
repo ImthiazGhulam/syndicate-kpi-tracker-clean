@@ -200,6 +200,7 @@ export default function ClientPage() {
   const dragRef = useRef(null) // { task, ghostEl, startY, startX, scrollContainer }
   const dragOverRef = useRef(null)
   const [dragOver, setDragOver] = useState(null) // { date, time } for visual indicator
+  const [confirmAction, setConfirmAction] = useState(null) // { message, onConfirm }
 
   // Core
   const [user, setUser] = useState(null)
@@ -2475,7 +2476,7 @@ export default function ClientPage() {
                     <div key={task.id} className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2.5">
                       <div className="flex items-start justify-between gap-2 mb-1.5">
                         <p className="text-sm text-white min-w-0 break-words">{task.title}</p>
-                        <button onClick={() => deleteTask(task.id)} className="text-zinc-700 hover:text-red-400 transition p-1 flex-shrink-0 -mt-0.5"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+                        <button onClick={() => setConfirmAction({ message: 'This task will be permanently deleted.', onConfirm: () => deleteTask(task.id) })} className="text-zinc-700 hover:text-red-400 transition p-1 flex-shrink-0 -mt-0.5"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
                       </div>
                       <div className="flex items-center gap-1 flex-wrap">
                         <button onClick={() => openScheduleModal(task)} className="text-xs text-sky-400 hover:text-sky-300 uppercase tracking-wider font-semibold px-2.5 py-1.5 rounded hover:bg-sky-400/10 transition">Schedule</button>
@@ -2837,7 +2838,7 @@ export default function ClientPage() {
                           {task.delegated_to && <p className="text-xs text-violet-400 mt-0.5">→ {task.delegated_to}</p>}
                         </div>
                         {!task.completed && <button onClick={() => completeTask(task.id, task._displayDate, task._isRecurring, task._isProjectTask)} className="text-xs text-zinc-500 hover:text-emerald-400 uppercase tracking-wider transition flex-shrink-0">Done</button>}
-                        <button onClick={() => deleteTask(task.id)} className="text-zinc-700 hover:text-red-400 transition"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+                        <button onClick={() => setConfirmAction({ message: 'This task will be permanently deleted.', onConfirm: () => deleteTask(task.id) })} className="text-zinc-700 hover:text-red-400 transition"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
                       </div>
                     ))}
                   </div>
@@ -2854,7 +2855,7 @@ export default function ClientPage() {
                       <div key={task.id} className={`bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 flex items-center gap-3 ${task.completed ? 'opacity-40' : ''}`}>
                         <p className={`text-sm font-medium flex-1 truncate ${task.completed ? 'line-through text-zinc-500' : 'text-white'}`}>{task.title}</p>
                         {!task.completed && <button onClick={() => completeTask(task.id, task._displayDate, task._isRecurring, task._isProjectTask)} className="text-xs text-zinc-500 hover:text-emerald-400 uppercase tracking-wider transition flex-shrink-0">Done</button>}
-                        <button onClick={() => deleteTask(task.id)} className="text-zinc-700 hover:text-red-400 transition"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+                        <button onClick={() => setConfirmAction({ message: 'This task will be permanently deleted.', onConfirm: () => deleteTask(task.id) })} className="text-zinc-700 hover:text-red-400 transition"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
                       </div>
                     ))}
                   </div>
@@ -3124,7 +3125,7 @@ export default function ClientPage() {
                                   className="text-zinc-700 hover:text-gold active:text-gold transition p-0.5">
                                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                                 </button>
-                                <button onClick={(e) => { e.stopPropagation(); deleteLead(lead.id) }}
+                                <button onClick={(e) => { e.stopPropagation(); setConfirmAction({ message: 'This lead will be permanently deleted.', onConfirm: () => deleteLead(lead.id) }) }}
                                   className="text-zinc-700 hover:text-red-400 active:text-red-400 transition sm:opacity-0 sm:group-hover:opacity-100 p-0.5">
                                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
                                 </button>
@@ -3250,7 +3251,7 @@ export default function ClientPage() {
                     className="flex-1 py-3 bg-gold hover:bg-gold-light text-zinc-950 font-bold text-xs uppercase tracking-widest rounded transition">
                     Save
                   </button>
-                  <button onClick={() => { deleteLead(editingLead.id); setEditingLead(null) }}
+                  <button onClick={() => setConfirmAction({ message: 'This lead will be permanently deleted.', onConfirm: () => { deleteLead(editingLead.id); setEditingLead(null) } })}
                     className="py-3 px-4 border border-red-900 hover:bg-red-900/20 text-red-400 font-bold text-xs uppercase tracking-widest rounded transition">
                     Delete
                   </button>
@@ -4244,7 +4245,7 @@ export default function ClientPage() {
                             <button onClick={() => editProject(p)} className="p-2 text-zinc-600 hover:text-gold active:text-gold transition rounded">
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                             </button>
-                            <button onClick={() => deleteProject(p.id)} className="p-2 text-zinc-600 hover:text-red-400 active:text-red-400 transition rounded">
+                            <button onClick={() => setConfirmAction({ message: 'This project and all its tasks will be permanently deleted.', onConfirm: () => deleteProject(p.id) })} className="p-2 text-zinc-600 hover:text-red-400 active:text-red-400 transition rounded">
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                             </button>
                             <button onClick={() => setExpandedProjects(prev => ({ ...prev, [p.id]: !prev[p.id] }))}
@@ -4287,7 +4288,7 @@ export default function ClientPage() {
                                     className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest rounded transition flex-shrink-0 border border-gold/30 text-gold hover:bg-gold/10 active:bg-gold/10">
                                     {task.scheduled_date ? 'Reschedule' : 'Schedule'}
                                   </button>
-                                  <button onClick={() => deleteProjectTask(p.id, task.id)}
+                                  <button onClick={() => setConfirmAction({ message: 'This task will be permanently deleted.', onConfirm: () => deleteProjectTask(p.id, task.id) })}
                                     className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-widest rounded transition flex-shrink-0 border border-red-900/50 text-red-400 hover:bg-red-900/20 active:bg-red-900/20">
                                     Delete
                                   </button>
@@ -4313,6 +4314,28 @@ export default function ClientPage() {
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {/* ── CONFIRM MODAL ────────────────────────────────────────── */}
+        {confirmAction && (
+          <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center p-4"
+            onClick={() => setConfirmAction(null)}>
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 w-full max-w-sm shadow-2xl slide-up"
+              onClick={e => e.stopPropagation()}>
+              <p className="text-white font-semibold text-sm mb-2">Are you sure?</p>
+              <p className="text-zinc-400 text-sm mb-6">{confirmAction.message}</p>
+              <div className="flex gap-3">
+                <button onClick={() => { confirmAction.onConfirm(); setConfirmAction(null) }}
+                  className="flex-1 py-2.5 bg-red-600 hover:bg-red-500 text-white font-bold text-xs uppercase tracking-widest rounded transition">
+                  Delete
+                </button>
+                <button onClick={() => setConfirmAction(null)}
+                  className="flex-1 py-2.5 border border-zinc-700 text-zinc-400 hover:text-white font-bold text-xs uppercase tracking-widest rounded transition">
+                  Cancel
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -4373,7 +4396,7 @@ export default function ClientPage() {
                         Edit
                       </button>
                     )}
-                    <button onClick={() => { deleteTask(taskModal.task.id, taskModal.task._isProjectTask); setTaskModal(null) }}
+                    <button onClick={() => setConfirmAction({ message: 'This task will be permanently deleted.', onConfirm: () => { deleteTask(taskModal.task.id, taskModal.task._isProjectTask); setTaskModal(null) } })}
                       className="flex-1 py-2.5 border border-red-900 hover:bg-red-900/20 text-red-400 font-bold text-xs uppercase tracking-widest rounded transition">
                       Delete
                     </button>
