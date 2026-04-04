@@ -1129,7 +1129,7 @@ export default function ClientPage() {
     return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
   }
 
-  const handleDragStart = (e, task) => {
+  const handleCalDragStart = (e, task) => {
     if (task._isRecurring || task.completed) return
     e.preventDefault()
     e.stopPropagation()
@@ -1165,11 +1165,11 @@ export default function ClientPage() {
     el.style.opacity = '0.3'
     dragRef.current.originalEl = el
 
-    document.addEventListener('pointermove', handleDragMove)
-    document.addEventListener('pointerup', handleDragEnd)
+    document.addEventListener('pointermove', handleCalDragMove)
+    document.addEventListener('pointerup', handleCalDragEnd)
   }
 
-  const handleDragMove = (e) => {
+  const handleCalDragMove = (e) => {
     const d = dragRef.current
     if (!d) return
     e.preventDefault()
@@ -1214,9 +1214,9 @@ export default function ClientPage() {
     }
   }
 
-  const handleDragEnd = async (e) => {
-    document.removeEventListener('pointermove', handleDragMove)
-    document.removeEventListener('pointerup', handleDragEnd)
+  const handleCalDragEnd = async (e) => {
+    document.removeEventListener('pointermove', handleCalDragMove)
+    document.removeEventListener('pointerup', handleCalDragEnd)
     const d = dragRef.current
     if (!d) return
 
@@ -2613,7 +2613,7 @@ export default function ClientPage() {
                                 ? 'bg-zinc-800/60 border-zinc-700 text-zinc-500'
                                 : 'bg-gold/20 border-gold/40 text-gold active:bg-gold/30 transition'
                             } ${draggable ? 'cursor-grab' : ''}`}
-                            onPointerDown={draggable ? (e) => handleDragStart(e, task) : undefined}
+                            onPointerDown={draggable ? (e) => handleCalDragStart(e, task) : undefined}
                             onClick={e => { e.stopPropagation(); if (!dragRef.current?.moved) openViewModal(task) }}>
                             <p className="font-semibold text-sm truncate leading-tight">{task.title}</p>
                             {height > 44 && <p className="text-gold/60 mt-0.5 text-xs">{formatTime(task.scheduled_time)}{task.duration_minutes ? ` · ${task.duration_minutes}min` : ''}</p>}
@@ -2719,7 +2719,7 @@ export default function ClientPage() {
                                       ? 'bg-zinc-800/60 border-zinc-700 text-zinc-500'
                                       : 'bg-gold/20 border-gold/40 text-gold active:bg-gold/30 transition'
                                   } ${draggable ? 'cursor-grab' : ''}`}
-                                  onPointerDown={draggable ? (e) => handleDragStart(e, task) : undefined}
+                                  onPointerDown={draggable ? (e) => handleCalDragStart(e, task) : undefined}
                                   onClick={e => { e.stopPropagation(); if (!dragRef.current?.moved) openViewModal(task) }}>
                                   <p className="font-semibold truncate leading-tight">{task.title}</p>
                                   {height > 36 && <p className="text-gold/60 mt-0.5 text-[9px] sm:text-[10px]">{formatTime(task.scheduled_time)}</p>}
