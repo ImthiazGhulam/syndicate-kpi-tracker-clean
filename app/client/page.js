@@ -1078,9 +1078,20 @@ export default function ClientPage() {
     }
   }
 
-  const deleteTask = async (taskId) => {
-    await supabase.from('war_map_tasks').delete().eq('id', taskId)
-    setWarMapTasks(prev => prev.filter(t => t.id !== taskId))
+  const deleteTask = async (taskId, isProjectTask) => {
+    if (isProjectTask) {
+      const projectId = Object.keys(projectTasks).find(pid =>
+        (projectTasks[pid] || []).some(t => t.id === taskId)
+      )
+      await supabase.from('project_tasks').delete().eq('id', taskId)
+      if (projectId) setProjectTasks(prev => ({
+        ...prev,
+        [projectId]: (prev[projectId] || []).filter(t => t.id !== taskId),
+      }))
+    } else {
+      await supabase.from('war_map_tasks').delete().eq('id', taskId)
+      setWarMapTasks(prev => prev.filter(t => t.id !== taskId))
+    }
   }
 
   // ── Drag-and-drop for calendar ──────────────────────────────────────────────
@@ -1295,7 +1306,7 @@ export default function ClientPage() {
       duration: task.duration_minutes || 60,
       recurring: task.recurring || 'none',
     })
-    setTaskModal({ mode: 'edit', taskId: task.id })
+    setTaskModal({ mode: 'edit', taskId: task.id, isProjectTask: !!task._isProjectTask })
   }
 
   const saveTaskModal = async () => {
@@ -1318,12 +1329,28 @@ export default function ClientPage() {
         scheduled_date: modalForm.date,
         scheduled_time: modalForm.time || null,
         duration_minutes: Number(modalForm.duration),
-        recurring: modalForm.recurring,
       }
-      if (taskModal.mode === 'schedule') updates.status = 'schedule'
-      const { data } = await supabase.from('war_map_tasks').update(updates)
-        .eq('id', taskModal.taskId).select().single()
-      if (data) setWarMapTasks(prev => prev.map(t => t.id === taskModal.taskId ? data : t))
+      if (taskModal.isProjectTask) {
+        // Project tasks — update in project_tasks table
+        const { data } = await supabase.from('project_tasks').update(updates)
+          .eq('id', taskModal.taskId).select().single()
+        if (data) {
+          const projectId = Object.keys(projectTasks).find(pid =>
+            (projectTasks[pid] || []).some(t => t.id === taskModal.taskId)
+          )
+          if (projectId) setProjectTasks(prev => ({
+            ...prev,
+            [projectId]: (prev[projectId] || []).map(t => t.id === taskModal.taskId ? { ...t, ...data } : t),
+          }))
+        }
+      } else {
+        // War map tasks
+        updates.recurring = modalForm.recurring
+        if (taskModal.mode === 'schedule') updates.status = 'schedule'
+        const { data } = await supabase.from('war_map_tasks').update(updates)
+          .eq('id', taskModal.taskId).select().single()
+        if (data) setWarMapTasks(prev => prev.map(t => t.id === taskModal.taskId ? data : t))
+      }
     }
     setTaskModal(null)
   }
@@ -1349,6 +1376,7 @@ export default function ClientPage() {
             ...task,
             _displayDate: task.scheduled_date,
             _isProjectTask: true,
+            _projectId: projectId,
             _projectName: project?.name || '',
             status: 'schedule',
           })
@@ -2912,6 +2940,11 @@ export default function ClientPage() {
 
                   {taskModal.mode === 'view' ? (
                     <div className="space-y-4">
+                      {taskModal.task._isProjectTask && taskModal.task._projectName && (
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-gold/70 uppercase tracking-widest bg-gold/10 px-2 py-0.5 rounded">Project: {taskModal.task._projectName}</span>
+                        </div>
+                      )}
                       <div>
                         <p className="text-xs font-semibold text-zinc-500 uppercase tracking-widest mb-1">Task</p>
                         <p className="text-white font-medium">{taskModal.task.title}</p>
@@ -2947,7 +2980,7 @@ export default function ClientPage() {
                             Done
                           </button>
                         )}
-                        <button onClick={() => { deleteTask(taskModal.task.id); setTaskModal(null) }}
+                        <button onClick={() => { deleteTask(taskModal.task.id, taskModal.task._isProjectTask); setTaskModal(null) }}
                           className="flex-1 py-2.5 border border-red-900 hover:bg-red-900/20 text-red-400 font-bold text-xs uppercase tracking-widest rounded transition">
                           Delete
                         </button>
@@ -2991,16 +3024,18 @@ export default function ClientPage() {
                             <option value={240}>4 hours</option>
                           </select>
                         </div>
-                        <div>
-                          <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Repeat</label>
-                          <select value={modalForm.recurring} onChange={e => setModalForm({ ...modalForm, recurring: e.target.value })}
-                            className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm">
-                            <option value="none">Does not repeat</option>
-                            <option value="daily">Daily</option>
-                            <option value="weekly">Weekly</option>
-                            <option value="monthly">Monthly</option>
-                          </select>
-                        </div>
+                        {!taskModal.isProjectTask && (
+                          <div>
+                            <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Repeat</label>
+                            <select value={modalForm.recurring} onChange={e => setModalForm({ ...modalForm, recurring: e.target.value })}
+                              className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm">
+                              <option value="none">Does not repeat</option>
+                              <option value="daily">Daily</option>
+                              <option value="weekly">Weekly</option>
+                              <option value="monthly">Monthly</option>
+                            </select>
+                          </div>
+                        )}
                       </div>
                       <div className="flex gap-3 pt-1">
                         <button onClick={saveTaskModal} disabled={!modalForm.title.trim() || !modalForm.date}
