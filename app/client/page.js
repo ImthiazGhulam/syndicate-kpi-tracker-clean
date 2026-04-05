@@ -133,7 +133,7 @@ function expandTasksForRange(tasks, startStr, endStr, taskCompletions = []) {
       let iter = 0
       while (d <= end && iter < 500) {
         iter++
-        const dateStr = d.toISOString().split('T')[0]
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
         if (d >= start) {
           // For recurring tasks, check per-day completion instead of the task's own completed flag
           const dayCompleted = completionSet.has(`${task.id}:${dateStr}`)
