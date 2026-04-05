@@ -306,6 +306,7 @@ export default function ClientPage() {
     return shiftWeek(getMonday(), -1) // Mon-Sat: review last week
   })
   const [reviewSaving, setReviewSaving] = useState(false)
+  const [reviewPriorities, setReviewPriorities] = useState(null) // War Map priorities for the week being reviewed
   const [allLockIns, setAllLockIns] = useState([])
   const [allWarMaps, setAllWarMaps] = useState([])
 
@@ -868,8 +869,12 @@ export default function ClientPage() {
   // The Lock In — weekly review
   const fetchWeeklyReview = async (weekOf) => {
     if (!clientData) return
-    const { data } = await supabase.from('weekly_review').select('*').eq('client_id', clientData.id).eq('week_of', weekOf).maybeSingle()
-    setWeeklyReview(data || {})
+    const [reviewRes, prioritiesRes] = await Promise.all([
+      supabase.from('weekly_review').select('*').eq('client_id', clientData.id).eq('week_of', weekOf).maybeSingle(),
+      supabase.from('war_map_weekly').select('number_one_priority, priority_2, priority_3, priority_4, revenue_target').eq('client_id', clientData.id).eq('week_of', weekOf).maybeSingle(),
+    ])
+    setWeeklyReview(reviewRes.data || {})
+    setReviewPriorities(prioritiesRes.data || null)
   }
 
   useEffect(() => {
@@ -895,6 +900,10 @@ export default function ClientPage() {
     next_focus: weeklyReview.next_focus || '',
     next_income_target: weeklyReview.next_income_target || '',
     next_differently: weeklyReview.next_differently || '',
+    priority_1_rating: weeklyReview.priority_1_rating ?? null,
+    priority_2_rating: weeklyReview.priority_2_rating ?? null,
+    priority_3_rating: weeklyReview.priority_3_rating ?? null,
+    priority_4_rating: weeklyReview.priority_4_rating ?? null,
   })
 
   const saveReview = async (overrides = {}) => {
@@ -3504,6 +3513,44 @@ export default function ClientPage() {
             )}
 
             <div className="space-y-6 mt-6">
+              {/* War Map Priorities — Execution Rating */}
+              {reviewPriorities && (reviewPriorities.number_one_priority || reviewPriorities.priority_2 || reviewPriorities.priority_3 || reviewPriorities.priority_4) && (
+                <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+                  <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-1">Your Priorities This Week</h3>
+                  <p className="text-zinc-600 text-[10px] uppercase tracking-widest mb-4">Rate how effectively you executed on each priority (1-10)</p>
+                  <div className="space-y-5">
+                    {[
+                      { key: 'priority_1_rating', label: '#1 Priority', value: reviewPriorities.number_one_priority, color: 'text-gold', borderColor: 'border-gold/30' },
+                      { key: 'priority_2_rating', label: 'Priority 2', value: reviewPriorities.priority_2, color: 'text-zinc-300', borderColor: 'border-zinc-700' },
+                      { key: 'priority_3_rating', label: 'Priority 3', value: reviewPriorities.priority_3, color: 'text-zinc-300', borderColor: 'border-zinc-700' },
+                      { key: 'priority_4_rating', label: 'Priority 4', value: reviewPriorities.priority_4, color: 'text-zinc-300', borderColor: 'border-zinc-700' },
+                    ].filter(p => p.value?.trim()).map(({ key, label, value, color, borderColor }) => (
+                      <div key={key} className={`border-l-2 ${borderColor} pl-4`}>
+                        <p className={`text-[10px] font-bold uppercase tracking-widest ${color} mb-1`}>{label}</p>
+                        <p className="text-white text-sm font-medium mb-2.5">{value}</p>
+                        <div className="flex gap-1">
+                          {[1,2,3,4,5,6,7,8,9,10].map(n => (
+                            <button key={n} onClick={() => { setWeeklyReview(prev => ({ ...prev, [key]: n })); saveReview({ [key]: n }) }}
+                              className={`flex-1 py-1.5 rounded text-xs font-bold transition ${
+                                n <= (weeklyReview[key] || 0)
+                                  ? n <= 3 ? 'bg-red-900/40 text-red-400' : n <= 6 ? 'bg-amber-900/40 text-amber-400' : 'bg-emerald-900/40 text-emerald-400'
+                                  : 'bg-zinc-800 text-zinc-600 hover:bg-zinc-700'
+                              }`}>
+                              {n}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {reviewPriorities.revenue_target && (
+                    <div className="mt-4 pt-4 border-t border-zinc-800">
+                      <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Revenue Target Was: <span className="text-white">£{Number(reviewPriorities.revenue_target).toLocaleString()}</span></p>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* Revenue */}
               <div>
                 <label className="block text-xs font-bold text-gold uppercase tracking-widest mb-2">Revenue Generated This Week (£)</label>
