@@ -1111,7 +1111,14 @@ export default function ClientPage() {
 
     // Save days off — delete all for this year and re-insert
     await supabase.from('days_off').delete().eq('client_id', clientData.id).eq('year', year)
-    const daysOffToInsert = daysOff.filter(d => d.off_date).map(d => ({ client_id: clientData.id, year, off_date: d.off_date, label: d.label || '' }))
+    const daysOffToInsert = daysOff.filter(d => d.off_date || d.category === 'weekly').map(d => ({
+      client_id: clientData.id, year,
+      category: d.category || 'yearly',
+      day_of_week: d.day_of_week ?? null,
+      off_date: d.off_date || null,
+      end_date: d.end_date || null,
+      label: d.label || '',
+    }))
     if (daysOffToInsert.length > 0) {
       const { data } = await supabase.from('days_off').insert(daysOffToInsert).select()
       if (data) setDaysOff(data)
@@ -1537,11 +1544,36 @@ export default function ClientPage() {
     const result = []
     // Mini adventures with planned dates
     adventuresForm.filter(a => a.planned_date && a.planned_date >= startStr && a.planned_date <= endStr && a.title?.trim()).forEach(a => {
-      result.push({ id: `adv-${a.id || a.order_index}`, title: `🏔 ${a.title}`, _displayDate: a.planned_date, status: 'schedule', completed: a.completed || false, _isDesignItem: true })
+      result.push({ id: `adv-${a.id || a.order_index}`, title: `Adventure: ${a.title}`, _displayDate: a.planned_date, status: 'schedule', completed: a.completed || false, _isDesignItem: true })
     })
-    // Days off
-    daysOff.filter(d => d.off_date && d.off_date >= startStr && d.off_date <= endStr).forEach(d => {
-      result.push({ id: `off-${d.id || d.off_date}`, title: `Day Off${d.label ? ': ' + d.label : ''}`, _displayDate: d.off_date, status: 'schedule', completed: false, _isDesignItem: true, _isDayOff: true })
+    // Days off — weekly recurring
+    const weeklyDays = daysOff.filter(d => d.category === 'weekly' && d.day_of_week != null)
+    if (weeklyDays.length > 0) {
+      const s = new Date(startStr + 'T00:00:00')
+      const e = new Date(endStr + 'T23:59:59')
+      const d = new Date(s)
+      while (d <= e) {
+        const dow = d.getDay()
+        const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+        weeklyDays.filter(w => w.day_of_week === dow).forEach(w => {
+          result.push({ id: `off-w-${dow}-${dateStr}`, title: `Day Off${w.label ? ': ' + w.label : ''}`, _displayDate: dateStr, status: 'schedule', completed: false, _isDesignItem: true, _isDayOff: true })
+        })
+        d.setDate(d.getDate() + 1)
+      }
+    }
+    // Days off — date ranges (monthly, quarterly, yearly)
+    daysOff.filter(d => d.category !== 'weekly' && d.off_date).forEach(d => {
+      const rangeEnd = d.end_date || d.off_date
+      const s = new Date(d.off_date + 'T00:00:00')
+      const e = new Date(rangeEnd + 'T23:59:59')
+      const iter = new Date(s)
+      while (iter <= e) {
+        const dateStr = `${iter.getFullYear()}-${String(iter.getMonth() + 1).padStart(2, '0')}-${String(iter.getDate()).padStart(2, '0')}`
+        if (dateStr >= startStr && dateStr <= endStr) {
+          result.push({ id: `off-${d.id || d.off_date}-${dateStr}`, title: `Day Off${d.label ? ': ' + d.label : ''}`, _displayDate: dateStr, status: 'schedule', completed: false, _isDesignItem: true, _isDayOff: true })
+        }
+        iter.setDate(iter.getDate() + 1)
+      }
     })
     return result
   }
@@ -2383,7 +2415,13 @@ export default function ClientPage() {
                           : (designForm.misogi_start_date && designForm.misogi_end_date && dateStr >= designForm.misogi_start_date && dateStr <= designForm.misogi_end_date)
                         const isMisogiMilestone = misogiMilestones.some(m => m.target_date === dateStr)
                         const isAdventure = adventuresForm.some(a => a.planned_date === dateStr)
-                        const isDayOff = daysOff.some(d => d.off_date === dateStr)
+                        const dayDow = new Date(dateStr + 'T00:00:00').getDay()
+                        const isDayOff = daysOff.some(d => {
+                          if (d.category === 'weekly') return d.day_of_week === dayDow
+                          if (!d.off_date) return false
+                          const end = d.end_date || d.off_date
+                          return dateStr >= d.off_date && dateStr <= end
+                        })
 
                         let cellClass = 'text-zinc-600'
                         if (isToday) cellClass = 'bg-gold text-zinc-950 font-bold'
@@ -2549,37 +2587,63 @@ export default function ClientPage() {
                 {/* ── Days Off ────────────────────────────────────────────── */}
                 <section>
                   <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-1">Days Off</h3>
-                  <p className="text-zinc-600 text-xs mb-5">When are you protecting your time?</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
-                    {[
-                      { key: 'days_off_week', label: 'Weekly', placeholder: 'e.g. Sundays' },
-                      { key: 'days_off_month', label: 'Monthly', placeholder: 'e.g. Last weekend' },
-                      { key: 'days_off_quarter', label: 'Quarterly', placeholder: 'e.g. One full week' },
-                      { key: 'days_off_year', label: 'Annually', placeholder: 'e.g. 2 weeks in August' },
-                    ].map(({ key, label, placeholder }) => (
-                      <div key={key}>
-                        <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">{label}</label>
-                        <input value={designForm[key]} onChange={e => setDesignForm(f => ({ ...f, [key]: e.target.value }))} placeholder={placeholder}
-                          className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm" />
-                      </div>
-                    ))}
+                  <p className="text-zinc-600 text-xs mb-5">Protect your time. These show on your calendar and War Map as reminders.</p>
+
+                  {/* Weekly — pick days of the week */}
+                  <div className="mb-6">
+                    <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Weekly Days Off</label>
+                    <p className="text-zinc-600 text-[10px] mb-3">Which days do you take off every week?</p>
+                    <div className="flex gap-1">
+                      {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((day, idx) => {
+                        const dayNum = (idx + 1) % 7 // Mon=1, Tue=2, ..., Sun=0
+                        const weeklyDays = daysOff.filter(d => d.category === 'weekly')
+                        const active = weeklyDays.some(d => d.day_of_week === dayNum)
+                        return (
+                          <button key={day} onClick={() => {
+                            if (active) {
+                              setDaysOff(prev => prev.filter(d => !(d.category === 'weekly' && d.day_of_week === dayNum)))
+                            } else {
+                              setDaysOff(prev => [...prev, { category: 'weekly', day_of_week: dayNum, label: day, off_date: '' }])
+                            }
+                          }} className={`flex-1 py-2.5 rounded text-xs font-bold uppercase transition ${active ? 'bg-gold/20 text-gold border border-gold/30' : 'bg-zinc-800 text-zinc-600 border border-zinc-700 hover:border-zinc-600'}`}>{day}</button>
+                        )
+                      })}
+                    </div>
                   </div>
-                  <div>
-                    <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-2">Specific Days Off This Year</h4>
-                    {daysOff.map((d, idx) => (
-                      <div key={idx} className="flex gap-2 mb-1.5">
-                        <input type="date" value={d.off_date || ''} onChange={e => setDaysOff(prev => prev.map((x, i) => i === idx ? { ...x, off_date: e.target.value } : x))}
-                          className="px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition" />
-                        <input value={d.label || ''} onChange={e => setDaysOff(prev => prev.map((x, i) => i === idx ? { ...x, label: e.target.value } : x))}
-                          placeholder="Label (optional)"
-                          className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition" />
-                        <button onClick={() => setDaysOff(prev => prev.filter((_, i) => i !== idx))}
-                          className="text-red-400 hover:text-red-300 p-1 text-sm">✕</button>
+
+                  {/* Monthly, Quarterly, Yearly — date ranges */}
+                  {[
+                    { cat: 'monthly', label: 'Monthly Days Off', desc: 'Regular monthly breaks — add each one with start and end dates.' },
+                    { cat: 'quarterly', label: 'Quarterly Days Off', desc: 'Longer breaks each quarter — recharge time.' },
+                    { cat: 'yearly', label: 'Yearly Days Off', desc: 'Annual holidays, extended breaks, family time.' },
+                  ].map(({ cat, label, desc }) => {
+                    const items = daysOff.filter(d => d.category === cat)
+                    return (
+                      <div key={cat} className="mb-6">
+                        <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-1">{label}</label>
+                        <p className="text-zinc-600 text-[10px] mb-3">{desc}</p>
+                        {items.map((d, idx) => {
+                          const globalIdx = daysOff.findIndex(x => x === d)
+                          return (
+                            <div key={idx} className="flex items-center gap-2 mb-2">
+                              <input value={d.label || ''} onChange={e => setDaysOff(prev => prev.map((x, i) => i === globalIdx ? { ...x, label: e.target.value } : x))}
+                                placeholder="What's it for?"
+                                className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-1 focus:ring-gold transition" />
+                              <input type="date" value={d.off_date || ''} onChange={e => setDaysOff(prev => prev.map((x, i) => i === globalIdx ? { ...x, off_date: e.target.value } : x))}
+                                className="px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold transition" />
+                              <span className="text-zinc-600 text-xs">to</span>
+                              <input type="date" value={d.end_date || ''} onChange={e => setDaysOff(prev => prev.map((x, i) => i === globalIdx ? { ...x, end_date: e.target.value } : x))}
+                                className="px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold transition" />
+                              <button onClick={() => setDaysOff(prev => prev.filter((_, i) => i !== globalIdx))}
+                                className="text-red-400 hover:text-red-300 p-1 text-sm flex-shrink-0">✕</button>
+                            </div>
+                          )
+                        })}
+                        <button onClick={() => setDaysOff(prev => [...prev, { category: cat, off_date: '', end_date: '', label: '' }])}
+                          className="text-xs text-gold hover:text-gold-light font-semibold uppercase tracking-widest mt-1">+ Add {label.replace('Days Off', '').trim()} Break</button>
                       </div>
-                    ))}
-                    <button onClick={() => setDaysOff(prev => [...prev, { off_date: '', label: '' }])}
-                      className="text-xs text-gold hover:text-gold-light font-semibold uppercase tracking-widest mt-1">+ Add Day Off</button>
-                  </div>
+                    )
+                  })}
                 </section>
 
                 {/* ── Skills ──────────────────────────────────────────────── */}
@@ -2710,31 +2774,39 @@ export default function ClientPage() {
                 {/* ── Days Off (read-only) ────────────────────────────────── */}
                 <section>
                   <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-4">Days Off</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {[
-                      { key: 'days_off_week', label: 'Weekly' },
-                      { key: 'days_off_month', label: 'Monthly' },
-                      { key: 'days_off_quarter', label: 'Quarterly' },
-                      { key: 'days_off_year', label: 'Annually' },
-                    ].map(({ key, label }) => (
-                      <div key={key} className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-                        <p className="text-zinc-500 text-xs uppercase tracking-widest mb-2">{label}</p>
-                        <p className="text-white text-sm font-medium">{lifeDesign?.[key] || <span className="text-zinc-700">{'\u2014'}</span>}</p>
-                      </div>
-                    ))}
-                  </div>
-                  {daysOff.length > 0 && (
-                    <div className="mt-4">
-                      <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2">Specific Dates</p>
-                      <div className="flex flex-wrap gap-2">
-                        {daysOff.map((d, idx) => (
-                          <span key={idx} className="px-3 py-1.5 bg-zinc-800 border border-zinc-700 rounded text-sm text-zinc-300">
-                            {d.off_date}{d.label ? ` — ${d.label}` : ''}
-                          </span>
+                  {(() => {
+                    const weekly = daysOff.filter(d => d.category === 'weekly')
+                    const monthly = daysOff.filter(d => d.category === 'monthly')
+                    const quarterly = daysOff.filter(d => d.category === 'quarterly')
+                    const yearly = daysOff.filter(d => d.category === 'yearly')
+                    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+                    return (
+                      <div className="space-y-4">
+                        {weekly.length > 0 && (
+                          <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                            <p className="text-zinc-500 text-xs uppercase tracking-widest mb-2">Weekly</p>
+                            <div className="flex gap-2">
+                              {weekly.map((d, i) => <span key={i} className="px-3 py-1 bg-gold/10 text-gold border border-gold/20 rounded text-sm font-medium">{dayNames[d.day_of_week]}</span>)}
+                            </div>
+                          </div>
+                        )}
+                        {[{ items: monthly, label: 'Monthly' }, { items: quarterly, label: 'Quarterly' }, { items: yearly, label: 'Yearly' }].filter(g => g.items.length > 0).map(({ items, label }) => (
+                          <div key={label} className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                            <p className="text-zinc-500 text-xs uppercase tracking-widest mb-2">{label}</p>
+                            <div className="space-y-1.5">
+                              {items.map((d, i) => (
+                                <p key={i} className="text-white text-sm">
+                                  {d.label && <span className="font-medium">{d.label}: </span>}
+                                  <span className="text-zinc-400">{d.off_date ? new Date(d.off_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : ''}{d.end_date ? ` — ${new Date(d.end_date + 'T00:00:00').toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}` : ''}</span>
+                                </p>
+                              ))}
+                            </div>
+                          </div>
                         ))}
+                        {daysOff.length === 0 && <p className="text-zinc-700 text-sm">No days off set yet.</p>}
                       </div>
-                    </div>
-                  )}
+                    )
+                  })()}
                 </section>
 
                 {/* ── Skills (read-only) ──────────────────────────────────── */}

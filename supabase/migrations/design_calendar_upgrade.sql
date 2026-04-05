@@ -35,12 +35,15 @@ CREATE INDEX IF NOT EXISTS idx_misogi_blocks_client ON misogi_recurring_blocks(c
 -- Mini adventures: add proper date field
 ALTER TABLE mini_adventures ADD COLUMN IF NOT EXISTS planned_date DATE;
 
--- Days off: specific dates
+-- Days off: weekly recurring + date ranges
 CREATE TABLE IF NOT EXISTS days_off (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
   year INTEGER NOT NULL,
-  off_date DATE NOT NULL,
+  category TEXT DEFAULT 'yearly', -- 'weekly', 'monthly', 'quarterly', 'yearly'
+  day_of_week INTEGER, -- 0=Sun, 1=Mon, ..., 6=Sat (for weekly)
+  off_date DATE, -- start date (for ranges) or single date
+  end_date DATE, -- end date (for ranges, nullable)
   label TEXT DEFAULT '',
   created_at TIMESTAMPTZ DEFAULT now()
 );
