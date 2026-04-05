@@ -350,12 +350,7 @@ export default function ClientPage() {
   const [warMapTaskCompletions, setWarMapTaskCompletions] = useState([])
   const [warMapInput, setWarMapInput] = useState('')
   // War Map plans the upcoming week — on Sunday, plan next week; Mon-Sat, plan this week
-  const [warMapWeek, setWarMapWeek] = useState(() => {
-    const today = new Date()
-    const dayOfWeek = today.getDay() // 0=Sun
-    if (dayOfWeek === 0) return shiftWeek(getMonday(), 1) // Sunday: plan next week
-    return getMonday() // Mon-Sat: plan this week
-  })
+  const [warMapWeek, setWarMapWeek] = useState(() => getMonday())
   const [weeklyPriorities, setWeeklyPriorities] = useState({ number_one_priority: '', priority_2: '', priority_3: '', priority_4: '', completed: false, completed_at: null })
   const [prioritiesSaving, setPrioritiesSaving] = useState(false)
   const [calendarView, setCalendarView] = useState('month')
@@ -377,8 +372,12 @@ export default function ClientPage() {
   }, [activeTab, calendarView])
 
   // Fetch weekly priorities when week changes
+  const initialWeekRef = useRef(true)
   useEffect(() => {
-    if (clientData) fetchWeeklyPriorities(warMapWeek)
+    if (clientData) {
+      fetchWeeklyPriorities(warMapWeek, initialWeekRef.current)
+      initialWeekRef.current = false
+    }
   }, [warMapWeek, clientData?.id])
 
   // Fetch monthly KPIs when month/year changes
@@ -534,11 +533,16 @@ export default function ClientPage() {
   }
 
   // Fetch weekly priorities when week changes
-  const fetchWeeklyPriorities = async (weekOf) => {
+  const fetchWeeklyPriorities = async (weekOf, autoAdvance = false) => {
     if (!clientData) return
     const { data } = await supabase.from('war_map_weekly').select('*').eq('client_id', clientData.id).eq('week_of', weekOf).maybeSingle()
     if (data) {
       setWeeklyPriorities(data)
+      // If this week is completed and we're on the current week, auto-switch to next week
+      if (autoAdvance && data.completed) {
+        const nextWeek = shiftWeek(weekOf, 1)
+        setWarMapWeek(nextWeek)
+      }
     } else {
       setWeeklyPriorities({ number_one_priority: '', priority_2: '', priority_3: '', priority_4: '', completed: false, completed_at: null })
     }
@@ -1282,6 +1286,9 @@ export default function ClientPage() {
     if (allRes) setAllWarMaps(allRes)
     refreshDashboard()
     setPrioritiesSaving(false)
+    // Auto-switch to next week's fresh War Map
+    const nextWeek = shiftWeek(warMapWeek, 1)
+    setWarMapWeek(nextWeek)
   }
 
   // Modal helpers
@@ -2391,16 +2398,41 @@ export default function ClientPage() {
         {activeTab === 'war-map' && (
           <div className="fade-in">
 
-            {/* Week header + completion status */}
-            <div className="flex items-center justify-between mb-6">
-              <div>
+            {/* Week header + nav + completion status */}
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-3">
                 <h2 className="text-base font-bold text-white uppercase tracking-widest">Weekly War Map™</h2>
-                <p className="text-zinc-600 text-xs mt-1">Plan the week ahead. Complete on Sunday.</p>
+                {weeklyPriorities.completed && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-900/20 border border-emerald-900/40 rounded">
+                    <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                    <span className="text-emerald-400 text-xs font-semibold uppercase tracking-widest">Completed</span>
+                  </div>
+                )}
               </div>
-              {weeklyPriorities.completed && (
-                <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-900/20 border border-emerald-900/40 rounded">
-                  <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-                  <span className="text-emerald-400 text-xs font-semibold uppercase tracking-widest">Completed</span>
+              <div className="flex items-center justify-between bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setWarMapWeek(w => shiftWeek(w, -1))}
+                    className="p-1.5 text-zinc-500 hover:text-white transition rounded hover:bg-zinc-800">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                  </button>
+                  <div className="text-center">
+                    <p className="text-white font-semibold text-sm">Week commencing {new Date(warMapWeek).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                    <p className="text-zinc-500 text-[10px] uppercase tracking-widest mt-0.5">{formatWeekRange(warMapWeek)}</p>
+                  </div>
+                  <button onClick={() => setWarMapWeek(w => shiftWeek(w, 1))}
+                    className="p-1.5 text-zinc-500 hover:text-white transition rounded hover:bg-zinc-800">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                  </button>
+                </div>
+                <button onClick={() => setWarMapWeek(new Date().getDay() === 0 ? shiftWeek(getMonday(), 1) : getMonday())}
+                  className="px-3 py-1.5 text-xs text-zinc-500 hover:text-gold uppercase tracking-wider font-semibold transition border border-zinc-700 rounded hover:border-gold/30">
+                  This Week
+                </button>
+              </div>
+              {new Date().getDay() === 0 && !weeklyPriorities.completed && warMapWeek === shiftWeek(getMonday(), 1) && (
+                <div className="mt-3 px-4 py-3 bg-gold/10 border border-gold/20 rounded-lg flex items-center gap-3">
+                  <svg className="w-5 h-5 text-gold flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                  <p className="text-gold text-sm font-medium">It's Sunday — your fresh War Map for the week ahead is ready. Plan your priorities and schedule your tasks.</p>
                 </div>
               )}
             </div>
@@ -2904,9 +2936,9 @@ export default function ClientPage() {
                         {wm.number_one_priority && <p className="text-[10px] text-zinc-500 mt-0.5 truncate max-w-[250px]">{wm.number_one_priority}</p>}
                       </div>
                       {wm.completed ? (
-                        <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Done</span>
+                        <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Completed</span>
                       ) : (
-                        <span className="text-[10px] font-bold text-amber-400 uppercase tracking-widest">Draft</span>
+                        <span className="px-2.5 py-1 text-[10px] font-bold text-gold uppercase tracking-widest border border-gold/30 rounded hover:bg-gold/10 transition">Continue →</span>
                       )}
                     </button>
                   ))}
