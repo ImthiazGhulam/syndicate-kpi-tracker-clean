@@ -350,6 +350,8 @@ export default function ClientPage() {
   const [warMapTasks, setWarMapTasks] = useState([])
   const [warMapTaskCompletions, setWarMapTaskCompletions] = useState([])
   const [warMapInput, setWarMapInput] = useState('')
+  const [editingTaskId, setEditingTaskId] = useState(null)
+  const [editingTaskTitle, setEditingTaskTitle] = useState('')
   // War Map plans the upcoming week — on Sunday, plan next week; Mon-Sat, plan this week
   const [warMapWeek, setWarMapWeek] = useState(() => {
     const today = new Date()
@@ -1065,6 +1067,13 @@ export default function ClientPage() {
     }]).select().single()
     if (data) setWarMapTasks(prev => [data, ...prev])
     setWarMapInput('')
+  }
+
+  const saveTaskTitle = async (taskId) => {
+    if (!editingTaskTitle.trim()) { setEditingTaskId(null); return }
+    const { data } = await supabase.from('war_map_tasks').update({ title: editingTaskTitle.trim() }).eq('id', taskId).select().single()
+    if (data) setWarMapTasks(prev => prev.map(t => t.id === taskId ? data : t))
+    setEditingTaskId(null)
   }
 
   const triageTask = async (taskId, status, extra = {}) => {
@@ -2527,14 +2536,23 @@ export default function ClientPage() {
                 <div className="space-y-1.5">
                   {brainDump.map(task => (
                     <div key={task.id} className="bg-zinc-900 border border-zinc-800 rounded-lg px-3 py-2.5">
-                      <div className="flex items-start justify-between gap-2 mb-1.5">
-                        <p className="text-sm text-white min-w-0 break-words">{task.title}</p>
-                        <button onClick={() => setConfirmAction({ message: 'This task will be permanently deleted.', onConfirm: () => deleteTask(task.id) })} className="text-zinc-700 hover:text-red-400 transition p-1 flex-shrink-0 -mt-0.5"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
-                      </div>
+                      {editingTaskId === task.id ? (
+                        <div className="flex items-center gap-2 mb-2">
+                          <input autoFocus value={editingTaskTitle} onChange={e => setEditingTaskTitle(e.target.value)}
+                            onKeyDown={e => { if (e.key === 'Enter') saveTaskTitle(task.id); if (e.key === 'Escape') setEditingTaskId(null) }}
+                            className="flex-1 px-3 py-1.5 bg-zinc-800 border border-gold/30 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold" />
+                          <button onClick={() => saveTaskTitle(task.id)} className="px-3 py-1.5 bg-gold text-zinc-950 font-bold text-xs rounded transition">Save</button>
+                          <button onClick={() => setEditingTaskId(null)} className="px-3 py-1.5 border border-zinc-700 text-zinc-500 text-xs rounded transition">Cancel</button>
+                        </div>
+                      ) : (
+                        <p className="text-sm text-white min-w-0 break-words mb-2">{task.title}</p>
+                      )}
                       <div className="flex items-center gap-1 flex-wrap">
                         <button onClick={() => openScheduleModal(task)} className="text-xs text-sky-400 hover:text-sky-300 uppercase tracking-wider font-semibold px-2.5 py-1.5 rounded hover:bg-sky-400/10 transition">Schedule</button>
                         <button onClick={() => setDelegatingTask(delegatingTask === task.id ? null : task.id)} className="text-xs text-violet-400 hover:text-violet-300 uppercase tracking-wider font-semibold px-2.5 py-1.5 rounded hover:bg-violet-400/10 transition">Delegate</button>
                         <button onClick={() => triageTask(task.id, 'do_now')} className="text-xs text-gold hover:text-gold-light uppercase tracking-wider font-semibold px-2.5 py-1.5 rounded hover:bg-gold/10 transition">Do Now</button>
+                        <button onClick={() => { setEditingTaskId(task.id); setEditingTaskTitle(task.title) }} className="text-xs text-zinc-400 hover:text-white uppercase tracking-wider font-semibold px-2.5 py-1.5 rounded hover:bg-zinc-700/50 transition">Edit</button>
+                        <button onClick={() => setConfirmAction({ message: 'This task will be permanently deleted.', onConfirm: () => deleteTask(task.id) })} className="text-xs text-red-400 hover:text-red-300 uppercase tracking-wider font-semibold px-2.5 py-1.5 rounded hover:bg-red-400/10 transition">Delete</button>
                       </div>
                       {delegatingTask === task.id && (
                         <div className="flex items-center gap-2 mt-2 pl-0">
