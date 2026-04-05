@@ -114,7 +114,7 @@ function formatDayHeader(dateStr) {
 
 function defaultAdventures() {
   return Array.from({ length: 6 }, (_, i) => ({
-    order_index: i + 1, title: '', who_with: '', when_planned: '', where_planned: '', completed: false,
+    order_index: i + 1, title: '', who_with: '', when_planned: '', where_planned: '', planned_date: '', completed: false,
   }))
 }
 
@@ -341,10 +341,14 @@ export default function ClientPage() {
   const [designEditing, setDesignEditing] = useState(false)
   const [designLoading, setDesignLoading] = useState(false)
   const [designForm, setDesignForm] = useState({
-    misoji: '', days_off_week: '', days_off_month: '', days_off_quarter: '', days_off_year: '',
+    misoji: '', misogi_type: 'event', misogi_date: '', misogi_start_date: '', misogi_end_date: '',
+    days_off_week: '', days_off_month: '', days_off_quarter: '', days_off_year: '',
     skill_1: '', skill_2: '', key_skill: '', money_task_1: '', money_task_2: '', money_task_3: '',
   })
   const [adventuresForm, setAdventuresForm] = useState(defaultAdventures())
+  const [misogiMilestones, setMisogiMilestones] = useState([])
+  const [misogiBlocks, setMisogiBlocks] = useState([])
+  const [daysOff, setDaysOff] = useState([])
 
   // Weekly War Map
   const [warMapTasks, setWarMapTasks] = useState([])
@@ -446,6 +450,9 @@ export default function ClientPage() {
       lastMonthlyRes,   // 17. monthly_review (previous month)
       allLockInsRes,    // 18. weekly_review (all history)
       allWarMapsRes,    // 19. war_map_weekly (all history)
+      milestonesRes,    // 20. misogi_milestones
+      blocksRes,        // 21. misogi_recurring_blocks
+      daysOffRes,       // 22. days_off
     ] = await Promise.all([
       supabase.from('daily_kpis').select('*').eq('client_id', client.id).gte('date', mStart).lte('date', mEnd),              // 1
       supabase.from('checkins').select('*').eq('client_id', client.id).order('checkin_date', { ascending: false }),            // 2
@@ -466,6 +473,9 @@ export default function ClientPage() {
       supabase.from('monthly_review').select('*').eq('client_id', client.id).eq('month', new Date().getMonth() === 0 ? 11 : new Date().getMonth() - 1).eq('year', new Date().getMonth() === 0 ? new Date().getFullYear() - 1 : new Date().getFullYear()).maybeSingle(),  // 17
       supabase.from('weekly_review').select('week_of, completed, completed_at, revenue, week_rating').eq('client_id', client.id).order('week_of', { ascending: false }),  // 18
       supabase.from('war_map_weekly').select('week_of, completed, completed_at, number_one_priority').eq('client_id', client.id).order('week_of', { ascending: false }), // 19
+      supabase.from('misogi_milestones').select('*').eq('client_id', client.id).eq('year', year).order('order_index'),  // 20
+      supabase.from('misogi_recurring_blocks').select('*').eq('client_id', client.id).eq('year', year),                 // 21
+      supabase.from('days_off').select('*').eq('client_id', client.id).eq('year', year).order('off_date'),              // 22
     ])
 
     if (dkpiRes.data) {
@@ -536,6 +546,9 @@ export default function ClientPage() {
     setLastMonthReview(lastMonthlyRes.data || null)
     if (allLockInsRes.data) setAllLockIns(allLockInsRes.data)
     if (allWarMapsRes.data) setAllWarMaps(allWarMapsRes.data)
+    if (milestonesRes.data) setMisogiMilestones(milestonesRes.data)
+    if (blocksRes.data) setMisogiBlocks(blocksRes.data)
+    if (daysOffRes.data) setDaysOff(daysOffRes.data)
     setLoading(false)
   }
 
@@ -1038,18 +1051,70 @@ export default function ClientPage() {
         who_with: adv.who_with || '',
         when_planned: adv.when_planned || '',
         where_planned: adv.where_planned || '',
+        planned_date: adv.planned_date || null,
         completed: adv.completed || false,
       }
       if (adv.id) {
-        // Update existing adventure
         await supabase.from('mini_adventures').update(payload).eq('id', adv.id)
       } else if (payload.title.trim()) {
-        // Insert new adventure only if it has a title
         const { data: newAdv } = await supabase.from('mini_adventures').insert([payload]).select().single()
         if (newAdv) {
           setAdventuresForm(prev => prev.map(a => a.order_index === adv.order_index && !a.id ? newAdv : a))
         }
       }
+    }
+
+    // Save misogi milestones
+    for (const ms of misogiMilestones) {
+      const payload = { client_id: clientData.id, year, order_index: ms.order_index, title: ms.title || '', target_date: ms.target_date || null, completed: ms.completed || false }
+      if (ms.id) {
+        await supabase.from('misogi_milestones').update(payload).eq('id', ms.id)
+      } else if (payload.title.trim()) {
+        const { data } = await supabase.from('misogi_milestones').insert([payload]).select().single()
+        if (data) setMisogiMilestones(prev => prev.map(m => m.order_index === ms.order_index && !m.id ? data : m))
+      }
+    }
+
+    // Save recurring blocks
+    for (const block of misogiBlocks) {
+      const payload = { client_id: clientData.id, year, title: block.title || '', days_of_week: block.days_of_week || [], scheduled_time: block.scheduled_time || null, duration_minutes: block.duration_minutes || 60, active: block.active !== false }
+      if (block.id) {
+        await supabase.from('misogi_recurring_blocks').update(payload).eq('id', block.id)
+      } else if (payload.title.trim()) {
+        const { data } = await supabase.from('misogi_recurring_blocks').insert([payload]).select().single()
+        if (data) setMisogiBlocks(prev => prev.map(b => b.title === block.title && !b.id ? data : b))
+      }
+    }
+
+    // Auto-create project from misogi if project type
+    if (designForm.misogi_type === 'project' && designForm.misoji?.trim()) {
+      const projectName = `Misogi: ${designForm.misoji.trim()}`
+      const existingProject = projects.find(p => p.name === projectName)
+      if (!existingProject) {
+        const { data: newProject } = await supabase.from('projects').insert([{
+          client_id: clientData.id, name: projectName, description: 'Auto-generated from Design\u2122 Misogi',
+          status: 'in_progress', priority: 'high',
+          start_date: designForm.misogi_start_date || null, end_date: designForm.misogi_end_date || null,
+        }]).select().single()
+        if (newProject) {
+          setProjects(prev => [...prev, newProject])
+          for (const ms of misogiMilestones.filter(m => m.title?.trim())) {
+            const { data: task } = await supabase.from('project_tasks').insert([{
+              project_id: newProject.id, client_id: clientData.id, title: ms.title,
+              scheduled_date: ms.target_date || null,
+            }]).select().single()
+            if (task) setProjectTasks(prev => ({ ...prev, [newProject.id]: [...(prev[newProject.id] || []), task] }))
+          }
+        }
+      }
+    }
+
+    // Save days off — delete all for this year and re-insert
+    await supabase.from('days_off').delete().eq('client_id', clientData.id).eq('year', year)
+    const daysOffToInsert = daysOff.filter(d => d.off_date).map(d => ({ client_id: clientData.id, year, off_date: d.off_date, label: d.label || '' }))
+    if (daysOffToInsert.length > 0) {
+      const { data } = await supabase.from('days_off').insert(daysOffToInsert).select()
+      if (data) setDaysOff(data)
     }
 
     setDesignEditing(false)
@@ -2251,16 +2316,167 @@ export default function ClientPage() {
               )}
             </div>
 
+            {/* ── Yearly Calendar ─────────────────────────────────────────── */}
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-8">
+              {Array.from({ length: 12 }, (_, monthIdx) => {
+                const calYear = new Date().getFullYear()
+                const firstDay = new Date(calYear, monthIdx, 1)
+                const daysInMonth = new Date(calYear, monthIdx + 1, 0).getDate()
+                const startDay = (firstDay.getDay() + 6) % 7
+                const todayStr = localDateStr()
+
+                return (
+                  <div key={monthIdx} className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
+                    <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest mb-2">{MONTH_NAMES[monthIdx]}</p>
+                    <div className="grid grid-cols-7 gap-0.5">
+                      {['M','T','W','T','F','S','S'].map((d, di) => <div key={di} className="text-[7px] text-zinc-600 text-center font-bold">{d}</div>)}
+                      {Array.from({ length: startDay }, (_, i) => <div key={`e-${i}`} />)}
+                      {Array.from({ length: daysInMonth }, (_, dayIdx) => {
+                        const day = dayIdx + 1
+                        const dateStr = `${calYear}-${String(monthIdx + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+                        const isToday = dateStr === todayStr
+                        const isMisogi = designForm.misogi_type === 'event'
+                          ? dateStr === designForm.misogi_date
+                          : (designForm.misogi_start_date && designForm.misogi_end_date && dateStr >= designForm.misogi_start_date && dateStr <= designForm.misogi_end_date)
+                        const isMisogiMilestone = misogiMilestones.some(m => m.target_date === dateStr)
+                        const isAdventure = adventuresForm.some(a => a.planned_date === dateStr)
+                        const isDayOff = daysOff.some(d => d.off_date === dateStr)
+
+                        let cellClass = 'text-zinc-600'
+                        if (isToday) cellClass = 'bg-gold text-zinc-950 font-bold'
+                        else if (isMisogiMilestone) cellClass = 'bg-gold/30 text-gold font-bold ring-1 ring-gold/50'
+                        else if (isMisogi) cellClass = 'bg-gold/20 text-gold'
+                        else if (isAdventure) cellClass = 'bg-sky-500/20 text-sky-400'
+                        else if (isDayOff) cellClass = 'bg-zinc-700 text-zinc-400'
+
+                        return (
+                          <div key={day} className={`w-full aspect-square flex items-center justify-center rounded-sm text-[8px] ${cellClass}`}>
+                            {day}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="flex flex-wrap gap-4 mb-8 text-[10px]">
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-gold" /> Today</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-gold/20 border border-gold/30" /> Misogi</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-gold/30 ring-1 ring-gold/50" /> Milestone</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-sky-500/20 border border-sky-500/30" /> Adventure</span>
+              <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-sm bg-zinc-700" /> Day Off</span>
+            </div>
+
             {designEditing ? (
               <div className="space-y-10">
+                {/* ── Misogi ──────────────────────────────────────────────── */}
                 <section>
-                  <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-1">Masoji</h3>
+                  <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-1">Misogi — Your Defining Challenge</h3>
                   <p className="text-zinc-600 text-xs mb-4">Your single defining moment for {new Date().getFullYear()}. The experience that will mark this year.</p>
-                  <textarea value={designForm.misoji} onChange={e => setDesignForm({ ...designForm, misoji: e.target.value })}
-                    rows={3} placeholder="Describe your masoji for this year..."
+                  <textarea value={designForm.misoji} onChange={e => setDesignForm(f => ({ ...f, misoji: e.target.value }))}
+                    rows={3} placeholder="What is your Misogi for the year?"
                     className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition resize-none text-sm" />
+
+                  <div className="flex gap-3 mt-3">
+                    <button onClick={() => setDesignForm(f => ({ ...f, misogi_type: 'event' }))}
+                      className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-widest transition ${designForm.misogi_type === 'event' ? 'bg-gold/20 text-gold border border-gold/30' : 'bg-zinc-800 text-zinc-500 border border-zinc-700 hover:border-zinc-600'}`}>
+                      Single Event
+                    </button>
+                    <button onClick={() => setDesignForm(f => ({ ...f, misogi_type: 'project' }))}
+                      className={`px-4 py-2 rounded text-xs font-bold uppercase tracking-widest transition ${designForm.misogi_type === 'project' ? 'bg-gold/20 text-gold border border-gold/30' : 'bg-zinc-800 text-zinc-500 border border-zinc-700 hover:border-zinc-600'}`}>
+                      Ongoing Project
+                    </button>
+                  </div>
+
+                  {designForm.misogi_type === 'event' && (
+                    <div className="mt-3">
+                      <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Target Date</label>
+                      <input type="date" value={designForm.misogi_date || ''} onChange={e => setDesignForm(f => ({ ...f, misogi_date: e.target.value }))}
+                        className="px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition" />
+                    </div>
+                  )}
+
+                  {designForm.misogi_type === 'project' && (
+                    <div className="mt-3 space-y-4">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Start Date</label>
+                          <input type="date" value={designForm.misogi_start_date || ''} onChange={e => setDesignForm(f => ({ ...f, misogi_start_date: e.target.value }))}
+                            className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition" />
+                        </div>
+                        <div>
+                          <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Target Completion</label>
+                          <input type="date" value={designForm.misogi_end_date || ''} onChange={e => setDesignForm(f => ({ ...f, misogi_end_date: e.target.value }))}
+                            className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition" />
+                        </div>
+                      </div>
+
+                      {/* Milestones */}
+                      <div>
+                        <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-2">Milestones</h4>
+                        {misogiMilestones.map((ms, idx) => (
+                          <div key={idx} className="flex items-center gap-2 mb-2">
+                            <input value={ms.title || ''} onChange={e => setMisogiMilestones(prev => prev.map((m, i) => i === idx ? { ...m, title: e.target.value } : m))}
+                              placeholder={`Milestone ${idx + 1}`}
+                              className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white text-sm placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition" />
+                            <input type="date" value={ms.target_date || ''} onChange={e => setMisogiMilestones(prev => prev.map((m, i) => i === idx ? { ...m, target_date: e.target.value } : m))}
+                              className="px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition" />
+                            <button onClick={() => setMisogiMilestones(prev => prev.filter((_, i) => i !== idx))}
+                              className="text-red-400 hover:text-red-300 p-1 text-sm">✕</button>
+                          </div>
+                        ))}
+                        <button onClick={() => setMisogiMilestones(prev => [...prev, { order_index: prev.length + 1, title: '', target_date: '', completed: false }])}
+                          className="text-xs text-gold hover:text-gold-light font-semibold uppercase tracking-widest mt-1">+ Add Milestone</button>
+                      </div>
+
+                      {/* Recurring Work Blocks */}
+                      <div>
+                        <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-2">Recurring Work Blocks</h4>
+                        <p className="text-zinc-600 text-[10px] mb-3">Schedule regular time for this project. These will appear in your calendar and Morning Ops.</p>
+                        {misogiBlocks.map((block, idx) => (
+                          <div key={idx} className="bg-zinc-800 rounded-lg p-3 mb-2">
+                            <input value={block.title || ''} onChange={e => setMisogiBlocks(prev => prev.map((b, i) => i === idx ? { ...b, title: e.target.value } : b))}
+                              placeholder="e.g. Writing session"
+                              className="w-full px-3 py-2 bg-zinc-900 border border-zinc-700 rounded text-white text-sm placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition mb-2" />
+                            <div className="flex gap-1 mb-2">
+                              {['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((day, dayIdx) => {
+                                const dayNum = dayIdx + 1
+                                const active = (block.days_of_week || []).includes(dayNum)
+                                return (
+                                  <button key={day} onClick={() => {
+                                    setMisogiBlocks(prev => prev.map((b, i) => i === idx ? { ...b, days_of_week: active ? (b.days_of_week || []).filter(d => d !== dayNum) : [...(b.days_of_week || []), dayNum] } : b))
+                                  }} className={`flex-1 py-1.5 rounded text-[10px] font-bold uppercase ${active ? 'bg-gold/20 text-gold border border-gold/30' : 'bg-zinc-900 text-zinc-600 border border-zinc-700'}`}>{day}</button>
+                                )
+                              })}
+                            </div>
+                            <div className="flex gap-2">
+                              <select value={block.scheduled_time || ''} onChange={e => setMisogiBlocks(prev => prev.map((b, i) => i === idx ? { ...b, scheduled_time: e.target.value } : b))}
+                                className="flex-1 px-3 py-2 bg-zinc-900 border border-zinc-700 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold">
+                                <option value="">Time</option>
+                                {TIME_OPTIONS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                              </select>
+                              <select value={block.duration_minutes || 60} onChange={e => setMisogiBlocks(prev => prev.map((b, i) => i === idx ? { ...b, duration_minutes: Number(e.target.value) } : b))}
+                                className="px-3 py-2 bg-zinc-900 border border-zinc-700 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold">
+                                <option value={30}>30 min</option>
+                                <option value={60}>1 hour</option>
+                                <option value={90}>1.5 hours</option>
+                                <option value={120}>2 hours</option>
+                                <option value={180}>3 hours</option>
+                              </select>
+                              <button onClick={() => setMisogiBlocks(prev => prev.filter((_, i) => i !== idx))}
+                                className="text-red-400 hover:text-red-300 p-1 text-sm">✕</button>
+                            </div>
+                          </div>
+                        ))}
+                        <button onClick={() => setMisogiBlocks(prev => [...prev, { title: '', days_of_week: [], scheduled_time: '', duration_minutes: 60, active: true }])}
+                          className="text-xs text-gold hover:text-gold-light font-semibold uppercase tracking-widest mt-1">+ Add Work Block</button>
+                      </div>
+                    </div>
+                  )}
                 </section>
 
+                {/* ── Mini Adventures ─────────────────────────────────────── */}
                 <section>
                   <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-1">Mini Adventures</h3>
                   <p className="text-zinc-600 text-xs mb-5">Six experiences outside of business — physical, travel, anything that fills you up.</p>
@@ -2271,22 +2487,27 @@ export default function ClientPage() {
                         <input value={adv.title} onChange={e => setAdventuresForm(prev => prev.map((a, j) => j === i ? { ...a, title: e.target.value } : a))}
                           placeholder="What is it?"
                           className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm mb-3" />
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                          {[{ key: 'who_with', placeholder: 'Who with?' }, { key: 'when_planned', placeholder: 'When?' }, { key: 'where_planned', placeholder: 'Where?' }].map(({ key, placeholder }) => (
-                            <input key={key} value={adv[key]} onChange={e => setAdventuresForm(prev => prev.map((a, j) => j === i ? { ...a, [key]: e.target.value } : a))}
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+                          {[{ key: 'who_with', placeholder: 'Who with?' }, { key: 'when_planned', placeholder: 'When? (text)' }, { key: 'where_planned', placeholder: 'Where?' }].map(({ key, placeholder }) => (
+                            <input key={key} value={adv[key] || ''} onChange={e => setAdventuresForm(prev => prev.map((a, j) => j === i ? { ...a, [key]: e.target.value } : a))}
                               placeholder={placeholder}
                               className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm" />
                           ))}
+                          <div>
+                            <input type="date" value={adv.planned_date || ''} onChange={e => setAdventuresForm(prev => prev.map((a, j) => j === i ? { ...a, planned_date: e.target.value } : a))}
+                              className="w-full px-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition" />
+                          </div>
                         </div>
                       </div>
                     ))}
                   </div>
                 </section>
 
+                {/* ── Days Off ────────────────────────────────────────────── */}
                 <section>
                   <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-1">Days Off</h3>
                   <p className="text-zinc-600 text-xs mb-5">When are you protecting your time?</p>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
                     {[
                       { key: 'days_off_week', label: 'Weekly', placeholder: 'e.g. Sundays' },
                       { key: 'days_off_month', label: 'Monthly', placeholder: 'e.g. Last weekend' },
@@ -2295,35 +2516,53 @@ export default function ClientPage() {
                     ].map(({ key, label, placeholder }) => (
                       <div key={key}>
                         <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">{label}</label>
-                        <input value={designForm[key]} onChange={e => setDesignForm({ ...designForm, [key]: e.target.value })} placeholder={placeholder}
+                        <input value={designForm[key]} onChange={e => setDesignForm(f => ({ ...f, [key]: e.target.value }))} placeholder={placeholder}
                           className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm" />
                       </div>
                     ))}
                   </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-2">Specific Days Off This Year</h4>
+                    {daysOff.map((d, idx) => (
+                      <div key={idx} className="flex gap-2 mb-1.5">
+                        <input type="date" value={d.off_date || ''} onChange={e => setDaysOff(prev => prev.map((x, i) => i === idx ? { ...x, off_date: e.target.value } : x))}
+                          className="px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white text-sm focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition" />
+                        <input value={d.label || ''} onChange={e => setDaysOff(prev => prev.map((x, i) => i === idx ? { ...x, label: e.target.value } : x))}
+                          placeholder="Label (optional)"
+                          className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition" />
+                        <button onClick={() => setDaysOff(prev => prev.filter((_, i) => i !== idx))}
+                          className="text-red-400 hover:text-red-300 p-1 text-sm">✕</button>
+                      </div>
+                    ))}
+                    <button onClick={() => setDaysOff(prev => [...prev, { off_date: '', label: '' }])}
+                      className="text-xs text-gold hover:text-gold-light font-semibold uppercase tracking-widest mt-1">+ Add Day Off</button>
+                  </div>
                 </section>
 
+                {/* ── Skills ──────────────────────────────────────────────── */}
                 <section>
                   <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-1">Skills</h3>
                   <p className="text-zinc-600 text-xs mb-5">What are you investing in developing this year?</p>
                   <div className="space-y-3">
                     <div>
                       <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Skill 1</label>
-                      <input value={designForm.skill_1} onChange={e => setDesignForm({ ...designForm, skill_1: e.target.value })} placeholder="e.g. Public speaking"
+                      <input value={designForm.skill_1} onChange={e => setDesignForm(f => ({ ...f, skill_1: e.target.value }))} placeholder="e.g. Public speaking"
                         className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm" />
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">Skill 2</label>
-                      <input value={designForm.skill_2} onChange={e => setDesignForm({ ...designForm, skill_2: e.target.value })} placeholder="e.g. Financial management"
+                      <input value={designForm.skill_2} onChange={e => setDesignForm(f => ({ ...f, skill_2: e.target.value }))} placeholder="e.g. Financial management"
                         className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm" />
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-gold uppercase tracking-widest mb-2">Key Skill — Primary Focus</label>
-                      <input value={designForm.key_skill} onChange={e => setDesignForm({ ...designForm, key_skill: e.target.value })} placeholder="The one skill you're committed to mastering"
+                      <input value={designForm.key_skill} onChange={e => setDesignForm(f => ({ ...f, key_skill: e.target.value }))} placeholder="The one skill you're committed to mastering"
                         className="w-full px-4 py-3 bg-zinc-800 border border-gold/40 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm" />
                     </div>
                   </div>
                 </section>
 
+                {/* ── Money Tasks ─────────────────────────────────────────── */}
                 <section>
                   <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-1">Top 3 Money-Making Tasks</h3>
                   <p className="text-zinc-600 text-xs mb-5">The three activities that directly generate revenue in your business.</p>
@@ -2331,7 +2570,7 @@ export default function ClientPage() {
                     {[1, 2, 3].map(n => (
                       <div key={n} className="flex items-center gap-3">
                         <span className="text-gold font-bold text-sm w-5 flex-shrink-0">{n}</span>
-                        <input value={designForm[`money_task_${n}`]} onChange={e => setDesignForm({ ...designForm, [`money_task_${n}`]: e.target.value })}
+                        <input value={designForm[`money_task_${n}`]} onChange={e => setDesignForm(f => ({ ...f, [`money_task_${n}`]: e.target.value }))}
                           placeholder={`Money-making task ${n}`}
                           className="flex-1 px-4 py-3 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm" />
                       </div>
@@ -2342,7 +2581,7 @@ export default function ClientPage() {
                 <div className="flex gap-3 pt-2">
                   <button onClick={saveDesign} disabled={designLoading}
                     className="px-8 py-3.5 bg-gold hover:bg-gold-light disabled:opacity-50 text-zinc-950 font-bold text-xs uppercase tracking-widest rounded transition">
-                    {designLoading ? 'Saving...' : 'Save Design™'}
+                    {designLoading ? 'Saving...' : 'Save Design\u2122'}
                   </button>
                   {lifeDesign && (
                     <button onClick={() => setDesignEditing(false)}
@@ -2354,13 +2593,47 @@ export default function ClientPage() {
               </div>
             ) : (
               <div className="space-y-10">
+                {/* ── Misogi (read-only) ──────────────────────────────────── */}
                 <section>
-                  <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-3">Masoji</h3>
+                  <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-3">Misogi</h3>
                   <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5">
                     <p className="text-white text-sm leading-relaxed">{lifeDesign?.misoji || <span className="text-zinc-600">Not set</span>}</p>
+                    {lifeDesign?.misogi_type && (
+                      <div className="flex flex-wrap gap-3 mt-3 text-xs text-zinc-500">
+                        <span className="px-2 py-0.5 bg-zinc-800 rounded uppercase tracking-widest">{lifeDesign.misogi_type === 'event' ? 'Single Event' : 'Ongoing Project'}</span>
+                        {lifeDesign.misogi_type === 'event' && lifeDesign.misogi_date && <span>Target: {lifeDesign.misogi_date}</span>}
+                        {lifeDesign.misogi_type === 'project' && lifeDesign.misogi_start_date && <span>Start: {lifeDesign.misogi_start_date}</span>}
+                        {lifeDesign.misogi_type === 'project' && lifeDesign.misogi_end_date && <span>End: {lifeDesign.misogi_end_date}</span>}
+                      </div>
+                    )}
+                    {misogiMilestones.length > 0 && (
+                      <div className="mt-4 space-y-1.5">
+                        <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Milestones</p>
+                        {misogiMilestones.map((ms, idx) => (
+                          <div key={idx} className="flex items-center gap-2 text-sm">
+                            <span className={ms.completed ? 'text-gold' : 'text-zinc-600'}>{ms.completed ? '\u2713' : '\u25CB'}</span>
+                            <span className={ms.completed ? 'text-zinc-500 line-through' : 'text-zinc-300'}>{ms.title}</span>
+                            {ms.target_date && <span className="text-zinc-600 text-xs ml-auto">{ms.target_date}</span>}
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    {misogiBlocks.length > 0 && (
+                      <div className="mt-4 space-y-1.5">
+                        <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Work Blocks</p>
+                        {misogiBlocks.map((block, idx) => (
+                          <div key={idx} className="text-sm text-zinc-400">
+                            {block.title} — {(block.days_of_week || []).map(d => ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][d] || '').filter(Boolean).join(', ')}
+                            {block.scheduled_time && ` at ${block.scheduled_time}`}
+                            {block.duration_minutes && ` (${block.duration_minutes}min)`}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </section>
 
+                {/* ── Adventures (read-only) ──────────────────────────────── */}
                 <section>
                   <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-4">Mini Adventures</h3>
                   <div className="space-y-3">
@@ -2379,6 +2652,7 @@ export default function ClientPage() {
                                 {adv.who_with && <span>With: {adv.who_with}</span>}
                                 {adv.when_planned && <span>When: {adv.when_planned}</span>}
                                 {adv.where_planned && <span>Where: {adv.where_planned}</span>}
+                                {adv.planned_date && <span>Date: {adv.planned_date}</span>}
                               </div>
                             </>
                           ) : (
@@ -2390,6 +2664,7 @@ export default function ClientPage() {
                   </div>
                 </section>
 
+                {/* ── Days Off (read-only) ────────────────────────────────── */}
                 <section>
                   <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-4">Days Off</h3>
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -2401,12 +2676,25 @@ export default function ClientPage() {
                     ].map(({ key, label }) => (
                       <div key={key} className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
                         <p className="text-zinc-500 text-xs uppercase tracking-widest mb-2">{label}</p>
-                        <p className="text-white text-sm font-medium">{lifeDesign?.[key] || <span className="text-zinc-700">—</span>}</p>
+                        <p className="text-white text-sm font-medium">{lifeDesign?.[key] || <span className="text-zinc-700">{'\u2014'}</span>}</p>
                       </div>
                     ))}
                   </div>
+                  {daysOff.length > 0 && (
+                    <div className="mt-4">
+                      <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest mb-2">Specific Dates</p>
+                      <div className="flex flex-wrap gap-2">
+                        {daysOff.map((d, idx) => (
+                          <span key={idx} className="px-3 py-1.5 bg-zinc-800 border border-zinc-700 rounded text-sm text-zinc-300">
+                            {d.off_date}{d.label ? ` — ${d.label}` : ''}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </section>
 
+                {/* ── Skills (read-only) ──────────────────────────────────── */}
                 <section>
                   <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-4">Skills</h3>
                   <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5 space-y-3">
@@ -2417,6 +2705,7 @@ export default function ClientPage() {
                   </div>
                 </section>
 
+                {/* ── Money Tasks (read-only) ─────────────────────────────── */}
                 <section>
                   <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-4">Top 3 Money-Making Tasks</h3>
                   <div className="space-y-2">
