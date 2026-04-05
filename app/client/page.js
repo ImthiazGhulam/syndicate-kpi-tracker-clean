@@ -1498,15 +1498,58 @@ export default function ClientPage() {
     return result
   }
 
+  // Expand misogi recurring work blocks into task-like objects for a date range
+  const getMisogiBlockTasks = (startStr, endStr) => {
+    const result = []
+    if (!misogiBlocks || misogiBlocks.length === 0) return result
+    const start = new Date(startStr + 'T00:00:00')
+    const end = new Date(endStr + 'T23:59:59')
+    const d = new Date(start)
+    while (d <= end) {
+      const dayOfWeek = d.getDay() // 0=Sun, 1=Mon, ..., 6=Sat
+      const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+      misogiBlocks.filter(b => b.active !== false && (b.days_of_week || []).includes(dayOfWeek)).forEach(block => {
+        result.push({
+          id: `misogi-${block.id}-${dateStr}`,
+          title: block.title || 'Misogi Work Block',
+          scheduled_date: dateStr,
+          scheduled_time: block.scheduled_time || null,
+          duration_minutes: block.duration_minutes || 60,
+          _displayDate: dateStr,
+          _isMisogiBlock: true,
+          _isRecurring: true,
+          status: 'schedule',
+          completed: false,
+        })
+      })
+      d.setDate(d.getDate() + 1)
+    }
+    return result
+  }
+
   const warTasksWeek = expandTasksForRange(warMapTasks, weekDays[0], weekDays[6], warMapTaskCompletions)
   const warTasksMonth = expandTasksForRange(warMapTasks, monthStart, monthEnd, warMapTaskCompletions)
   const warTasksDay = expandTasksForRange(warMapTasks, dayViewDate, dayViewDate, warMapTaskCompletions)
   const warTasksPulse = expandTasksForRange(warMapTasks, dailyPulseDate, dailyPulseDate, warMapTaskCompletions)
 
-  const tasksForWeek = [...warTasksWeek, ...getScheduledProjectTasks(weekDays[0], weekDays[6])]
-  const tasksForMonth = [...warTasksMonth, ...getScheduledProjectTasks(monthStart, monthEnd)]
-  const tasksForDay = [...warTasksDay, ...getScheduledProjectTasks(dayViewDate, dayViewDate)]
-  const tasksForPulseDay = [...warTasksPulse, ...getScheduledProjectTasks(dailyPulseDate, dailyPulseDate)]
+  // Get Design™ calendar items (adventures, days off) as all-day reminders
+  const getDesignCalendarItems = (startStr, endStr) => {
+    const result = []
+    // Mini adventures with planned dates
+    adventuresForm.filter(a => a.planned_date && a.planned_date >= startStr && a.planned_date <= endStr && a.title?.trim()).forEach(a => {
+      result.push({ id: `adv-${a.id || a.order_index}`, title: `🏔 ${a.title}`, _displayDate: a.planned_date, status: 'schedule', completed: a.completed || false, _isDesignItem: true })
+    })
+    // Days off
+    daysOff.filter(d => d.off_date && d.off_date >= startStr && d.off_date <= endStr).forEach(d => {
+      result.push({ id: `off-${d.id || d.off_date}`, title: `Day Off${d.label ? ': ' + d.label : ''}`, _displayDate: d.off_date, status: 'schedule', completed: false, _isDesignItem: true, _isDayOff: true })
+    })
+    return result
+  }
+
+  const tasksForWeek = [...warTasksWeek, ...getScheduledProjectTasks(weekDays[0], weekDays[6]), ...getMisogiBlockTasks(weekDays[0], weekDays[6]), ...getDesignCalendarItems(weekDays[0], weekDays[6])]
+  const tasksForMonth = [...warTasksMonth, ...getScheduledProjectTasks(monthStart, monthEnd), ...getMisogiBlockTasks(monthStart, monthEnd), ...getDesignCalendarItems(monthStart, monthEnd)]
+  const tasksForDay = [...warTasksDay, ...getScheduledProjectTasks(dayViewDate, dayViewDate), ...getMisogiBlockTasks(dayViewDate, dayViewDate), ...getDesignCalendarItems(dayViewDate, dayViewDate)]
+  const tasksForPulseDay = [...warTasksPulse, ...getScheduledProjectTasks(dailyPulseDate, dailyPulseDate), ...getMisogiBlockTasks(dailyPulseDate, dailyPulseDate), ...getDesignCalendarItems(dailyPulseDate, dailyPulseDate)]
 
   const firstDayOfMonth = new Date(calendarYear, calendarMonth, 1).getDay()
   const daysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate()
