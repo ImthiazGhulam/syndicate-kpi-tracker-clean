@@ -542,6 +542,8 @@ export default function ClientPage() {
   // Fetch weekly priorities when week changes
   const fetchWeeklyPriorities = async (weekOf, autoAdvance = false) => {
     if (!clientData) return
+    // Clear immediately so old values don't bleed into new week
+    setWeeklyPriorities({ number_one_priority: '', priority_2: '', priority_3: '', priority_4: '', revenue_target: '', completed: false, completed_at: null })
     const { data } = await supabase.from('war_map_weekly').select('*').eq('client_id', clientData.id).eq('week_of', weekOf).maybeSingle()
     if (data) {
       setWeeklyPriorities(data)
