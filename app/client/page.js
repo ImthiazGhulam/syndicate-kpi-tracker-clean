@@ -11,7 +11,7 @@ const HOUR_H = 64 // px per hour
 
 const TIME_OPTIONS = []
 for (let h = 0; h <= 23; h++) {
-  for (const m of [0, 30]) {
+  for (const m of [0, 15, 30, 45]) {
     const period = h >= 12 ? 'pm' : 'am'
     const display = h === 0 ? 12 : h > 12 ? h - 12 : h
     TIME_OPTIONS.push({
