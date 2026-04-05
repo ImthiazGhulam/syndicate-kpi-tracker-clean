@@ -879,6 +879,11 @@ export default function ClientPage() {
     ])
     setWeeklyReview(reviewRes.data || {})
     setReviewPriorities(prioritiesRes.data || null)
+    // If this review is completed, auto-advance to current week
+    if (reviewRes.data?.completed) {
+      const currentReviewWeek = new Date().getDay() === 0 ? getMonday() : shiftWeek(getMonday(), -1)
+      if (weekOf !== currentReviewWeek) setReviewWeek(currentReviewWeek)
+    }
   }
 
   useEffect(() => {
@@ -930,6 +935,9 @@ export default function ClientPage() {
     if (allRes) setAllLockIns(allRes)
     refreshDashboard()
     setReviewSaving(false)
+    // Auto-advance to the current week's review
+    const currentReviewWeek = new Date().getDay() === 0 ? getMonday() : shiftWeek(getMonday(), -1)
+    if (reviewWeek !== currentReviewWeek) setReviewWeek(currentReviewWeek)
   }
 
   // Projects CRUD
