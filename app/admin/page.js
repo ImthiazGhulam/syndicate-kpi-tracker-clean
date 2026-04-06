@@ -2711,13 +2711,26 @@ function AdminPageInner() {
               {/* ══════════════════════════════════════════════════════════════ */}
               {activeTab === 'war-map' && (
                 <div className="fade-in">
-                  {/* Weekly Priorities + Completion */}
+                  {/* Week nav */}
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Weekly War Map</h3>
+                    <div className="flex items-center gap-1">
+                      <button onClick={async () => { const w = shiftWeek(adminWarMapWeek, -1); setAdminWarMapWeek(w); const { data } = await supabase.from('war_map_weekly').select('*').eq('client_id', selectedClient.id).eq('week_of', w).maybeSingle(); setWarMapWeekly(data || null); const { data: tasks } = await supabase.from('war_map_tasks').select('*').eq('client_id', selectedClient.id).eq('week_of', w).order('created_at', { ascending: false }); setWarMapTasks(tasks || []) }}
+                        className="p-2 text-zinc-500 hover:text-white transition rounded hover:bg-zinc-800">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                      </button>
+                      <span className="text-xs font-semibold text-white min-w-[160px] text-center">{formatWeekRange(adminWarMapWeek)}</span>
+                      <button onClick={async () => { const w = shiftWeek(adminWarMapWeek, 1); setAdminWarMapWeek(w); const { data } = await supabase.from('war_map_weekly').select('*').eq('client_id', selectedClient.id).eq('week_of', w).maybeSingle(); setWarMapWeekly(data || null); const { data: tasks } = await supabase.from('war_map_tasks').select('*').eq('client_id', selectedClient.id).eq('week_of', w).order('created_at', { ascending: false }); setWarMapTasks(tasks || []) }}
+                        className="p-2 text-zinc-500 hover:text-white transition rounded hover:bg-zinc-800">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                      </button>
+                    </div>
+                    {warMapWeekly ? (warMapWeekly.completed ? <CompletedBadge /> : <PendingBadge />) : <NotStartedBadge />}
+                  </div>
+
+                  {/* Weekly Priorities */}
                   {warMapWeekly && (
                     <div className="mb-8">
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">This Week's Priorities</h3>
-                        {warMapWeekly.completed ? <CompletedBadge /> : <PendingBadge />}
-                      </div>
                       {/* #1 Priority */}
                       <div className="bg-zinc-900 border-2 border-gold/30 rounded-lg px-4 py-3 mb-3">
                         <p className="text-[10px] font-semibold text-gold uppercase tracking-widest mb-1">#1 Priority</p>
@@ -2750,7 +2763,7 @@ function AdminPageInner() {
                   )}
 
                   {warMapTasks.length === 0 && !warMapWeekly ? (
-                    <p className="text-center py-12 text-zinc-600 text-sm">Client hasn't used the Weekly War Map yet.</p>
+                    <p className="text-center py-12 text-zinc-600 text-sm">No War Map for this week.</p>
                   ) : warMapTasks.length > 0 ? (
                     <div>
                       {/* Summary Row */}
