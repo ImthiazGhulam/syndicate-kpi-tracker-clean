@@ -194,10 +194,12 @@ function AdminPageInner() {
   const [weekDebriefs, setWeekDebriefs] = useState([])
   const [warMapWeekly, setWarMapWeekly] = useState(null)
   const [weeklyReview, setWeeklyReview] = useState(null)
+  const [reviewPriorities, setReviewPriorities] = useState(null)
   const [allClientLockIns, setAllClientLockIns] = useState([])
   const [allClientWarMaps, setAllClientWarMaps] = useState([])
   const [adminReviewWeek, setAdminReviewWeek] = useState(() => getMonday())
   const [adminWarMapWeek, setAdminWarMapWeek] = useState(() => getMonday())
+  const [adminViewDate, setAdminViewDate] = useState(() => localDateStr())
   // Default monthly view to previous month
   const [adminMonthlyMonth, setAdminMonthlyMonth] = useState(() => new Date().getMonth() === 0 ? 11 : new Date().getMonth() - 1)
   const [adminMonthlyYear, setAdminMonthlyYear] = useState(() => new Date().getMonth() === 0 ? new Date().getFullYear() - 1 : new Date().getFullYear())
@@ -346,6 +348,8 @@ function AdminPageInner() {
     setWeekDebriefs([])
     setWarMapWeekly(null)
     setWeeklyReview(null)
+    setReviewPriorities(null)
+    setAdminViewDate(localDateStr())
     setMonthlyReview(null)
     setAllMonthlyReviews([])
     setIdentityChange(null)
@@ -427,6 +431,7 @@ function AdminPageInner() {
     setWeekDebriefs(Array.isArray(eveningRes.data) ? eveningRes.data : [])
     setWarMapWeekly(warWeeklyRes.data && !Array.isArray(warWeeklyRes.data) ? warWeeklyRes.data : null)
     setWeeklyReview(reviewRes.data && !Array.isArray(reviewRes.data) ? reviewRes.data : null)
+    setReviewPriorities(warWeeklyRes.data && !Array.isArray(warWeeklyRes.data) ? warWeeklyRes.data : null)
     setMonthlyReview(monthlyRes.data && !Array.isArray(monthlyRes.data) ? monthlyRes.data : null)
     setAllMonthlyReviews(Array.isArray(allMonthlyRes.data) ? allMonthlyRes.data : [])
     setIdentityChange(identityRes.data && !Array.isArray(identityRes.data) ? identityRes.data : null)
@@ -803,9 +808,16 @@ function AdminPageInner() {
     ]},
   ]
 
-  // Today's data
+  // Today's data (for dashboard scores)
   const todayMorning = weekMorningOps.find(p => p.date === todayStr) || null
   const todayEvening = weekDebriefs.find(p => p.date === todayStr) || null
+
+  // Admin view date data (for detail views with navigation)
+  const viewMorning = weekMorningOps.find(p => p.date === adminViewDate) || null
+  const viewEvening = weekDebriefs.find(p => p.date === adminViewDate) || null
+  const viewDateLabel = new Date(adminViewDate + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'short' })
+  const canGoPrevDay = dashWeekDays.indexOf(adminViewDate) > 0
+  const canGoNextDay = dashWeekDays.indexOf(adminViewDate) < dashWeekDays.length - 1 && dashWeekDays.indexOf(adminViewDate) < dashWeekDays.indexOf(todayStr)
 
   // War map filters
   const delegated = warMapTasks.filter(t => t.status === 'delegate')
@@ -2492,25 +2504,38 @@ function AdminPageInner() {
               {activeTab === 'morning-ops' && (
                 <div className="fade-in">
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Today's Morning Ops</h3>
-                    {todayMorning ? (todayMorning.completed ? <CompletedBadge /> : <PendingBadge />) : <NotStartedBadge />}
+                    <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Morning Ops</h3>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => { const idx = dashWeekDays.indexOf(adminViewDate); if (idx > 0) setAdminViewDate(dashWeekDays[idx - 1]) }}
+                        disabled={!canGoPrevDay}
+                        className={`p-2 transition rounded hover:bg-zinc-800 ${canGoPrevDay ? 'text-zinc-500 hover:text-white' : 'text-zinc-800 cursor-not-allowed'}`}>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                      </button>
+                      <span className="text-xs font-semibold text-white min-w-[120px] text-center">{viewDateLabel}</span>
+                      <button onClick={() => { const idx = dashWeekDays.indexOf(adminViewDate); if (canGoNextDay) setAdminViewDate(dashWeekDays[idx + 1]) }}
+                        disabled={!canGoNextDay}
+                        className={`p-2 transition rounded hover:bg-zinc-800 ${canGoNextDay ? 'text-zinc-500 hover:text-white' : 'text-zinc-800 cursor-not-allowed'}`}>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                      </button>
+                    </div>
+                    {viewMorning ? (viewMorning.completed ? <CompletedBadge /> : <PendingBadge />) : <NotStartedBadge />}
                   </div>
 
-                  {!todayMorning ? (
-                    <p className="text-center py-12 text-zinc-600 text-sm">Client hasn't started their Morning Ops today.</p>
+                  {!viewMorning ? (
+                    <p className="text-center py-12 text-zinc-600 text-sm">{adminViewDate === todayStr ? "Client hasn't started their Morning Ops today." : 'No Morning Ops for this day.'}</p>
                   ) : (
                     <div className="space-y-4">
-                      <ReadOnlyField label="Intention" value={todayMorning.intention} color="text-gold" />
-                      <ReadOnlyField label="Feeling" value={todayMorning.feeling} />
-                      <ReadOnlyField label="What would make today a win" value={todayMorning.win} />
-                      <ReadOnlyField label="Money-making task" value={todayMorning.money_task} color="text-gold" />
+                      <ReadOnlyField label="Intention" value={viewMorning.intention} color="text-gold" />
+                      <ReadOnlyField label="Feeling" value={viewMorning.feeling} />
+                      <ReadOnlyField label="What would make today a win" value={viewMorning.win} />
+                      <ReadOnlyField label="Money-making task" value={viewMorning.money_task} color="text-gold" />
 
                       {/* To-dos */}
-                      {(todayMorning.todo_1 || todayMorning.todo_2 || todayMorning.todo_3) && (
+                      {(viewMorning.todo_1 || viewMorning.todo_2 || viewMorning.todo_3) && (
                         <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
                           <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-widest mb-2">Top 3 To-Dos</p>
                           <div className="space-y-1.5">
-                            {[todayMorning.todo_1, todayMorning.todo_2, todayMorning.todo_3].map((todo, i) => todo && (
+                            {[viewMorning.todo_1, viewMorning.todo_2, viewMorning.todo_3].map((todo, i) => todo && (
                               <div key={i} className="flex items-center gap-2">
                                 <span className="text-xs font-bold text-zinc-500 w-4">{i + 1}</span>
                                 <p className="text-white text-sm">{todo}</p>
@@ -2521,31 +2546,31 @@ function AdminPageInner() {
                       )}
 
                       {/* Gratitude */}
-                      {(todayMorning.gratitude_1 || todayMorning.gratitude_2 || todayMorning.gratitude_3 || todayMorning.gratitude_4 || todayMorning.gratitude_5 || todayMorning.gratitude_6) && (
+                      {(viewMorning.gratitude_1 || viewMorning.gratitude_2 || viewMorning.gratitude_3 || viewMorning.gratitude_4 || viewMorning.gratitude_5 || viewMorning.gratitude_6) && (
                         <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
                           <p className="text-[10px] font-semibold text-gold uppercase tracking-widest mb-2">Gratitude — Mini Adventures</p>
                           <div className="space-y-2">
-                            {[1,2,3,4,5,6].map(n => todayMorning[`gratitude_${n}`] && (
+                            {[1,2,3,4,5,6].map(n => viewMorning[`gratitude_${n}`] && (
                               <div key={n} className="flex items-start gap-2">
                                 <span className="text-xs font-bold text-zinc-600 w-4 flex-shrink-0 mt-0.5">{n}</span>
-                                <p className="text-white text-sm leading-relaxed">{todayMorning[`gratitude_${n}`]}</p>
+                                <p className="text-white text-sm leading-relaxed">{viewMorning[`gratitude_${n}`]}</p>
                               </div>
                             ))}
                           </div>
                         </div>
                       )}
 
-                      <ReadOnlyField label="Letting go of" value={todayMorning.let_go} />
+                      <ReadOnlyField label="Letting go of" value={viewMorning.let_go} />
 
                       {/* Identity Read */}
                       <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
                         <p className="text-[10px] font-semibold text-violet-400 uppercase tracking-widest mb-1.5">Identity Read</p>
                         <div className="flex items-center gap-2">
-                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${todayMorning.identity_read ? 'bg-violet-500 border-violet-500' : 'border-zinc-700'}`}>
-                            {todayMorning.identity_read && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                          <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${viewMorning.identity_read ? 'bg-violet-500 border-violet-500' : 'border-zinc-700'}`}>
+                            {viewMorning.identity_read && <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                           </div>
-                          <span className={`text-sm ${todayMorning.identity_read ? 'text-violet-400 font-semibold' : 'text-zinc-600'}`}>
-                            {todayMorning.identity_read ? 'Read today' : 'Not read today'}
+                          <span className={`text-sm ${viewMorning.identity_read ? 'text-violet-400 font-semibold' : 'text-zinc-600'}`}>
+                            {viewMorning.identity_read ? 'Read today' : 'Not read today'}
                           </span>
                         </div>
                       </div>
@@ -2560,41 +2585,54 @@ function AdminPageInner() {
               {activeTab === 'debrief' && (
                 <div className="fade-in">
                   <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">Today's Debrief</h3>
-                    {todayEvening ? (todayEvening.completed ? <CompletedBadge /> : <PendingBadge />) : <NotStartedBadge />}
+                    <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">The Debrief</h3>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => { const idx = dashWeekDays.indexOf(adminViewDate); if (idx > 0) setAdminViewDate(dashWeekDays[idx - 1]) }}
+                        disabled={!canGoPrevDay}
+                        className={`p-2 transition rounded hover:bg-zinc-800 ${canGoPrevDay ? 'text-zinc-500 hover:text-white' : 'text-zinc-800 cursor-not-allowed'}`}>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+                      </button>
+                      <span className="text-xs font-semibold text-white min-w-[120px] text-center">{viewDateLabel}</span>
+                      <button onClick={() => { const idx = dashWeekDays.indexOf(adminViewDate); if (canGoNextDay) setAdminViewDate(dashWeekDays[idx + 1]) }}
+                        disabled={!canGoNextDay}
+                        className={`p-2 transition rounded hover:bg-zinc-800 ${canGoNextDay ? 'text-zinc-500 hover:text-white' : 'text-zinc-800 cursor-not-allowed'}`}>
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                      </button>
+                    </div>
+                    {viewEvening ? (viewEvening.completed ? <CompletedBadge /> : <PendingBadge />) : <NotStartedBadge />}
                   </div>
 
-                  {!todayEvening ? (
-                    <p className="text-center py-12 text-zinc-600 text-sm">Client hasn't started their Debrief today.</p>
+                  {!viewEvening ? (
+                    <p className="text-center py-12 text-zinc-600 text-sm">{adminViewDate === todayStr ? "Client hasn't started their Debrief today." : 'No Debrief for this day.'}</p>
                   ) : (
                     <div className="space-y-4">
                       {/* Priority completed */}
                       <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
                         <p className="text-[10px] font-semibold text-gold uppercase tracking-widest mb-1.5">Did I complete my #1 priority?</p>
-                        <YesNoBadge value={todayEvening.priority_completed} />
+                        <YesNoBadge value={viewEvening.priority_completed} />
                       </div>
 
-                      <ReadOnlyField label="What went well today?" value={todayEvening.went_well} color="text-emerald-400" />
-                      <ReadOnlyField label="What will I do differently tomorrow?" value={todayEvening.do_differently} color="text-sky-400" />
-                      <ReadOnlyField label="One thing I learned today" value={todayEvening.learned} />
+                      <ReadOnlyField label="What went well today?" value={viewEvening.went_well} color="text-emerald-400" />
+                      <ReadOnlyField label="What will I do differently tomorrow?" value={viewEvening.do_differently} color="text-sky-400" />
+                      <ReadOnlyField label="One thing I learned today" value={viewEvening.learned} />
 
                       {/* Show up rating */}
                       <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-                        <p className="text-[10px] font-semibold text-gold uppercase tracking-widest mb-2">How did I show up today? — <span className="text-white">{todayEvening.show_up_rating || '—'}/10</span></p>
-                        <RatingBar value={todayEvening.show_up_rating} />
+                        <p className="text-[10px] font-semibold text-gold uppercase tracking-widest mb-2">How did I show up today? — <span className="text-white">{viewEvening.show_up_rating || '—'}/10</span></p>
+                        <RatingBar value={viewEvening.show_up_rating} />
                       </div>
 
-                      <ReadOnlyField label="What didn't go to plan?" value={todayEvening.not_to_plan} color="text-red-400" />
-                      <ReadOnlyField label="What am I proud of today?" value={todayEvening.proud_of} color="text-gold" />
-                      <ReadOnlyField label="The one thing I love about myself is..." value={todayEvening.love_about_self} color="text-violet-400" />
+                      <ReadOnlyField label="What didn't go to plan?" value={viewEvening.not_to_plan} color="text-red-400" />
+                      <ReadOnlyField label="What am I proud of today?" value={viewEvening.proud_of} color="text-gold" />
+                      <ReadOnlyField label="The one thing I love about myself is..." value={viewEvening.love_about_self} color="text-violet-400" />
 
                       {/* Gratitude */}
-                      {(todayEvening.gratitude_1 || todayEvening.gratitude_2 || todayEvening.gratitude_3 || todayEvening.gratitude_4 || todayEvening.gratitude_5 || todayEvening.gratitude_6) && (
+                      {(viewEvening.gratitude_1 || viewEvening.gratitude_2 || viewEvening.gratitude_3 || viewEvening.gratitude_4 || viewEvening.gratitude_5 || viewEvening.gratitude_6) && (
                         <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
                           <p className="text-[10px] font-semibold text-gold uppercase tracking-widest mb-2">I am so grateful I just...</p>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                             {[1,2,3,4,5,6].map(n => {
-                              const val = todayEvening[`gratitude_${n}`]
+                              const val = viewEvening[`gratitude_${n}`]
                               const adv = adventures[n - 1] || {}
                               if (!val) return null
                               return (
@@ -2609,12 +2647,12 @@ function AdminPageInner() {
                       )}
 
                       {/* Wins */}
-                      {[1,2,3,4,5].some(n => todayEvening[`win_${n}_title`]) && (
+                      {[1,2,3,4,5].some(n => viewEvening[`win_${n}_title`]) && (
                         <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
                           <p className="text-[10px] font-semibold text-gold uppercase tracking-widest mb-3">Wins for the Day</p>
                           <div className="space-y-3">
                             {[1,2,3,4,5].map(n => {
-                              const title = todayEvening[`win_${n}_title`]
+                              const title = viewEvening[`win_${n}_title`]
                               if (!title) return null
                               return (
                                 <div key={n} className="bg-zinc-800/50 rounded-lg p-3">
@@ -2622,8 +2660,8 @@ function AdminPageInner() {
                                     <span className="text-gold font-bold text-xs">Win {n}</span>
                                   </div>
                                   <p className="text-white text-sm font-medium">{title}</p>
-                                  {todayEvening[`win_${n}_action`] && <p className="text-zinc-400 text-xs mt-1">What I did: {todayEvening[`win_${n}_action`]}</p>}
-                                  {todayEvening[`win_${n}_progress`] && <p className="text-zinc-500 text-xs mt-0.5">Further: {todayEvening[`win_${n}_progress`]}</p>}
+                                  {viewEvening[`win_${n}_action`] && <p className="text-zinc-400 text-xs mt-1">What I did: {viewEvening[`win_${n}_action`]}</p>}
+                                  {viewEvening[`win_${n}_progress`] && <p className="text-zinc-500 text-xs mt-0.5">Further: {viewEvening[`win_${n}_progress`]}</p>}
                                 </div>
                               )
                             })}
@@ -2762,6 +2800,7 @@ function AdminPageInner() {
                                   <div key={lead.id} className="bg-zinc-800 border border-zinc-700 rounded-lg p-2.5">
                                     <p className="text-sm font-semibold text-white leading-tight">{lead.name}</p>
                                     {lead.instagram && <p className="text-xs text-violet-400 mt-0.5">@{lead.instagram.replace('@', '')}</p>}
+                                    {lead.notes && <p className="text-xs text-zinc-500 mt-1">{lead.notes}</p>}
                                     <p className="text-[10px] text-zinc-600 mt-1">
                                     Moved: {new Date(lead.updated_at || lead.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
                                     </p>
@@ -2786,6 +2825,7 @@ function AdminPageInner() {
                             <tr className="bg-zinc-900 border-b border-zinc-800">
                               <th className="px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Name</th>
                               <th className="px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Instagram</th>
+                              <th className="px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Notes</th>
                               <th className="px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Stage</th>
                               <th className="px-4 py-3 text-left text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Last Updated</th>
                             </tr>
@@ -2797,6 +2837,7 @@ function AdminPageInner() {
                                 <tr key={lead.id} className="border-b border-zinc-900 hover:bg-zinc-900/60 transition">
                                   <td className="px-4 py-3 text-white font-medium">{lead.name}</td>
                                   <td className="px-4 py-3 text-violet-400">{lead.instagram ? `@${lead.instagram.replace('@', '')}` : '—'}</td>
+                                  <td className="px-4 py-3 text-zinc-500 text-xs max-w-[200px]">{lead.notes || '—'}</td>
                                   <td className="px-4 py-3"><span className={`text-xs font-bold uppercase tracking-widest ${stage.color || 'text-zinc-500'}`}>{stage.label || lead.status}</span></td>
                                   <td className="px-4 py-3 text-zinc-500">{formatDate(lead.updated_at || lead.created_at)}</td>
                                 </tr>
@@ -2932,12 +2973,12 @@ function AdminPageInner() {
                       <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest">The Lock In — Weekly Review</h3>
                     </div>
                     <div className="flex items-center gap-1">
-                      <button onClick={async () => { const w = shiftWeek(adminReviewWeek, -1); setAdminReviewWeek(w); const { data } = await supabase.from('weekly_review').select('*').eq('client_id', selectedClient.id).eq('week_of', w).maybeSingle(); setWeeklyReview(data || null) }}
+                      <button onClick={async () => { const w = shiftWeek(adminReviewWeek, -1); setAdminReviewWeek(w); const [{ data }, { data: pData }] = await Promise.all([supabase.from('weekly_review').select('*').eq('client_id', selectedClient.id).eq('week_of', w).maybeSingle(), supabase.from('war_map_weekly').select('number_one_priority, priority_2, priority_3, priority_4, revenue_target').eq('client_id', selectedClient.id).eq('week_of', w).maybeSingle()]); setWeeklyReview(data || null); setReviewPriorities(pData || null) }}
                         className="p-2 text-zinc-500 hover:text-white transition rounded hover:bg-zinc-800">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                       </button>
                       <span className="text-xs font-semibold text-white min-w-[160px] text-center">{formatWeekRange(adminReviewWeek)}</span>
-                      <button onClick={async () => { const w = shiftWeek(adminReviewWeek, 1); setAdminReviewWeek(w); const { data } = await supabase.from('weekly_review').select('*').eq('client_id', selectedClient.id).eq('week_of', w).maybeSingle(); setWeeklyReview(data || null) }}
+                      <button onClick={async () => { const w = shiftWeek(adminReviewWeek, 1); setAdminReviewWeek(w); const [{ data }, { data: pData }] = await Promise.all([supabase.from('weekly_review').select('*').eq('client_id', selectedClient.id).eq('week_of', w).maybeSingle(), supabase.from('war_map_weekly').select('number_one_priority, priority_2, priority_3, priority_4, revenue_target').eq('client_id', selectedClient.id).eq('week_of', w).maybeSingle()]); setWeeklyReview(data || null); setReviewPriorities(pData || null) }}
                         className="p-2 text-zinc-500 hover:text-white transition rounded hover:bg-zinc-800">
                         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                       </button>
@@ -2966,6 +3007,32 @@ function AdminPageInner() {
                         <p className="text-[10px] font-semibold text-gold uppercase tracking-widest mb-2">Overall Week Rating — <span className="text-white">{weeklyReview.week_rating || '—'}/10</span></p>
                         <RatingBar value={weeklyReview.week_rating} />
                       </div>
+
+                      {/* Priority Ratings */}
+                      {reviewPriorities && (reviewPriorities.number_one_priority || reviewPriorities.priority_2 || reviewPriorities.priority_3 || reviewPriorities.priority_4) && (
+                        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                          <p className="text-[10px] font-semibold text-gold uppercase tracking-widest mb-3">Priority Execution Ratings</p>
+                          <div className="space-y-3">
+                            {[
+                              { key: 'priority_1_rating', label: '#1 Priority', value: reviewPriorities.number_one_priority, color: 'text-gold', borderColor: 'border-gold/30' },
+                              { key: 'priority_2_rating', label: 'Priority 2', value: reviewPriorities.priority_2, color: 'text-zinc-300', borderColor: 'border-zinc-700' },
+                              { key: 'priority_3_rating', label: 'Priority 3', value: reviewPriorities.priority_3, color: 'text-zinc-300', borderColor: 'border-zinc-700' },
+                              { key: 'priority_4_rating', label: 'Priority 4', value: reviewPriorities.priority_4, color: 'text-zinc-300', borderColor: 'border-zinc-700' },
+                            ].filter(p => p.value?.trim()).map(({ key, label, value, color, borderColor }) => (
+                              <div key={key} className={`border-l-2 ${borderColor} pl-4`}>
+                                <p className={`text-[10px] font-bold uppercase tracking-widest ${color} mb-0.5`}>{label}</p>
+                                <p className="text-white text-sm mb-1.5">{value} — <span className="font-bold">{weeklyReview[key] || '—'}/10</span></p>
+                                <RatingBar value={weeklyReview[key]} />
+                              </div>
+                            ))}
+                          </div>
+                          {reviewPriorities.revenue_target && (
+                            <div className="mt-4 pt-4 border-t border-zinc-800">
+                              <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Revenue Target Was: <span className="text-white">{formatCurrency(reviewPriorities.revenue_target)}</span></p>
+                            </div>
+                          )}
+                        </div>
+                      )}
 
                       {/* Reflection fields */}
                       {[
@@ -3025,7 +3092,7 @@ function AdminPageInner() {
                       <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3">All Lock Ins</h3>
                       <div className="space-y-1.5">
                         {allClientLockIns.map(li => (
-                          <button key={li.week_of} onClick={async () => { setAdminReviewWeek(li.week_of); const { data } = await supabase.from('weekly_review').select('*').eq('client_id', selectedClient.id).eq('week_of', li.week_of).maybeSingle(); setWeeklyReview(data || null) }}
+                          <button key={li.week_of} onClick={async () => { setAdminReviewWeek(li.week_of); const [{ data }, { data: pData }] = await Promise.all([supabase.from('weekly_review').select('*').eq('client_id', selectedClient.id).eq('week_of', li.week_of).maybeSingle(), supabase.from('war_map_weekly').select('number_one_priority, priority_2, priority_3, priority_4, revenue_target').eq('client_id', selectedClient.id).eq('week_of', li.week_of).maybeSingle()]); setWeeklyReview(data || null); setReviewPriorities(pData || null) }}
                             className={`w-full flex items-center justify-between px-4 py-2.5 rounded-lg border transition text-left ${adminReviewWeek === li.week_of ? 'border-gold/30 bg-gold/5' : 'border-zinc-800 bg-zinc-900 hover:border-zinc-700'}`}>
                             <span className="text-xs text-white">{formatWeekRange(li.week_of)}</span>
                             {li.completed ? <span className="text-[10px] font-bold text-emerald-400 uppercase">Done</span> : <span className="text-[10px] font-bold text-amber-400 uppercase">Draft</span>}

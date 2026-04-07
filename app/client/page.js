@@ -101,14 +101,14 @@ function formatTime(timeStr) {
 }
 
 function formatWeekRange(weekStr) {
-  const start = new Date(weekStr)
-  const end = new Date(weekStr)
+  const start = new Date(weekStr + 'T12:00:00')
+  const end = new Date(weekStr + 'T12:00:00')
   end.setDate(end.getDate() + 6)
   return `${start.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${end.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
 }
 
 function formatDayHeader(dateStr) {
-  const d = new Date(dateStr)
+  const d = new Date(dateStr + 'T12:00:00')
   return { day: d.toLocaleDateString('en-GB', { weekday: 'short' }), date: d.getDate() }
 }
 
@@ -1525,7 +1525,7 @@ export default function ClientPage() {
 
   // Formatters
   const formatCurrency = (v) => v != null ? `£${Number(v).toLocaleString()}` : '—'
-  const formatDate = (d) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
+  const formatDate = (d) => d ? new Date(typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) ? d + 'T12:00:00' : d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'
 
   // ── Computed ──────────────────────────────────────────────────────────────────
 
@@ -1971,7 +1971,7 @@ export default function ClientPage() {
               <div className="grid grid-cols-7 gap-1.5 sm:gap-3">
                 {dashWeekDays.map((dateStr) => {
                   const { day } = formatDayHeader(dateStr)
-                  const dateNum = new Date(dateStr).getDate()
+                  const dateNum = new Date(dateStr + 'T12:00:00').getDate()
                   const isToday = dateStr === todayStr
                   const isFuture = dateStr > todayStr
                   const hasMorning = weekMorningOps.some(p => p.date === dateStr && p.completed)
@@ -2222,11 +2222,11 @@ export default function ClientPage() {
               <div>
                 <h2 className="text-base font-bold text-white uppercase tracking-widest">Morning Ops™</h2>
                 <p className="text-zinc-600 text-xs mt-1">
-                  {new Date(dailyPulseDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                  {new Date(dailyPulseDate + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                 </p>
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={() => setDailyPulseDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() - 1); return localDateStr(dt) })}
+                <button onClick={() => setDailyPulseDate(d => { const dt = new Date(d + 'T12:00:00'); dt.setDate(dt.getDate() - 1); return localDateStr(dt) })}
                   className="p-2 text-zinc-500 hover:text-white active:text-white transition rounded hover:bg-zinc-800">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                 </button>
@@ -2234,7 +2234,7 @@ export default function ClientPage() {
                   className="px-2.5 py-1 text-xs text-zinc-500 hover:text-gold uppercase tracking-wider font-semibold transition">
                   Today
                 </button>
-                <button onClick={() => setDailyPulseDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() + 1); return localDateStr(dt) })}
+                <button onClick={() => setDailyPulseDate(d => { const dt = new Date(d + 'T12:00:00'); dt.setDate(dt.getDate() + 1); return localDateStr(dt) })}
                   className="p-2 text-zinc-500 hover:text-white active:text-white transition rounded hover:bg-zinc-800">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                 </button>
@@ -2908,7 +2908,7 @@ export default function ClientPage() {
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                   </button>
                   <div className="text-center">
-                    <p className="text-white font-semibold text-sm">Week commencing {new Date(warMapWeek).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                    <p className="text-white font-semibold text-sm">Week commencing {new Date(warMapWeek + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</p>
                     <p className="text-zinc-500 text-[10px] uppercase tracking-widest mt-0.5">{formatWeekRange(warMapWeek)}</p>
                   </div>
                   <button onClick={() => setWarMapWeek(w => shiftWeek(w, 1))}
@@ -3037,7 +3037,7 @@ export default function ClientPage() {
               <div className="flex items-center justify-between sm:justify-start gap-1">
                 <div className="flex items-center gap-0.5">
                   <button onClick={() => {
-                      if (calendarView === 'day') setDayViewDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() - 1); return localDateStr(dt) })
+                      if (calendarView === 'day') setDayViewDate(d => { const dt = new Date(d + 'T12:00:00'); dt.setDate(dt.getDate() - 1); return localDateStr(dt) })
                       else if (calendarView === 'week') setWarMapWeek(w => shiftWeek(w, -1))
                       else { if (calendarMonth === 0) { setCalendarMonth(11); setCalendarYear(y => y - 1) } else setCalendarMonth(m => m - 1) }
                     }}
@@ -3046,13 +3046,13 @@ export default function ClientPage() {
                   </button>
                   <span className="text-sm font-semibold text-white min-w-[140px] sm:min-w-[200px] text-center">
                     {calendarView === 'day'
-                      ? new Date(dayViewDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+                      ? new Date(dayViewDate + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
                       : calendarView === 'week'
                         ? formatWeekRange(warMapWeek)
                         : `${MONTH_NAMES[calendarMonth]} ${calendarYear}`}
                   </span>
                   <button onClick={() => {
-                      if (calendarView === 'day') setDayViewDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() + 1); return localDateStr(dt) })
+                      if (calendarView === 'day') setDayViewDate(d => { const dt = new Date(d + 'T12:00:00'); dt.setDate(dt.getDate() + 1); return localDateStr(dt) })
                       else if (calendarView === 'week') setWarMapWeek(w => shiftWeek(w, 1))
                       else { if (calendarMonth === 11) { setCalendarMonth(0); setCalendarYear(y => y + 1) } else setCalendarMonth(m => m + 1) }
                     }}
@@ -3321,7 +3321,7 @@ export default function ClientPage() {
                   <div className="mt-3 bg-zinc-900 border border-zinc-800 rounded-lg p-5">
                     <div className="flex items-center justify-between mb-4">
                       <p className="text-sm font-semibold text-white">
-                        {new Date(selectedDay).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                        {new Date(selectedDay + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                       </p>
                       <button onClick={() => openNewTaskModal(selectedDay)}
                         className="px-3 py-1.5 bg-gold hover:bg-gold-light text-zinc-950 font-bold text-xs uppercase tracking-widest rounded transition">
@@ -3801,17 +3801,17 @@ export default function ClientPage() {
             <div className="flex items-center justify-between mb-6">
               <div>
                 <p className="text-zinc-600 text-xs mt-1">
-                  {new Date(eveningPulseDate).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                  {new Date(eveningPulseDate + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                 </p>
               </div>
               <div className="flex items-center gap-1">
-                <button onClick={() => setEveningPulseDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() - 1); return localDateStr(dt) })}
+                <button onClick={() => setEveningPulseDate(d => { const dt = new Date(d + 'T12:00:00'); dt.setDate(dt.getDate() - 1); return localDateStr(dt) })}
                   className="p-2 text-zinc-500 hover:text-white active:text-white transition rounded hover:bg-zinc-800">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                 </button>
                 <button onClick={() => setEveningPulseDate(localDateStr())}
                   className="px-2.5 py-1 text-xs text-zinc-500 hover:text-gold uppercase tracking-wider font-semibold transition">Today</button>
-                <button onClick={() => setEveningPulseDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() + 1); return localDateStr(dt) })}
+                <button onClick={() => setEveningPulseDate(d => { const dt = new Date(d + 'T12:00:00'); dt.setDate(dt.getDate() + 1); return localDateStr(dt) })}
                   className="p-2 text-zinc-500 hover:text-white active:text-white transition rounded hover:bg-zinc-800">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                 </button>
@@ -4404,7 +4404,7 @@ export default function ClientPage() {
                 <div className="flex items-center justify-between sm:justify-start gap-1">
                   <div className="flex items-center gap-0.5">
                     <button onClick={() => {
-                        if (calendarView === 'day') setDayViewDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() - 1); return localDateStr(dt) })
+                        if (calendarView === 'day') setDayViewDate(d => { const dt = new Date(d + 'T12:00:00'); dt.setDate(dt.getDate() - 1); return localDateStr(dt) })
                         else if (calendarView === 'week') setWarMapWeek(w => shiftWeek(w, -1))
                         else { if (calendarMonth === 0) { setCalendarMonth(11); setCalendarYear(y => y - 1) } else setCalendarMonth(m => m - 1) }
                       }}
@@ -4413,13 +4413,13 @@ export default function ClientPage() {
                     </button>
                     <span className="text-sm font-semibold text-white min-w-[140px] sm:min-w-[200px] text-center">
                       {calendarView === 'day'
-                        ? new Date(dayViewDate).toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
+                        ? new Date(dayViewDate + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'short', day: 'numeric', month: 'short' })
                         : calendarView === 'week'
                           ? formatWeekRange(warMapWeek)
                           : `${MONTH_NAMES[calendarMonth]} ${calendarYear}`}
                     </span>
                     <button onClick={() => {
-                        if (calendarView === 'day') setDayViewDate(d => { const dt = new Date(d); dt.setDate(dt.getDate() + 1); return localDateStr(dt) })
+                        if (calendarView === 'day') setDayViewDate(d => { const dt = new Date(d + 'T12:00:00'); dt.setDate(dt.getDate() + 1); return localDateStr(dt) })
                         else if (calendarView === 'week') setWarMapWeek(w => shiftWeek(w, 1))
                         else { if (calendarMonth === 11) { setCalendarMonth(0); setCalendarYear(y => y + 1) } else setCalendarMonth(m => m + 1) }
                       }}
@@ -4664,7 +4664,7 @@ export default function ClientPage() {
                     <div className="mt-3 bg-zinc-900 border border-zinc-800 rounded-lg p-5">
                       <div className="flex items-center justify-between mb-4">
                         <p className="text-sm font-semibold text-white">
-                          {new Date(selectedDay).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                          {new Date(selectedDay + 'T12:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                         </p>
                         <button onClick={() => openNewTaskModal(selectedDay)}
                           className="px-3 py-1.5 bg-gold hover:bg-gold-light text-zinc-950 font-bold text-xs uppercase tracking-widest rounded transition">

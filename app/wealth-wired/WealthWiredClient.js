@@ -673,7 +673,7 @@ Review it weekly. Adjust as you grow. Stay in The Wealth Cycle™.
 
         {/* Action Plan */}
         <div className="mt-8 pt-6 border-t border-zinc-800">
-          {scores.total >= 32 ? (
+          {scores.total >= 28 ? (
             <>
               <div className="text-center mb-6">
                 <button onClick={generateActionPlan} disabled={planLoading} className={`px-8 py-4 ${generatedPlan ? 'bg-zinc-800 hover:bg-zinc-700 text-gold border border-gold/30' : 'bg-gold hover:bg-gold-light text-zinc-950'} disabled:opacity-50 font-bold text-xs uppercase tracking-widest rounded-lg transition`}>
@@ -702,11 +702,11 @@ Review it weekly. Adjust as you grow. Stay in The Wealth Cycle™.
             return (
             <div>
               <div className="text-center mb-6">
-                <p className="text-zinc-400 text-sm font-medium mb-1">Score {scores.total}/40 — you need 32 to unlock your action plan</p>
+                <p className="text-zinc-400 text-sm font-medium mb-1">Score {scores.total}/40 — you need 28 to unlock your action plan</p>
                 <div className="w-full max-w-xs mx-auto h-3 bg-zinc-800 rounded-full overflow-hidden mt-3">
-                  <div className="h-full bg-gold rounded-full transition-all duration-500" style={{ width: `${(scores.total / 32) * 100}%` }} />
+                  <div className="h-full bg-gold rounded-full transition-all duration-500" style={{ width: `${(scores.total / 28) * 100}%` }} />
                 </div>
-                <p className="text-zinc-600 text-xs mt-2">{32 - scores.total} points to go</p>
+                <p className="text-zinc-600 text-xs mt-2">{28 - scores.total} points to go</p>
               </div>
               {improvements.length > 0 && (
                 <div>

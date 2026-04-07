@@ -44,7 +44,7 @@ app/
 All 3 playbooks follow the same pattern:
 - User fills sections progressively across stages
 - Each section is scored (word count, completeness)
-- Score threshold unlocks AI action plan generation (40/50 for playbooks, 32/40 for Wealth Wired)
+- Score threshold unlocks AI action plan generation (40/50 for playbooks, 28/40 for Wealth Wired)
 - Plans generated via `/api/generate-plan` using Claude API
 - Data auto-saves to Supabase with debouncing
 

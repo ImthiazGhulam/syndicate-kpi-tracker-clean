@@ -79,7 +79,7 @@ export default function AIAcceleratorPage() {
     setIdealOutput(entry.ideal_output || '')
     setWhereItBreaks(entry.where_it_breaks || '')
     setGeneratedTool(entry.generated_tool && Object.keys(entry.generated_tool).length > 0 ? entry.generated_tool : null)
-    setComfortLevel(entry.generated_tool?.comfort_level || null)
+    setComfortLevel(entry.comfort_level || entry.generated_tool?.comfort_level || null)
     setDeployed(false)
   }
 
@@ -117,6 +117,7 @@ export default function AIAcceleratorPage() {
       manual_process: manualProcess,
       ideal_output: idealOutput,
       where_it_breaks: whereItBreaks,
+      comfort_level: comfortLevel,
       updated_at: new Date().toISOString(),
     }).eq('id', record.id)
     if (error) { console.error('ai_accelerator save error:', error); return }

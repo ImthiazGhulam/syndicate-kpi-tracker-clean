@@ -373,7 +373,7 @@ export default function PremiumPositionPage() {
   // ── Updaters ──────────────────────────────────────────────────────────────
 
   const updateBucket = (key, val) => setBucketData(prev => ({ ...prev, [key]: val }))
-  const updateLikert = (key, val) => setBucketData(prev => ({ ...prev, likerts: { ...prev.likerts, [key]: val } }))
+  const updateLikert = (key, val) => { setBucketData(prev => ({ ...prev, likerts: { ...prev.likerts, [key]: val } })); setTimeout(() => saveAll(), 50) }
 
   const updateStar = (key, val) => setStarData(prev => ({ ...prev, [key]: val }))
   const toggleStarMulti = (key, val) => {
@@ -381,6 +381,7 @@ export default function PremiumPositionPage() {
       const arr = prev[key] || []
       return { ...prev, [key]: arr.includes(val) ? arr.filter(v => v !== val) : [...arr, val] }
     })
+    setTimeout(() => saveAll(), 50)
   }
 
   const updateHero = (key, val) => setHeroData(prev => ({ ...prev, [key]: val }))
@@ -391,6 +392,7 @@ export default function PremiumPositionPage() {
       const arr = prev[key] || []
       return { ...prev, [key]: arr.includes(val) ? arr.filter(v => v !== val) : [...arr, val] }
     })
+    setTimeout(() => saveAll(), 50)
   }
 
   // ── Scoring Engine ────────────────────────────────────────────────────────
@@ -1199,7 +1201,7 @@ export default function PremiumPositionPage() {
                     const res = await fetch('/api/generate-plan', {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ type: 'premium-position', data: { bucket: bucketData, brand_star: starData, hero: heroData, remarkable: remarkableData } }),
+                      body: JSON.stringify({ type: 'premium-position', data: { bucket: { ...bucketData, vis_score: scores.bucket.vis, eng_score: scores.bucket.eng, tru_score: scores.bucket.trust }, brand_star: starData, hero: heroData, remarkable: remarkableData } }),
                     })
                     const result = await res.json()
                     if (result.error) { alert('Failed: ' + result.error); setRecord(prev => ({ ...prev, _planLoading: false })); return }
