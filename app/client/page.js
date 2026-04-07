@@ -233,14 +233,23 @@ export default function ClientPage() {
     if (!clientData) return
     const monday = getMonday()
     const sunday = getWeekDays(monday)[6]
-    const [morningRes, eveningRes, kpiRes] = await Promise.all([
+    const [morningRes, eveningRes, kpiRes, warMapRes, lockInRes] = await Promise.all([
       supabase.from('daily_pulse').select('*').eq('client_id', clientData.id).gte('date', monday).lte('date', sunday),
       supabase.from('evening_pulse').select('*').eq('client_id', clientData.id).gte('date', monday).lte('date', sunday),
       supabase.from('daily_kpis').select('*').eq('client_id', clientData.id).gte('date', monday).lte('date', sunday),
+      supabase.from('war_map_weekly').select('completed').eq('client_id', clientData.id).eq('week_of', monday).maybeSingle(),
+      supabase.from('weekly_review').select('completed').eq('client_id', clientData.id).eq('week_of', monday).maybeSingle(),
     ])
     if (morningRes.data) setWeekMorningOps(morningRes.data)
     if (eveningRes.data) setWeekDebriefs(eveningRes.data)
     if (kpiRes.data) setWeekKpis(kpiRes.data)
+    // Stable current-week state for Command Centre scores
+    setCurrentWeekWarMapDone(!!warMapRes.data?.completed)
+    setCurrentWeekLockInDone(!!lockInRes.data?.completed)
+    // Build current-week KPI lookup (independent of Business Tracker month)
+    const kpiObj = {}
+    kpiRes.data?.forEach(row => { kpiObj[row.date] = row })
+    setCurrentWeekKpis(kpiObj)
   }
 
   const switchTab = (id) => {
@@ -331,6 +340,11 @@ export default function ClientPage() {
   const [weekMorningOps, setWeekMorningOps] = useState([])
   const [weekDebriefs, setWeekDebriefs] = useState([])
   const [weekKpis, setWeekKpis] = useState([])
+
+  // Command Centre — stable current-week state (independent of tab navigation)
+  const [currentWeekWarMapDone, setCurrentWeekWarMapDone] = useState(false)
+  const [currentWeekLockInDone, setCurrentWeekLockInDone] = useState(false)
+  const [currentWeekKpis, setCurrentWeekKpis] = useState({})
 
   // Morning Ops
   const [dailyPulse, setDailyPulse] = useState({ intention: '', feeling: '', win: '', money_task: '', todo_1: '', todo_2: '', todo_3: '', gratitude: '', let_go: '', identity_read: false, completed: false, completed_at: null })
@@ -542,6 +556,12 @@ export default function ClientPage() {
     if (weekPulsesRes.data) setWeekMorningOps(weekPulsesRes.data)
     if (weekDebriefsRes.data) setWeekDebriefs(weekDebriefsRes.data)
     if (weekKpisRes.data) setWeekKpis(weekKpisRes.data)
+    // Stable current-week state for Command Centre scores
+    setCurrentWeekWarMapDone(!!weeklyRes.data?.completed)
+    setCurrentWeekLockInDone(!!reviewRes.data?.completed)
+    const cwKpiObj = {}
+    weekKpisRes.data?.forEach(row => { cwKpiObj[row.date] = row })
+    setCurrentWeekKpis(cwKpiObj)
     if (monthlyRes.data) setMonthlyReview(monthlyRes.data)
     else setMonthlyReview({})
     setLastMonthReview(lastMonthlyRes.data || null)
@@ -1542,7 +1562,7 @@ export default function ClientPage() {
     const end = new Date(endStr + 'T23:59:59')
     const d = new Date(start)
     while (d <= end) {
-      const dayOfWeek = d.getDay() // 0=Sun, 1=Mon, ..., 6=Sat
+      const dayOfWeek = d.getDay() || 7 // 1=Mon, ..., 6=Sat, 7=Sun (matches stored format)
       const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
       misogiBlocks.filter(b => b.active !== false && (b.days_of_week || []).includes(dayOfWeek)).forEach(block => {
         result.push({
@@ -1652,11 +1672,11 @@ export default function ClientPage() {
   })
   const kpiDaysWithData = kpiDays.filter(d => monthlyKpis[d]).length || 1
 
-  // Weekly KPI totals (for Command Centre revenue targets)
+  // Weekly KPI totals (for Command Centre — uses stable current-week KPIs, not Business Tracker month)
   const weeklyKpiTotals = {}
   const dashWeekDays = getWeekDays(getMonday())
   KPI_COLS.filter(c => c.input).forEach(c => {
-    weeklyKpiTotals[c.key] = dashWeekDays.reduce((sum, d) => sum + (Number(monthlyKpis[d]?.[c.key]) || 0), 0)
+    weeklyKpiTotals[c.key] = dashWeekDays.reduce((sum, d) => sum + (Number(currentWeekKpis[d]?.[c.key]) || 0), 0)
   })
 
   // ── Dashboard Scores ─────────────────────────────────────────────────────────
@@ -1667,8 +1687,8 @@ export default function ClientPage() {
   const debriefsCompleted = weekDebriefs.filter(p => p.completed).length
   const identityReads = weekMorningOps.filter(p => p.identity_read).length
   const kpiDaysFilled = weekKpis.length
-  const warMapDone = weeklyPriorities.completed ? 1 : 0
-  const lockInDone = weeklyReview.completed ? 1 : 0
+  const warMapDone = currentWeekWarMapDone ? 1 : 0
+  const lockInDone = currentWeekLockInDone ? 1 : 0
   const designDone = lifeDesign ? 1 : 0
   const identityChamberFilled = identityAffirmations.trim().length > 0 ? 1 : 0
 

@@ -286,8 +286,21 @@ export default function UnshakeablePage() {
     setCreatingEntry(false)
   }
 
-  const backToProblems = () => {
-    saveAll()
+  const backToProblems = async () => {
+    // Save synchronously before clearing state (bypassing debounce so record is still available)
+    if (record) {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      const s = computeScores()
+      await saveToSupabase({
+        ...frameworkData,
+        current_framework: currentFramework,
+        scores: {
+          total_score: s.total,
+          band: s.band,
+          framework_scores: s.frameworkScores,
+        },
+      })
+    }
     setSelectedEntry(null)
     setRecord(null)
     // Refresh entries list
@@ -315,7 +328,6 @@ export default function UnshakeablePage() {
       saveToSupabase({
         ...frameworkData,
         current_framework: currentFramework,
-        generated_plan: generatedPlan,
         scores: {
           total_score: s.total,
           band: s.band,
@@ -323,7 +335,7 @@ export default function UnshakeablePage() {
         },
       })
     }, 500)
-  }, [record, saveToSupabase, frameworkData, currentFramework, generatedPlan])
+  }, [record, saveToSupabase, frameworkData, currentFramework])
 
   useEffect(() => { if (!record) return; saveToSupabase({ current_framework: currentFramework }) }, [currentFramework])
 

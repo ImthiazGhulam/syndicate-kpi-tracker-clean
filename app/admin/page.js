@@ -409,7 +409,7 @@ function AdminPageInner() {
       safe(supabase.from('identity_change').select('*').eq('client_id', client.id).maybeSingle()),                                          // 8
       safe(supabase.from('life_design').select('*').eq('client_id', client.id).eq('year', year).maybeSingle()),                             // 9
       safe(supabase.from('mini_adventures').select('*').eq('client_id', client.id).eq('year', year).order('order_index')),                  // 10
-      safe(supabase.from('war_map_tasks').select('*').eq('client_id', client.id).order('created_at', { ascending: false })),                // 11
+      safe(supabase.from('war_map_tasks').select('*').eq('client_id', client.id).eq('week_of', monday).order('created_at', { ascending: false })),                // 11
       safe(supabase.from('projects').select('*').eq('client_id', client.id).order('start_date', { ascending: false })),                     // 12
       safe(supabase.from('leads').select('*').eq('client_id', client.id).order('created_at', { ascending: true })),                         // 13
       safe(supabase.from('daily_kpis').select('*').eq('client_id', client.id).gte('date', monday).lte('date', sunday)),                     // 14
@@ -745,7 +745,7 @@ function AdminPageInner() {
   const addTask = async (projectId) => {
     const title = (newTaskInputs[projectId] || '').trim()
     if (!title) return
-    const { data } = await supabase.from('project_tasks').insert([{ project_id: projectId, title, completed: false }]).select().single()
+    const { data } = await supabase.from('project_tasks').insert([{ project_id: projectId, title, completed: false, client_id: selectedClient.id }]).select().single()
     if (data) {
       setProjectTasks(prev => ({ ...prev, [projectId]: [...(prev[projectId] || []), data] }))
       setNewTaskInputs(prev => ({ ...prev, [projectId]: '' }))
@@ -2654,21 +2654,27 @@ function AdminPageInner() {
                       <table className="w-full text-sm">
                         <thead>
                           <tr className="border-b border-zinc-800 bg-zinc-900">
-                            {['Date','Leads','Outreach','Sales','Revenue','CPL','Tasks'].map(h => (
-                              <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-widest whitespace-nowrap">{h}</th>
+                            {['Date','New Followers','Qual Followers','Ad Spend','New Convos','Responded','Triage','Booked','Taken','Offers','Closed','Cash','Revenue'].map(h => (
+                              <th key={h} className="px-3 py-3 text-left text-xs font-semibold text-zinc-500 uppercase tracking-widest whitespace-nowrap">{h}</th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
                           {dailyKpis.map((kpi, i) => (
                             <tr key={kpi.id || i} className={`border-b border-zinc-900 hover:bg-zinc-900/60 transition ${i % 2 === 1 ? 'bg-zinc-900/20' : ''}`}>
-                              <td className="px-4 py-3.5 text-zinc-400 whitespace-nowrap">{formatDate(kpi.date)}</td>
-                              <td className="px-4 py-3.5 text-white font-medium">{kpi.leads ?? '—'}</td>
-                              <td className="px-4 py-3.5 text-zinc-300">{kpi.outreach ?? '—'}</td>
-                              <td className="px-4 py-3.5 text-zinc-300">{kpi.sales ?? '—'}</td>
-                              <td className="px-4 py-3.5 text-emerald-400 font-medium">{kpi.revenue != null ? formatCurrency(kpi.revenue) : '—'}</td>
-                              <td className="px-4 py-3.5 text-zinc-300">{kpi.cost_per_lead != null ? formatCurrency(kpi.cost_per_lead) : '—'}</td>
-                              <td className="px-4 py-3.5 text-zinc-300">{kpi.tasks_completed ?? '—'}</td>
+                              <td className="px-3 py-3.5 text-zinc-400 whitespace-nowrap">{formatDate(kpi.date)}</td>
+                              <td className="px-3 py-3.5 text-sky-400 font-medium">{kpi.new_followers ?? '—'}</td>
+                              <td className="px-3 py-3.5 text-sky-300">{kpi.qual_followers ?? '—'}</td>
+                              <td className="px-3 py-3.5 text-zinc-300">{kpi.ad_spend != null && kpi.ad_spend > 0 ? `£${Number(kpi.ad_spend).toFixed(2)}` : '—'}</td>
+                              <td className="px-3 py-3.5 text-violet-400 font-medium">{kpi.new_convos ?? '—'}</td>
+                              <td className="px-3 py-3.5 text-violet-300">{kpi.responded ?? '—'}</td>
+                              <td className="px-3 py-3.5 text-amber-400">{kpi.triage_calls ?? '—'}</td>
+                              <td className="px-3 py-3.5 text-zinc-300">{kpi.calls_booked ?? '—'}</td>
+                              <td className="px-3 py-3.5 text-zinc-300">{kpi.calls_taken ?? '—'}</td>
+                              <td className="px-3 py-3.5 text-white font-medium">{kpi.offers ?? '—'}</td>
+                              <td className="px-3 py-3.5 text-emerald-400 font-medium">{kpi.closed ?? '—'}</td>
+                              <td className="px-3 py-3.5 text-emerald-400">{kpi.cash_collected != null && kpi.cash_collected > 0 ? `£${Number(kpi.cash_collected).toFixed(2)}` : '—'}</td>
+                              <td className="px-3 py-3.5 text-emerald-400 font-medium">{kpi.revenue != null && kpi.revenue > 0 ? `£${Number(kpi.revenue).toFixed(2)}` : '—'}</td>
                             </tr>
                           ))}
                         </tbody>
