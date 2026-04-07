@@ -8,9 +8,28 @@ export default function AuthCallback() {
   const router = useRouter()
 
   useEffect(() => {
-    const handleCallback = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
+        if (session.user.email === adminEmail) {
+          router.push('/admin')
+        } else {
+          router.push('/client')
+        }
+      }
+      if (event === 'TOKEN_REFRESHED' && session) {
+        const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
+        if (session.user.email === adminEmail) {
+          router.push('/admin')
+        } else {
+          router.push('/client')
+        }
+      }
+    })
 
+    // Fallback: if already signed in (e.g. session exists from another tab)
+    const checkExisting = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
       if (session) {
         const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
         if (session.user.email === adminEmail) {
@@ -18,12 +37,13 @@ export default function AuthCallback() {
         } else {
           router.push('/client')
         }
-      } else {
-        router.push('/login?error=auth_failed')
       }
     }
 
-    handleCallback()
+    // Small delay to let Supabase process the URL hash/code first
+    setTimeout(checkExisting, 1000)
+
+    return () => subscription.unsubscribe()
   }, [])
 
   return (
