@@ -10,7 +10,7 @@ export default function AuthCallback() {
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (session) {
+      if (event === 'SIGNED_IN' && session) {
         setStatus('Welcome back!')
         const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
         router.push(session.user.email === adminEmail ? '/admin' : '/client')
