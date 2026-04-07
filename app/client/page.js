@@ -442,6 +442,9 @@ export default function ClientPage() {
     const year = new Date().getFullYear()
     const monday = getMonday()
     const today = localDateStr()
+    const d = new Date()
+    const initMonth = d.getDate() <= 7 ? (d.getMonth() === 0 ? 11 : d.getMonth() - 1) : d.getMonth()
+    const initYear = d.getDate() <= 7 && d.getMonth() === 0 ? d.getFullYear() - 1 : d.getFullYear()
     const mStart = `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, '0')}-01`
     const mEnd = localDateStr(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0))
     // IMPORTANT: destructuring order MUST match query order exactly
@@ -484,8 +487,8 @@ export default function ClientPage() {
       supabase.from('daily_pulse').select('*').eq('client_id', client.id).gte('date', monday).lte('date', getWeekDays(monday)[6]),     // 13
       supabase.from('evening_pulse').select('*').eq('client_id', client.id).gte('date', monday).lte('date', getWeekDays(monday)[6]),   // 14
       supabase.from('daily_kpis').select('*').eq('client_id', client.id).gte('date', monday).lte('date', getWeekDays(monday)[6]),      // 15
-      supabase.from('monthly_review').select('*').eq('client_id', client.id).eq('month', new Date().getMonth()).eq('year', new Date().getFullYear()).maybeSingle(),  // 16
-      supabase.from('monthly_review').select('*').eq('client_id', client.id).eq('month', new Date().getMonth() === 0 ? 11 : new Date().getMonth() - 1).eq('year', new Date().getMonth() === 0 ? new Date().getFullYear() - 1 : new Date().getFullYear()).maybeSingle(),  // 17
+      supabase.from('monthly_review').select('*').eq('client_id', client.id).eq('month', initMonth).eq('year', initYear).maybeSingle(),  // 16
+      supabase.from('monthly_review').select('*').eq('client_id', client.id).eq('month', initMonth === 0 ? 11 : initMonth - 1).eq('year', initMonth === 0 ? initYear - 1 : initYear).maybeSingle(),  // 17
       supabase.from('weekly_review').select('week_of, completed, completed_at, revenue, week_rating').eq('client_id', client.id).order('week_of', { ascending: false }),  // 18
       supabase.from('war_map_weekly').select('week_of, completed, completed_at, number_one_priority').eq('client_id', client.id).order('week_of', { ascending: false }), // 19
       supabase.from('misogi_milestones').select('*').eq('client_id', client.id).eq('year', year).order('order_index'),  // 20
@@ -4231,12 +4234,12 @@ export default function ClientPage() {
             <div className="flex items-center justify-between mb-2">
               <p className="text-zinc-500 text-xs">Reflect on the month. Recalibrate for the next.</p>
               <div className="flex items-center gap-1">
-                <button onClick={() => { if (reviewMonth === 0) { setReviewMonth(11); setReviewYear(y => y - 1) } else setReviewMonth(m => m - 1) }}
+                <button onClick={() => { setMonthlyReview({}); setLastMonthReview(null); if (reviewMonth === 0) { setReviewMonth(11); setReviewYear(y => y - 1) } else setReviewMonth(m => m - 1) }}
                   className="p-2 text-zinc-500 hover:text-white active:text-white transition rounded hover:bg-zinc-800">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                 </button>
                 <span className="text-sm font-semibold text-white min-w-[140px] text-center">{MONTH_NAMES[reviewMonth]} {reviewYear}</span>
-                <button onClick={() => { if (reviewMonth === 11) { setReviewMonth(0); setReviewYear(y => y + 1) } else setReviewMonth(m => m + 1) }}
+                <button onClick={() => { setMonthlyReview({}); setLastMonthReview(null); if (reviewMonth === 11) { setReviewMonth(0); setReviewYear(y => y + 1) } else setReviewMonth(m => m + 1) }}
                   className="p-2 text-zinc-500 hover:text-white active:text-white transition rounded hover:bg-zinc-800">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                 </button>
