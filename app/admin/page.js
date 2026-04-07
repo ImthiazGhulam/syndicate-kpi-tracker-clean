@@ -537,7 +537,8 @@ function AdminPageInner() {
     const warMapsDone = warMaps.filter(w => w.completed).length
     const lockInsDone = lockIns.filter(l => l.completed).length
     const monthlysDone = monthlys.filter(m => m.completed).length
-    const awaitingFeedback = monthlys.filter(m => m.completed && !m.feedback_sent)
+    const awaitingFeedbackIds = new Set(monthlys.filter(m => m.completed && !m.feedback_sent).map(m => m.client_id))
+    const awaitingFeedback = clients.filter(c => awaitingFeedbackIds.has(c.id))
     const renewingSoon = clients.filter(c => {
       if (!c.programme_renewal) return false
       const dLeft = Math.ceil((new Date(c.programme_renewal) - new Date()) / 86400000)
