@@ -1040,10 +1040,20 @@ export default function ClientPage() {
   const saveDesign = async () => {
     setDesignLoading(true)
     const year = new Date().getFullYear()
-    const { data: saved } = await supabase
+    const { misoji, misogi_type, misogi_date, misogi_start_date, misogi_end_date,
+      days_off_week, days_off_month, days_off_quarter, days_off_year,
+      skill_1, skill_2, key_skill, money_task_1, money_task_2, money_task_3 } = designForm
+    const { data: saved, error: saveErr } = await supabase
       .from('life_design')
-      .upsert({ client_id: clientData.id, year, ...designForm, updated_at: new Date().toISOString() }, { onConflict: 'client_id,year' })
+      .upsert({
+        client_id: clientData.id, year, updated_at: new Date().toISOString(),
+        misoji, misogi_type, misogi_date: misogi_date || null, misogi_start_date: misogi_start_date || null, misogi_end_date: misogi_end_date || null,
+        days_off_week: days_off_week || '', days_off_month: days_off_month || '', days_off_quarter: days_off_quarter || '', days_off_year: days_off_year || '',
+        skill_1: skill_1 || '', skill_2: skill_2 || '', key_skill: key_skill || '',
+        money_task_1: money_task_1 || '', money_task_2: money_task_2 || '', money_task_3: money_task_3 || '',
+      }, { onConflict: 'client_id,year' })
       .select().single()
+    if (saveErr) console.error('Design save error:', saveErr)
     if (saved) setLifeDesign(saved)
 
     // Save each adventure individually — update existing or insert new
