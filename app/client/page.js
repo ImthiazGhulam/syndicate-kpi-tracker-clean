@@ -295,6 +295,7 @@ export default function ClientPage() {
   const [eveningPulse, setEveningPulse] = useState({})
   const [eveningPulseDate, setEveningPulseDate] = useState(() => localDateStr())
   const [eveningSaving, setEveningSaving] = useState(false)
+  const [debriefMorningPriority, setDebriefMorningPriority] = useState('')
 
   // The Lock In — weekly review
   const [weeklyReview, setWeeklyReview] = useState({})
@@ -781,8 +782,12 @@ export default function ClientPage() {
   // Evening Ops
   const fetchEveningPulse = async (dateStr) => {
     if (!clientData) return
-    const { data } = await supabase.from('evening_pulse').select('*').eq('client_id', clientData.id).eq('date', dateStr).maybeSingle()
+    const [{ data }, { data: morningData }] = await Promise.all([
+      supabase.from('evening_pulse').select('*').eq('client_id', clientData.id).eq('date', dateStr).maybeSingle(),
+      supabase.from('daily_pulse').select('money_task').eq('client_id', clientData.id).eq('date', dateStr).maybeSingle(),
+    ])
     setEveningPulse(data || {})
+    setDebriefMorningPriority(morningData?.money_task || '')
   }
 
   useEffect(() => {
@@ -3777,6 +3782,14 @@ export default function ClientPage() {
             )}
 
             <div className="space-y-6">
+              {/* #1 Priority from Morning Ops */}
+              {debriefMorningPriority && (
+                <div className="bg-zinc-900 border border-gold/20 rounded-lg px-4 py-3">
+                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Today's #1 Priority</p>
+                  <p className="text-sm text-gold font-medium">{debriefMorningPriority}</p>
+                </div>
+              )}
+
               {/* #1 Priority check */}
               <div>
                 <label className="block text-xs font-bold text-gold uppercase tracking-widest mb-3">Did I complete my #1 priority?</label>
