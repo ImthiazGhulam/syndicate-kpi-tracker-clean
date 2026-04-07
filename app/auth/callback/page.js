@@ -1,88 +1,71 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
-import { useRouter, useSearchParams } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '../../../lib/supabase'
 
-function AuthCallbackInner() {
+export default function AuthCallback() {
   const router = useRouter()
-  const searchParams = useSearchParams()
   const [error, setError] = useState('')
 
   useEffect(() => {
-    const handleCallback = async () => {
-      // PKCE flow: magic link sends ?code= parameter
-      const code = searchParams.get('code')
-      if (code) {
-        const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-        if (error) {
-          console.error('Code exchange error:', error)
-          setError(error.message)
-          setTimeout(() => router.push('/login?error=auth_failed'), 2000)
-          return
-        }
-        if (data.session) {
-          redirect(data.session)
-          return
+    // With implicit flow, Supabase auto-detects the hash fragment
+    // and fires SIGNED_IN. Just listen for it.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') && session) {
+        subscription.unsubscribe()
+        const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
+        if (session.user.email === adminEmail) {
+          router.push('/admin')
+        } else {
+          router.push('/client')
         }
       }
+    })
 
-      // Implicit flow fallback: token in URL hash (older Supabase config)
+    // Fallback: check if session already exists
+    const checkSession = async () => {
+      // Small delay to let Supabase process the hash
+      await new Promise(r => setTimeout(r, 500))
       const { data: { session } } = await supabase.auth.getSession()
       if (session) {
-        redirect(session)
-        return
-      }
-
-      // Listen for auth state change as final fallback
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-        if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') && session) {
-          subscription.unsubscribe()
-          redirect(session)
-        }
-      })
-
-      // Timeout: if nothing happens after 5s, redirect to login
-      setTimeout(async () => {
-        const { data: { session } } = await supabase.auth.getSession()
-        if (session) {
-          redirect(session)
+        subscription.unsubscribe()
+        const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
+        if (session.user.email === adminEmail) {
+          router.push('/admin')
         } else {
-          subscription.unsubscribe()
-          router.push('/login?error=auth_failed')
+          router.push('/client')
         }
-      }, 5000)
-    }
-
-    const redirect = (session) => {
-      const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
-      if (session.user.email === adminEmail) {
-        router.push('/admin')
-      } else {
-        router.push('/client')
       }
     }
+    checkSession()
 
-    handleCallback()
+    // Timeout: if nothing happens after 8s, redirect to login
+    const timeout = setTimeout(async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) {
+        const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
+        router.push(session.user.email === adminEmail ? '/admin' : '/client')
+      } else {
+        setError('Sign in failed — please try again')
+        subscription.unsubscribe()
+        setTimeout(() => router.push('/login'), 2000)
+      }
+    }, 8000)
+
+    return () => { subscription.unsubscribe(); clearTimeout(timeout) }
   }, [])
 
-  return error ? (
-    <div className="text-center">
-      <p className="text-red-400 text-sm font-medium mb-2">Sign in failed</p>
-      <p className="text-zinc-500 text-xs">{error}</p>
-      <p className="text-zinc-600 text-xs mt-2">Redirecting to login...</p>
-    </div>
-  ) : (
-    <div className="text-amber-500 text-lg font-medium animate-pulse">Signing you in...</div>
-  )
-}
-
-export default function AuthCallback() {
   return (
     <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-      <Suspense fallback={<div className="text-amber-500 text-lg font-medium animate-pulse">Signing you in...</div>}>
-        <AuthCallbackInner />
-      </Suspense>
+      {error ? (
+        <div className="text-center">
+          <p className="text-red-400 text-sm font-medium mb-2">{error}</p>
+          <p className="text-zinc-600 text-xs mt-2">Redirecting to login...</p>
+        </div>
+      ) : (
+        <div className="text-amber-500 text-lg font-medium animate-pulse">Signing you in...</div>
+      )}
     </div>
   )
 }
