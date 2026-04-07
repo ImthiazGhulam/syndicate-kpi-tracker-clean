@@ -10,38 +10,34 @@ export default function AuthCallback() {
 
   useEffect(() => {
     const handleCallback = async () => {
-      // PKCE flow: magic link sends ?code= parameter
-      const url = new URL(window.location.href)
-      const code = url.searchParams.get('code')
+      // Implicit flow: Supabase picks up the session from the URL hash automatically
+      const { data: { session }, error } = await supabase.auth.getSession()
 
-      if (code) {
-        setStatus('Verifying...')
-        const { data, error } = await supabase.auth.exchangeCodeForSession(code)
-        if (error) {
-          console.error('Auth error:', error.message)
-          setStatus('Sign in failed — requesting a new link...')
-          // Wait then redirect
-          setTimeout(() => router.push('/login'), 2500)
-          return
-        }
-        if (data.session) {
-          setStatus('Welcome back!')
-          const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
-          router.push(data.session.user.email === adminEmail ? '/admin' : '/client')
-          return
-        }
+      if (error) {
+        console.error('Auth error:', error.message)
+        setStatus('Sign in failed — redirecting to login...')
+        setTimeout(() => router.push('/login'), 2500)
+        return
       }
 
-      // Fallback: check if session exists (hash fragment or already signed in)
-      await new Promise(r => setTimeout(r, 1000))
-      const { data: { session } } = await supabase.auth.getSession()
       if (session) {
+        setStatus('Welcome back!')
         const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
         router.push(session.user.email === adminEmail ? '/admin' : '/client')
         return
       }
 
-      // Nothing worked
+      // No session yet — wait a moment and retry (hash may still be processing)
+      await new Promise(r => setTimeout(r, 1500))
+      const { data: { session: retrySession } } = await supabase.auth.getSession()
+
+      if (retrySession) {
+        setStatus('Welcome back!')
+        const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
+        router.push(retrySession.user.email === adminEmail ? '/admin' : '/client')
+        return
+      }
+
       setStatus('Sign in failed — please request a new magic link')
       setTimeout(() => router.push('/login'), 2500)
     }

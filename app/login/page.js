@@ -1,58 +1,33 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
 
 export default function LoginPage() {
-  const router = useRouter()
   const [email, setEmail] = useState('')
-  const [otp, setOtp] = useState('')
   const [loading, setLoading] = useState(false)
-  const [step, setStep] = useState('email') // 'email' | 'otp'
+  const [sent, setSent] = useState(false)
   const [error, setError] = useState('')
 
-  const handleSendOtp = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError('')
 
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: { shouldCreateUser: false },
+      options: {
+        shouldCreateUser: false,
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
+      },
     })
 
     if (error) {
       setError(error.message)
-      setLoading(false)
     } else {
-      setStep('otp')
-      setLoading(false)
+      setSent(true)
     }
-  }
-
-  const handleVerifyOtp = async (e) => {
-    e.preventDefault()
-    setLoading(true)
-    setError('')
-
-    const { data, error } = await supabase.auth.verifyOtp({
-      email,
-      token: otp,
-      type: 'email',
-    })
-
-    if (error) {
-      setError(error.message)
-      setLoading(false)
-    } else if (data.session) {
-      const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
-      if (data.session.user.email === adminEmail) {
-        router.push('/admin')
-      } else {
-        router.push('/client')
-      }
-    }
+    setLoading(false)
   }
 
   return (
@@ -67,12 +42,12 @@ export default function LoginPage() {
 
         {/* Card */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-7">
-          {step === 'email' ? (
+          {!sent ? (
             <>
               <h2 className="text-base font-semibold text-white mb-1">Sign In</h2>
-              <p className="text-zinc-500 text-sm mb-6">Enter your email to receive a sign-in code.</p>
+              <p className="text-zinc-500 text-sm mb-6">Enter your email to receive a magic link.</p>
 
-              <form onSubmit={handleSendOtp} className="space-y-5">
+              <form onSubmit={handleLogin} className="space-y-5">
                 <div>
                   <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
                     Email Address
@@ -98,54 +73,21 @@ export default function LoginPage() {
                   disabled={loading}
                   className="w-full py-3.5 px-4 bg-gold hover:bg-gold-light disabled:opacity-50 text-zinc-950 font-bold text-xs uppercase tracking-widest rounded transition"
                 >
-                  {loading ? 'Sending...' : 'Send Code'}
+                  {loading ? 'Sending...' : 'Send Magic Link'}
                 </button>
               </form>
             </>
           ) : (
             <>
-              <h2 className="text-base font-semibold text-white mb-1">Enter Your Code</h2>
+              <h2 className="text-base font-semibold text-white mb-1">Check Your Email</h2>
               <p className="text-zinc-500 text-sm mb-6">
-                We sent a 6-digit code to <span className="text-white font-medium">{email}</span>
+                We sent a magic link to <span className="text-white font-medium">{email}</span>
               </p>
-
-              <form onSubmit={handleVerifyOtp} className="space-y-5">
-                <div>
-                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
-                    Verification Code
-                  </label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    maxLength={6}
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
-                    placeholder="000000"
-                    required
-                    autoFocus
-                    className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm text-center text-2xl tracking-[0.5em] font-mono"
-                  />
-                </div>
-
-                {error && (
-                  <div className="p-3 bg-red-900/20 border border-red-900 rounded text-red-400 text-xs">
-                    {error}
-                  </div>
-                )}
-
-                <button
-                  type="submit"
-                  disabled={loading || otp.length < 6}
-                  className="w-full py-3.5 px-4 bg-gold hover:bg-gold-light disabled:opacity-50 text-zinc-950 font-bold text-xs uppercase tracking-widest rounded transition"
-                >
-                  {loading ? 'Verifying...' : 'Sign In'}
-                </button>
-              </form>
+              <p className="text-zinc-500 text-sm mb-6">Click the link in the email to sign in.</p>
 
               <button
-                onClick={() => { setStep('email'); setOtp(''); setError('') }}
-                className="mt-5 w-full text-center text-gold hover:text-gold-light text-xs uppercase tracking-widest font-semibold transition"
+                onClick={() => { setSent(false); setError('') }}
+                className="w-full text-center text-gold hover:text-gold-light text-xs uppercase tracking-widest font-semibold transition"
               >
                 Use a different email
               </button>
