@@ -9,51 +9,54 @@ export default function AuthCallback() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    // With implicit flow, Supabase auto-detects the hash fragment
-    // and fires SIGNED_IN. Just listen for it.
+    let redirected = false
+
+    const redirect = (session) => {
+      if (redirected) return
+      redirected = true
+      const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
+      router.push(session.user.email === adminEmail ? '/admin' : '/client')
+    }
+
+    const handleCallback = async () => {
+      // 1. Check for PKCE code in URL (old magic links or fallback)
+      const url = new URL(window.location.href)
+      const code = url.searchParams.get('code')
+      if (code) {
+        const { data, error } = await supabase.auth.exchangeCodeForSession(code)
+        if (!error && data.session) { redirect(data.session); return }
+        // Code exchange failed — fall through to other methods
+      }
+
+      // 2. Implicit flow: Supabase auto-detects hash fragment (#access_token=...)
+      //    The onAuthStateChange listener below will catch it
+
+      // 3. Check if session already exists (e.g. hash was already processed)
+      await new Promise(r => setTimeout(r, 800))
+      if (redirected) return
+      const { data: { session } } = await supabase.auth.getSession()
+      if (session) { redirect(session); return }
+
+      // 4. Timeout: if nothing works after 8s, redirect to login
+      await new Promise(r => setTimeout(r, 7200))
+      if (redirected) return
+      const { data: { session: finalSession } } = await supabase.auth.getSession()
+      if (finalSession) { redirect(finalSession); return }
+
+      setError('Sign in failed — please request a new magic link')
+      setTimeout(() => router.push('/login'), 2500)
+    }
+
+    // Listen for auth state changes (catches implicit flow hash processing)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if ((event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') && session) {
-        subscription.unsubscribe()
-        const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
-        if (session.user.email === adminEmail) {
-          router.push('/admin')
-        } else {
-          router.push('/client')
-        }
+        redirect(session)
       }
     })
 
-    // Fallback: check if session already exists
-    const checkSession = async () => {
-      // Small delay to let Supabase process the hash
-      await new Promise(r => setTimeout(r, 500))
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
-        subscription.unsubscribe()
-        const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
-        if (session.user.email === adminEmail) {
-          router.push('/admin')
-        } else {
-          router.push('/client')
-        }
-      }
-    }
-    checkSession()
+    handleCallback()
 
-    // Timeout: if nothing happens after 8s, redirect to login
-    const timeout = setTimeout(async () => {
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session) {
-        const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
-        router.push(session.user.email === adminEmail ? '/admin' : '/client')
-      } else {
-        setError('Sign in failed — please try again')
-        subscription.unsubscribe()
-        setTimeout(() => router.push('/login'), 2000)
-      }
-    }, 8000)
-
-    return () => { subscription.unsubscribe(); clearTimeout(timeout) }
+    return () => subscription.unsubscribe()
   }, [])
 
   return (
