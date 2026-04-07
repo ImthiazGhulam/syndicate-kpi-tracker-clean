@@ -1,34 +1,57 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
 
 export default function LoginPage() {
+  const router = useRouter()
   const [email, setEmail] = useState('')
+  const [otp, setOtp] = useState('')
   const [loading, setLoading] = useState(false)
-  const [sent, setSent] = useState(false)
+  const [step, setStep] = useState('email') // 'email' | 'otp'
   const [error, setError] = useState('')
 
-  const handleLogin = async (e) => {
+  const handleSendOtp = async (e) => {
     e.preventDefault()
     setLoading(true)
     setError('')
 
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin
-
     const { error } = await supabase.auth.signInWithOtp({
       email,
-      options: {
-        emailRedirectTo: `${siteUrl}/auth/callback`,
-      },
+      options: { shouldCreateUser: false },
     })
 
     if (error) {
       setError(error.message)
       setLoading(false)
     } else {
-      setSent(true)
+      setStep('otp')
       setLoading(false)
+    }
+  }
+
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+
+    const { data, error } = await supabase.auth.verifyOtp({
+      email,
+      token: otp,
+      type: 'email',
+    })
+
+    if (error) {
+      setError(error.message)
+      setLoading(false)
+    } else if (data.session) {
+      const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL
+      if (data.session.user.email === adminEmail) {
+        router.push('/admin')
+      } else {
+        router.push('/client')
+      }
     }
   }
 
@@ -44,12 +67,12 @@ export default function LoginPage() {
 
         {/* Card */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-7">
-          {!sent ? (
+          {step === 'email' ? (
             <>
               <h2 className="text-base font-semibold text-white mb-1">Sign In</h2>
-              <p className="text-zinc-500 text-sm mb-6">Enter your email to receive a secure link.</p>
+              <p className="text-zinc-500 text-sm mb-6">Enter your email to receive a sign-in code.</p>
 
-              <form onSubmit={handleLogin} className="space-y-5">
+              <form onSubmit={handleSendOtp} className="space-y-5">
                 <div>
                   <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
                     Email Address
@@ -75,28 +98,58 @@ export default function LoginPage() {
                   disabled={loading}
                   className="w-full py-3.5 px-4 bg-gold hover:bg-gold-light disabled:opacity-50 text-zinc-950 font-bold text-xs uppercase tracking-widest rounded transition"
                 >
-                  {loading ? 'Sending...' : 'Send Magic Link'}
+                  {loading ? 'Sending...' : 'Send Code'}
                 </button>
               </form>
             </>
           ) : (
-            <div className="text-center py-4">
-              <div className="inline-flex items-center justify-center w-12 h-12 bg-zinc-800 rounded mb-4">
-                <svg className="w-6 h-6 text-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-              </div>
-              <h3 className="text-base font-semibold text-white mb-2">Check Your Email</h3>
-              <p className="text-zinc-400 text-sm leading-relaxed">
-                We sent a link to <span className="text-white font-medium">{email}</span>
+            <>
+              <h2 className="text-base font-semibold text-white mb-1">Enter Your Code</h2>
+              <p className="text-zinc-500 text-sm mb-6">
+                We sent a 6-digit code to <span className="text-white font-medium">{email}</span>
               </p>
+
+              <form onSubmit={handleVerifyOtp} className="space-y-5">
+                <div>
+                  <label className="block text-xs font-semibold text-zinc-400 uppercase tracking-widest mb-2">
+                    Verification Code
+                  </label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={6}
+                    value={otp}
+                    onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                    placeholder="000000"
+                    required
+                    autoFocus
+                    className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm text-center text-2xl tracking-[0.5em] font-mono"
+                  />
+                </div>
+
+                {error && (
+                  <div className="p-3 bg-red-900/20 border border-red-900 rounded text-red-400 text-xs">
+                    {error}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loading || otp.length < 6}
+                  className="w-full py-3.5 px-4 bg-gold hover:bg-gold-light disabled:opacity-50 text-zinc-950 font-bold text-xs uppercase tracking-widest rounded transition"
+                >
+                  {loading ? 'Verifying...' : 'Sign In'}
+                </button>
+              </form>
+
               <button
-                onClick={() => { setSent(false); setEmail('') }}
-                className="mt-6 text-gold hover:text-gold-light text-xs uppercase tracking-widest font-semibold transition"
+                onClick={() => { setStep('email'); setOtp(''); setError('') }}
+                className="mt-5 w-full text-center text-gold hover:text-gold-light text-xs uppercase tracking-widest font-semibold transition"
               >
                 Use a different email
               </button>
-            </div>
+            </>
           )}
         </div>
 

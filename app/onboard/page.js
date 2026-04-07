@@ -48,11 +48,9 @@ export default function OnboardPage() {
       return
     }
 
-    // Send magic link so they can log in
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin
+    // Send OTP code so they can log in
     await supabase.auth.signInWithOtp({
       email: form.email.trim().toLowerCase(),
-      options: { emailRedirectTo: `${siteUrl}/auth/callback` },
     })
 
     setDone(true)
@@ -73,7 +71,7 @@ export default function OnboardPage() {
               Welcome to The Syndicate, <span className="text-white font-medium">{form.name.split(' ')[0]}</span>.
             </p>
             <p className="text-zinc-500 text-sm mt-3 leading-relaxed">
-              Check your email for a magic link to access The Motherboard.
+              Check your email for a sign-in code, then head to the login page to enter it.
             </p>
           </div>
           <p className="text-zinc-700 text-xs mt-6 tracking-widest uppercase">© 2025 The Syndicate</p>
