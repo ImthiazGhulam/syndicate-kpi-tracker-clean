@@ -556,6 +556,29 @@ function AdminPageInner() {
     // Clients at risk (score < 40)
     const atRiskClients = clients.filter(c => clientHealth[c.id]?.status === 'critical' || clientHealth[c.id]?.status === 'at-risk' && clientHealth[c.id]?.score < 40)
 
+    // Inactive clients (score < 50 — need accountability nudge)
+    const inactiveClients = clients.filter(c => { const h = clientHealth[c.id]; return h && h.score < 50 }).sort((a, b) => (clientHealth[a.id]?.score || 0) - (clientHealth[b.id]?.score || 0))
+
+    // Clients missing debriefs yesterday
+    const debriefClientIds = new Set(debriefs.filter(dd => dd.completed).map(dd => dd.client_id))
+    const noDebriefs = clients.filter(c => !debriefClientIds.has(c.id))
+
+    // Clients missing KPIs today
+    const kpiClientIds = new Set(kpis.map(k => k.client_id))
+    const noKpis = clients.filter(c => !kpiClientIds.has(c.id))
+
+    // Clients missing War Map this week
+    const warMapClientIds = new Set(warMaps.filter(w => w.completed).map(w => w.client_id))
+    const noWarMap = clients.filter(c => !warMapClientIds.has(c.id))
+
+    // Clients missing Lock In this week
+    const lockInClientIds = new Set(lockIns.filter(l => l.completed).map(l => l.client_id))
+    const noLockIn = clients.filter(c => !lockInClientIds.has(c.id))
+
+    // Clients missing monthly review
+    const monthlyClientIds = new Set(monthlys.filter(m => m.completed).map(m => m.client_id))
+    const noMonthly = clients.filter(c => !monthlyClientIds.has(c.id))
+
     // Project alerts
     const allProjects = Array.isArray(projectsRes.data) ? projectsRes.data : []
     const allProjTasks = Array.isArray(projectTasksRes.data) ? projectTasksRes.data : []
@@ -594,7 +617,8 @@ function AdminPageInner() {
       totalClients, morningsDone, debriefsDone, kpisDone,
       warMapsDone, lockInsDone, monthlysDone,
       awaitingFeedback, renewingSoon, expired,
-      noMorningOps, atRiskClients, dayOfWeek, dayOfMonth,
+      noMorningOps, noDebriefs, noKpis, noWarMap, noLockIn, noMonthly,
+      inactiveClients, atRiskClients, dayOfWeek, dayOfMonth,
       nearComplete, overdueProjects, recentFlywheels,
     })
 
@@ -983,9 +1007,9 @@ function AdminPageInner() {
 
                 // ── ACCOUNTABILITY BLOCK ──
                 const accountItems = [
-                  { key: 'send_accountability', label: 'Send accountability messages to inactive clients', sub: 'DM or voice note anyone who\'s gone quiet — check programme scores' },
-                  { key: 'review_hot_lists', label: 'Review client Hot Lists for coaching opportunities', sub: 'Check if anyone has stale leads or needs help with follow-ups' },
-                  { key: 'check_playbook_progress', label: 'Check playbook progress', sub: 'Review who\'s actively working through Sold Out, Premium Position, or Wealth Wired' },
+                  { key: 'send_accountability', label: `Send accountability messages (${d.inactiveClients.length} inactive)`, sub: d.inactiveClients.length > 0 ? 'DM or voice note anyone who\'s gone quiet' : 'Everyone\'s active — nice', clients: d.inactiveClients },
+                  { key: 'review_hot_lists', label: 'Review client Hot Lists for coaching opportunities', sub: 'Check if anyone has stale leads or needs help with follow-ups', clients: clients },
+                  { key: 'check_playbook_progress', label: 'Check playbook progress', sub: 'Review who\'s actively working through Sold Out, Premium Position, or Wealth Wired', clients: clients },
                 ]
                 sections.push({ title: '🎯 Client Accountability', subtitle: 'Core coaching', items: accountItems })
 
@@ -1006,8 +1030,8 @@ function AdminPageInner() {
                 // ── MONDAY SPECIALS ──
                 if (isMonday) {
                   sections.push({ title: '🔒 Monday Review', subtitle: 'Weekend catch-up', items: [
-                    { key: 'review_lock_ins', label: `Review Lock In completions (${d.lockInsDone}/${d.totalClients})`, sub: 'Check who completed their weekly review over the weekend' },
-                    { key: 'review_war_maps', label: `Review War Map completions (${d.warMapsDone}/${d.totalClients})`, sub: 'Check who planned their week' },
+                    { key: 'review_lock_ins', label: `Review Lock In completions (${d.lockInsDone}/${d.totalClients})`, sub: d.noLockIn.length > 0 ? `Not done: ${d.noLockIn.slice(0, 5).map(c => c.name.split(' ')[0]).join(', ')}${d.noLockIn.length > 5 ? ` +${d.noLockIn.length - 5} more` : ''}` : 'Everyone completed', clients: d.noLockIn },
+                    { key: 'review_war_maps', label: `Review War Map completions (${d.warMapsDone}/${d.totalClients})`, sub: d.noWarMap.length > 0 ? `Not done: ${d.noWarMap.slice(0, 5).map(c => c.name.split(' ')[0]).join(', ')}${d.noWarMap.length > 5 ? ` +${d.noWarMap.length - 5} more` : ''}` : 'Everyone planned their week', clients: d.noWarMap },
                     { key: 'set_weekly_focus', label: 'Set your coaching focus for the week', sub: 'Which clients need extra attention this week?' },
                   ]})
                 }
@@ -1015,8 +1039,8 @@ function AdminPageInner() {
                 // ── FRIDAY SPECIALS ──
                 if (isFriday) {
                   sections.push({ title: '🏁 Friday Wrap-Up', subtitle: 'End of week', items: [
-                    { key: 'weekly_score_check', label: 'Review all programme scores for the week', sub: 'Identify who crushed it and who needs a push' },
-                    { key: 'send_friday_motivation', label: 'Send weekend accountability reminder', sub: 'Remind clients to complete Lock In + War Map over the weekend' },
+                    { key: 'weekly_score_check', label: 'Review all programme scores for the week', sub: 'Identify who crushed it and who needs a push', clients: clients },
+                    { key: 'send_friday_motivation', label: 'Send weekend accountability reminder', sub: 'Remind clients to complete Lock In + War Map over the weekend', clients: clients },
                     { key: 'plan_next_week', label: 'Plan your coaching priorities for next week', sub: 'Who needs calls? Who needs content reviewed?' },
                   ]})
                 }
@@ -1024,15 +1048,15 @@ function AdminPageInner() {
                 // ── FIRST WEEK OF MONTH ──
                 if (isFirstWeek) {
                   sections.push({ title: '📅 Monthly', subtitle: 'First week tasks', items: [
-                    { key: 'chase_monthly_reviews', label: `Chase monthly review completions (${d.monthlysDone}/${d.totalClients})`, sub: 'Remind clients to reflect on last month' },
-                    { key: 'review_revenue_targets', label: 'Review client revenue targets vs actuals', sub: 'Check monthly reviews for revenue data' },
+                    { key: 'chase_monthly_reviews', label: `Chase monthly review completions (${d.monthlysDone}/${d.totalClients})`, sub: d.noMonthly.length > 0 ? `Not done: ${d.noMonthly.slice(0, 5).map(c => c.name.split(' ')[0]).join(', ')}${d.noMonthly.length > 5 ? ` +${d.noMonthly.length - 5} more` : ''}` : 'Everyone completed', clients: d.noMonthly },
+                    { key: 'review_revenue_targets', label: 'Review client revenue targets vs actuals', sub: 'Check monthly reviews for revenue data', clients: clients },
                   ]})
                 }
 
                 // ── EVENING BLOCK ──
                 sections.push({ title: '🌙 Evening', subtitle: 'End of day', items: [
-                  { key: 'check_debriefs', label: `Check yesterday's Debrief completions (${d.debriefsDone}/${d.totalClients})`, sub: 'Follow up with anyone consistently missing debriefs' },
-                  { key: 'check_tracker', label: `Check Business Tracker entries today (${d.kpisDone}/${d.totalClients})`, sub: 'Who\'s logging their numbers?' },
+                  { key: 'check_debriefs', label: `Check yesterday's Debrief completions (${d.debriefsDone}/${d.totalClients})`, sub: d.noDebriefs.length > 0 && d.noDebriefs.length <= 10 ? 'Not done: ' + d.noDebriefs.map(c => c.name.split(' ')[0]).join(', ') : d.noDebriefs.length > 10 ? `${d.noDebriefs.length} clients didn't debrief` : 'Everyone debriefed', clients: d.noDebriefs },
+                  { key: 'check_tracker', label: `Check Business Tracker entries today (${d.kpisDone}/${d.totalClients})`, sub: d.noKpis.length > 0 && d.noKpis.length <= 10 ? 'Not logged: ' + d.noKpis.map(c => c.name.split(' ')[0]).join(', ') : d.noKpis.length > 10 ? `${d.noKpis.length} clients haven't logged` : 'Everyone\'s logging', clients: d.noKpis },
                   { key: 'daily_reflection', label: 'Your own daily reflection', sub: 'What went well today? What does tomorrow need?' },
                 ]})
 
@@ -1052,7 +1076,7 @@ function AdminPageInner() {
                         <div className="space-y-2.5">
                           {alerts.map((alert, ai) => (
                             <div key={ai}
-                              onClick={() => alert.client && selectClient(alert.client)}
+                              onClick={() => { if (alert.client) { setAdminView('clients'); selectClient(alert.client) } }}
                               className={`flex items-start gap-4 p-4 sm:p-5 rounded-xl border backdrop-blur-sm ${alert.bg} ${alert.client ? 'cursor-pointer hover:brightness-110' : ''}`}>
                               <span className="text-xl flex-shrink-0 mt-0.5">{alert.icon}</span>
                               <div className="flex-1 min-w-0">
@@ -1153,7 +1177,7 @@ function AdminPageInner() {
                                       /* At-risk clients — show detailed breakdown */
                                       item.clients.map(c => (
                                         <button key={c.id}
-                                          onClick={() => { selectClient(c); setExpandedOpsItem(null) }}
+                                          onClick={() => { setAdminView('clients'); selectClient(c); setExpandedOpsItem(null) }}
                                           className="w-full flex items-start gap-3 px-5 py-3.5 hover:bg-zinc-900 transition text-left border-b border-zinc-800/50 last:border-b-0">
                                           <div className="flex-shrink-0 mt-0.5">
                                             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${
@@ -1177,7 +1201,7 @@ function AdminPageInner() {
                                       /* Simple client list — click to view */
                                       item.clients.map(c => (
                                         <button key={c.id}
-                                          onClick={() => { selectClient(c); setExpandedOpsItem(null) }}
+                                          onClick={() => { setAdminView('clients'); selectClient(c); setExpandedOpsItem(null) }}
                                           className="w-full flex items-center gap-3 px-5 py-3 hover:bg-zinc-900 transition text-left border-b border-zinc-800/50 last:border-b-0">
                                           <p className="text-sm font-medium text-zinc-300 flex-1">{c.name}</p>
                                           <svg className="w-4 h-4 text-zinc-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
