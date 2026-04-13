@@ -283,9 +283,11 @@ Reference their specific offer details, ICP data, and pricing throughout. Make i
       return NextResponse.json({ error: 'Unknown plan type' }, { status: 400 })
     }
 
+    const maxTokens = type === 'unshakeable' && Number(data.duration) >= 14 ? 4500 : 2500
+
     const message = await client.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 2500,
+      max_tokens: maxTokens,
       system: systemPrompt,
       messages: [{ role: 'user', content: userPrompt }],
     })
