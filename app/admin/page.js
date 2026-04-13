@@ -208,6 +208,10 @@ function AdminPageInner() {
   const [clientPlaybook, setClientPlaybook] = useState(null)
   const [clientPremiumPos, setClientPremiumPos] = useState(null)
   const [clientWealthWired, setClientWealthWired] = useState(null)
+  const [editingPlaybook, setEditingPlaybook] = useState(false)
+  const [editingPremiumPos, setEditingPremiumPos] = useState(false)
+  const [editingWealthWired, setEditingWealthWired] = useState(false)
+  const [playbookSaving, setPlaybookSaving] = useState(false)
   const [clientUnshakeable, setClientUnshakeable] = useState(null)
   const [clientAIAccelerator, setClientAIAccelerator] = useState(null)
   const [identityChange, setIdentityChange] = useState(null)
@@ -696,6 +700,55 @@ function AdminPageInner() {
     setProjectForm({ name: '', description: '', status: 'not_started', priority: 'medium', start_date: '', end_date: '', links: '', resources: '' })
     setEditingProject(null)
     setShowProjectForm(false)
+  }
+
+  // ── Admin playbook editing ────────────────────────────────────────────────
+  const updatePlaybookField = (setter, path, value) => {
+    setter(prev => {
+      const updated = { ...prev }
+      const keys = path.split('.')
+      let obj = updated
+      for (let i = 0; i < keys.length - 1; i++) {
+        obj[keys[i]] = { ...obj[keys[i]] }
+        obj = obj[keys[i]]
+      }
+      obj[keys[keys.length - 1]] = value
+      return updated
+    })
+  }
+
+  const savePlaybookAdmin = async (type) => {
+    setPlaybookSaving(true)
+    try {
+      if (type === 'sold-out' && clientPlaybook?.id) {
+        const { error } = await supabase.from('offer_playbooks').update({
+          icp: clientPlaybook.icp,
+          dip: clientPlaybook.dip,
+          bang_bang: clientPlaybook.bang_bang,
+          framework: clientPlaybook.framework,
+          updated_at: new Date().toISOString(),
+        }).eq('id', clientPlaybook.id)
+        if (error) { alert('Save failed: ' + error.message); setPlaybookSaving(false); return }
+        setEditingPlaybook(false)
+      } else if (type === 'premium-position' && clientPremiumPos?.id) {
+        const { error } = await supabase.from('premium_position').update({
+          bucket: clientPremiumPos.bucket,
+          brand_star: clientPremiumPos.brand_star,
+          hero: clientPremiumPos.hero,
+          remarkable: clientPremiumPos.remarkable,
+          updated_at: new Date().toISOString(),
+        }).eq('id', clientPremiumPos.id)
+        if (error) { alert('Save failed: ' + error.message); setPlaybookSaving(false); return }
+        setEditingPremiumPos(false)
+      } else if (type === 'wealth-wired' && clientWealthWired?.id) {
+        const payload = { updated_at: new Date().toISOString() }
+        for (let i = 1; i <= 8; i++) payload[`module_${i}`] = clientWealthWired[`module_${i}`] || {}
+        const { error } = await supabase.from('wealth_wired').update(payload).eq('id', clientWealthWired.id)
+        if (error) { alert('Save failed: ' + error.message); setPlaybookSaving(false); return }
+        setEditingWealthWired(false)
+      }
+    } catch (e) { alert('Save failed: ' + e.message) }
+    setPlaybookSaving(false)
   }
 
   const saveProject = async () => {
@@ -3353,11 +3406,15 @@ function AdminPageInner() {
                 const icp = clientPlaybook.icp || {}
                 const dip = clientPlaybook.dip || {}
                 const bb = clientPlaybook.bang_bang || {}
+                const fw = clientPlaybook.framework || {}
                 const scores = clientPlaybook.scores || {}
                 const totalScore = (scores.icp_score || 0) + (scores.dip_score || 0) + (scores.bb_score || 0) + (scores.fw_score || 0)
                 const maxScore = 50
                 const band = totalScore >= 35 ? 'Offer-Ready' : totalScore >= 29 ? 'Strong Foundation' : totalScore >= 21 ? 'Getting There' : 'Needs Work'
-                const bandColor = totalScore >= 35 ? 'text-emerald-400' : totalScore >= 29 ? 'text-gold' : totalScore >= 21 ? 'text-amber-400' : 'text-red-400'
+                const ed = editingPlaybook
+                const ef = (path, val) => updatePlaybookField(setClientPlaybook, path, val)
+                const inputCls = 'w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-white focus:border-gold/50 focus:outline-none'
+                const textareaCls = inputCls + ' min-h-[60px] resize-y'
 
                 return (
                 <div className="fade-in">
@@ -3375,7 +3432,7 @@ function AdminPageInner() {
                           <span className="text-[10px] font-bold text-zinc-500">/ {maxScore}</span>
                         </div>
                       </div>
-                      <div className="text-center sm:text-left">
+                      <div className="text-center sm:text-left flex-1">
                         <h2 className="text-lg font-black text-white uppercase tracking-wider">{clientPlaybook.name || 'Sold Out™ Playbook'}</h2>
                         <div className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border ${
                           totalScore >= 35 ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
@@ -3385,6 +3442,11 @@ function AdminPageInner() {
                         }`}>{band}</div>
                         <p className="text-zinc-600 text-xs mt-2">Stage {clientPlaybook.current_stage || 1} of 4 · Updated {clientPlaybook.updated_at ? new Date(clientPlaybook.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'}</p>
                       </div>
+                      <button onClick={() => ed ? savePlaybookAdmin('sold-out') : setEditingPlaybook(true)} disabled={playbookSaving}
+                        className={`px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest transition ${ed ? 'bg-gold text-zinc-950 hover:bg-gold-light' : 'bg-zinc-800 text-gold border border-gold/30 hover:bg-zinc-700'}`}>
+                        {ed ? (playbookSaving ? 'Saving...' : 'Save Changes') : 'Edit'}
+                      </button>
+                      {ed && <button onClick={() => setEditingPlaybook(false)} className="px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest bg-zinc-800 text-zinc-400 hover:text-white transition">Cancel</button>}
                     </div>
                     {/* Section scores */}
                     <div className="grid grid-cols-4 gap-3 mt-6">
@@ -3408,127 +3470,170 @@ function AdminPageInner() {
                   </div>
 
                   {/* ICP Summary */}
-                  {Object.keys(icp).length > 0 && (
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-4">
-                      <h3 className="text-xs font-bold text-sky-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <span className="text-base">🎯</span> Ideal Client Profile
-                      </h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {icp.client_type && (
-                          <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Client Type</p><p className="text-white text-sm">{icp.client_type}</p></div>
-                        )}
-                        {icp.sector && (
-                          <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Sector</p><p className="text-white text-sm">{icp.sector}</p></div>
-                        )}
-                        {icp.specific_description && (
-                          <div className="sm:col-span-2"><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Ideal Client</p><p className="text-zinc-300 text-sm leading-relaxed">{icp.specific_description}</p></div>
-                        )}
-                        {icp.dream_outcome && (
-                          <div className="sm:col-span-2"><p className="text-[10px] font-bold text-gold uppercase tracking-widest mb-1">Dream Outcome</p><p className="text-white text-sm leading-relaxed">{icp.dream_outcome}</p></div>
-                        )}
-                        {icp.desired_identity && (
-                          <div className="sm:col-span-2"><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Desired Identity</p><p className="text-zinc-300 text-sm leading-relaxed">{icp.desired_identity}</p></div>
-                        )}
-                        {icp.trigger_moment && (
-                          <div className="sm:col-span-2"><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Trigger Moment</p><p className="text-zinc-300 text-sm leading-relaxed">{icp.trigger_moment}</p></div>
-                        )}
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-4">
+                    <h3 className="text-xs font-bold text-sky-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <span className="text-base">🎯</span> Ideal Client Profile
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Client Type</p>
+                        {ed ? <input className={inputCls} value={icp.client_type || ''} onChange={e => ef('icp.client_type', e.target.value)} /> : <p className="text-white text-sm">{icp.client_type || '—'}</p>}
                       </div>
-                      {/* Tags row */}
-                      <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t border-zinc-800">
-                        {icp.emotional_state?.length > 0 && (
-                          <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1.5">Emotional State</p>
-                            <div className="flex flex-wrap gap-1">{icp.emotional_state.map(t => <span key={t} className="px-2 py-0.5 bg-amber-900/20 text-amber-400 rounded text-[10px] font-semibold">{t}</span>)}</div>
-                          </div>
-                        )}
-                        {icp.values?.length > 0 && (
-                          <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1.5">Values</p>
-                            <div className="flex flex-wrap gap-1">{icp.values.map(t => <span key={t} className="px-2 py-0.5 bg-violet-900/20 text-violet-400 rounded text-[10px] font-semibold">{t}</span>)}</div>
-                          </div>
-                        )}
-                        {icp.channels?.length > 0 && (
-                          <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1.5">Channels</p>
-                            <div className="flex flex-wrap gap-1">{icp.channels.map(t => <span key={t} className="px-2 py-0.5 bg-sky-900/20 text-sky-400 rounded text-[10px] font-semibold">{t}</span>)}</div>
-                          </div>
-                        )}
+                      <div>
+                        <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Sector</p>
+                        {ed ? <input className={inputCls} value={icp.sector || ''} onChange={e => ef('icp.sector', e.target.value)} /> : <p className="text-white text-sm">{icp.sector || '—'}</p>}
                       </div>
-                      {/* Pains */}
-                      {icp.pains?.filter(Boolean).length > 0 && (
-                        <div className="mt-4 pt-4 border-t border-zinc-800">
-                          <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-2">Top Pains</p>
-                          <div className="space-y-1">{icp.pains.filter(Boolean).map((p, i) => <p key={i} className="text-zinc-300 text-sm flex items-start gap-2"><span className="text-red-400 mt-0.5">•</span>{p}</p>)}</div>
+                      <div className="sm:col-span-2">
+                        <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Ideal Client</p>
+                        {ed ? <textarea className={textareaCls} value={icp.specific_description || ''} onChange={e => ef('icp.specific_description', e.target.value)} /> : <p className="text-zinc-300 text-sm leading-relaxed">{icp.specific_description || '—'}</p>}
+                      </div>
+                      <div className="sm:col-span-2">
+                        <p className="text-[10px] font-bold text-gold uppercase tracking-widest mb-1">Dream Outcome</p>
+                        {ed ? <textarea className={textareaCls} value={icp.dream_outcome || ''} onChange={e => ef('icp.dream_outcome', e.target.value)} /> : <p className="text-white text-sm leading-relaxed">{icp.dream_outcome || '—'}</p>}
+                      </div>
+                      <div className="sm:col-span-2">
+                        <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Desired Identity</p>
+                        {ed ? <textarea className={textareaCls} value={icp.desired_identity || ''} onChange={e => ef('icp.desired_identity', e.target.value)} /> : <p className="text-zinc-300 text-sm leading-relaxed">{icp.desired_identity || '—'}</p>}
+                      </div>
+                      <div className="sm:col-span-2">
+                        <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Trigger Moment</p>
+                        {ed ? <textarea className={textareaCls} value={icp.trigger_moment || ''} onChange={e => ef('icp.trigger_moment', e.target.value)} /> : <p className="text-zinc-300 text-sm leading-relaxed">{icp.trigger_moment || '—'}</p>}
+                      </div>
+                    </div>
+                    {/* Tags row */}
+                    <div className="flex flex-wrap gap-4 mt-4 pt-4 border-t border-zinc-800">
+                      {icp.emotional_state?.length > 0 && (
+                        <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1.5">Emotional State</p>
+                          <div className="flex flex-wrap gap-1">{icp.emotional_state.map(t => <span key={t} className="px-2 py-0.5 bg-amber-900/20 text-amber-400 rounded text-[10px] font-semibold">{t}</span>)}</div>
+                        </div>
+                      )}
+                      {icp.values?.length > 0 && (
+                        <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1.5">Values</p>
+                          <div className="flex flex-wrap gap-1">{icp.values.map(t => <span key={t} className="px-2 py-0.5 bg-violet-900/20 text-violet-400 rounded text-[10px] font-semibold">{t}</span>)}</div>
+                        </div>
+                      )}
+                      {icp.channels?.length > 0 && (
+                        <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1.5">Channels</p>
+                          <div className="flex flex-wrap gap-1">{icp.channels.map(t => <span key={t} className="px-2 py-0.5 bg-sky-900/20 text-sky-400 rounded text-[10px] font-semibold">{t}</span>)}</div>
                         </div>
                       )}
                     </div>
-                  )}
+                    {/* Pains */}
+                    {icp.pains?.filter(Boolean).length > 0 && (
+                      <div className="mt-4 pt-4 border-t border-zinc-800">
+                        <p className="text-[10px] font-bold text-red-400 uppercase tracking-widest mb-2">Top Pains</p>
+                        {ed ? (
+                          <div className="space-y-2">{(icp.pains || []).map((p, i) => (
+                            <input key={i} className={inputCls} value={p} onChange={e => { const pains = [...(icp.pains || [])]; pains[i] = e.target.value; ef('icp.pains', pains) }} />
+                          ))}</div>
+                        ) : (
+                          <div className="space-y-1">{icp.pains.filter(Boolean).map((p, i) => <p key={i} className="text-zinc-300 text-sm flex items-start gap-2"><span className="text-red-400 mt-0.5">•</span>{p}</p>)}</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
 
                   {/* The Dip Summary */}
-                  {Object.keys(dip).length > 0 && (dip.problem || dip.format || dip.price) && (
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-4">
-                      <h3 className="text-xs font-bold text-violet-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <span className="text-base">⚡</span> The Dip — Micro Offer
-                      </h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                        {dip.format && <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Format</p><p className="text-white text-sm font-medium">{dip.format}</p></div>}
-                        {dip.price && <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Price</p><p className="text-emerald-400 text-sm font-bold">£{Number(dip.price).toLocaleString()}</p></div>}
-                        {dip.duration && <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Duration</p><p className="text-white text-sm">{dip.duration}</p></div>}
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-4">
+                    <h3 className="text-xs font-bold text-violet-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <span className="text-base">⚡</span> The Dip — Micro Offer
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                        <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Format</p>
+                        {ed ? <input className={inputCls} value={dip.format || ''} onChange={e => ef('dip.format', e.target.value)} /> : <p className="text-white text-sm font-medium">{dip.format || '—'}</p>}
                       </div>
-                      {dip.problem && <div className="mt-3"><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Problem It Solves</p><p className="text-zinc-300 text-sm">{dip.problem}</p></div>}
-                      {dip.outcome && <div className="mt-3"><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Outcome Delivered</p><p className="text-zinc-300 text-sm">{dip.outcome}</p></div>}
-                      {dip.bridge && <div className="mt-3"><p className="text-[10px] font-bold text-gold uppercase tracking-widest mb-1">Bridge to Main Offer</p><p className="text-zinc-300 text-sm">{dip.bridge}</p></div>}
+                      <div>
+                        <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Price</p>
+                        {ed ? <input className={inputCls} value={dip.price || ''} onChange={e => ef('dip.price', e.target.value)} /> : <p className="text-emerald-400 text-sm font-bold">{dip.price ? `£${Number(dip.price).toLocaleString()}` : '—'}</p>}
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Duration</p>
+                        {ed ? <input className={inputCls} value={dip.duration || ''} onChange={e => ef('dip.duration', e.target.value)} /> : <p className="text-white text-sm">{dip.duration || '—'}</p>}
+                      </div>
                     </div>
-                  )}
+                    <div className="mt-3">
+                      <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Problem It Solves</p>
+                      {ed ? <textarea className={textareaCls} value={dip.problem || ''} onChange={e => ef('dip.problem', e.target.value)} /> : <p className="text-zinc-300 text-sm">{dip.problem || '—'}</p>}
+                    </div>
+                    <div className="mt-3">
+                      <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Outcome Delivered</p>
+                      {ed ? <textarea className={textareaCls} value={dip.outcome || ''} onChange={e => ef('dip.outcome', e.target.value)} /> : <p className="text-zinc-300 text-sm">{dip.outcome || '—'}</p>}
+                    </div>
+                    <div className="mt-3">
+                      <p className="text-[10px] font-bold text-gold uppercase tracking-widest mb-1">Bridge to Main Offer</p>
+                      {ed ? <textarea className={textareaCls} value={dip.bridge || ''} onChange={e => ef('dip.bridge', e.target.value)} /> : <p className="text-zinc-300 text-sm">{dip.bridge || '—'}</p>}
+                    </div>
+                  </div>
 
                   {/* Bang Bang Offer Summary */}
-                  {Object.keys(bb).length > 0 && (bb.name || bb.promise || bb.price) && (
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-4">
-                      <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <span className="text-base">💥</span> Bang Bang Offer — {bb.name || 'Main Offer'}
-                      </h3>
-                      {bb.promise && <div className="bg-zinc-800/50 rounded-lg p-4 mb-4"><p className="text-white text-sm leading-relaxed italic">"{bb.promise}"</p></div>}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-                        {bb.price && <div className="bg-zinc-800/50 rounded-lg p-3 text-center"><p className="text-lg font-black text-emerald-400">£{Number(bb.price).toLocaleString()}</p><p className="text-[9px] text-zinc-600 uppercase tracking-widest font-bold">Price</p></div>}
-                        {bb.stack_value && <div className="bg-zinc-800/50 rounded-lg p-3 text-center"><p className="text-lg font-black text-white">£{Number(bb.stack_value).toLocaleString()}</p><p className="text-[9px] text-zinc-600 uppercase tracking-widest font-bold">Stack Value</p></div>}
-                        {bb.duration && <div className="bg-zinc-800/50 rounded-lg p-3 text-center"><p className="text-lg font-black text-sky-400">{bb.duration}</p><p className="text-[9px] text-zinc-600 uppercase tracking-widest font-bold">Duration</p></div>}
-                        {bb.dream_score && <div className="bg-zinc-800/50 rounded-lg p-3 text-center"><p className="text-lg font-black text-gold">{bb.dream_score}/7</p><p className="text-[9px] text-zinc-600 uppercase tracking-widest font-bold">Dream Score</p></div>}
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-4">
+                    <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <span className="text-base">💥</span> Bang Bang Offer — {bb.name || 'Main Offer'}
+                    </h3>
+                    {ed ? (
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                        <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Offer Name</p><input className={inputCls} value={bb.name || ''} onChange={e => ef('bang_bang.name', e.target.value)} /></div>
+                        <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Price</p><input className={inputCls} value={bb.price || ''} onChange={e => ef('bang_bang.price', e.target.value)} /></div>
+                        <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Stack Value</p><input className={inputCls} value={bb.stack_value || ''} onChange={e => ef('bang_bang.stack_value', e.target.value)} /></div>
+                        <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Duration</p><input className={inputCls} value={bb.duration || ''} onChange={e => ef('bang_bang.duration', e.target.value)} /></div>
+                        <div className="sm:col-span-2"><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Promise</p><textarea className={textareaCls} value={bb.promise || ''} onChange={e => ef('bang_bang.promise', e.target.value)} /></div>
+                        <div className="sm:col-span-2"><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Unique Mechanism</p><textarea className={textareaCls} value={bb.unique_mechanism || ''} onChange={e => ef('bang_bang.unique_mechanism', e.target.value)} /></div>
+                        <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Continuity Offer</p><input className={inputCls} value={bb.continuity_offer || ''} onChange={e => ef('bang_bang.continuity_offer', e.target.value)} /></div>
+                        <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Continuity Price</p><input className={inputCls} value={bb.continuity_price || ''} onChange={e => ef('bang_bang.continuity_price', e.target.value)} /></div>
                       </div>
-                      {bb.unique_mechanism && <div className="mb-3"><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Unique Mechanism</p><p className="text-zinc-300 text-sm">{bb.unique_mechanism}</p></div>}
-                      {bb.phases?.length > 0 && (
-                        <div className="mb-3">
-                          <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-2">Programme Phases</p>
-                          <div className="flex gap-2 overflow-x-auto pb-1">
-                            {bb.phases.filter(p => p.name).map((phase, i) => (
-                              <div key={i} className="flex-shrink-0 bg-zinc-800 rounded-lg p-3 min-w-[140px]">
-                                <p className="text-gold text-[10px] font-bold uppercase tracking-widest">Phase {i + 1}</p>
-                                <p className="text-white text-sm font-semibold mt-0.5">{phase.name}</p>
-                                {phase.duration && <p className="text-zinc-600 text-xs mt-0.5">{phase.duration}</p>}
-                              </div>
-                            ))}
-                          </div>
+                    ) : (
+                      <>
+                        {bb.promise && <div className="bg-zinc-800/50 rounded-lg p-4 mb-4"><p className="text-white text-sm leading-relaxed italic">"{bb.promise}"</p></div>}
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                          {bb.price && <div className="bg-zinc-800/50 rounded-lg p-3 text-center"><p className="text-lg font-black text-emerald-400">£{Number(bb.price).toLocaleString()}</p><p className="text-[9px] text-zinc-600 uppercase tracking-widest font-bold">Price</p></div>}
+                          {bb.stack_value && <div className="bg-zinc-800/50 rounded-lg p-3 text-center"><p className="text-lg font-black text-white">£{Number(bb.stack_value).toLocaleString()}</p><p className="text-[9px] text-zinc-600 uppercase tracking-widest font-bold">Stack Value</p></div>}
+                          {bb.duration && <div className="bg-zinc-800/50 rounded-lg p-3 text-center"><p className="text-lg font-black text-sky-400">{bb.duration}</p><p className="text-[9px] text-zinc-600 uppercase tracking-widest font-bold">Duration</p></div>}
+                          {bb.dream_score && <div className="bg-zinc-800/50 rounded-lg p-3 text-center"><p className="text-lg font-black text-gold">{bb.dream_score}/7</p><p className="text-[9px] text-zinc-600 uppercase tracking-widest font-bold">Dream Score</p></div>}
                         </div>
-                      )}
-                      {bb.guarantees?.length > 0 && (
-                        <div className="mt-3 pt-3 border-t border-zinc-800">
-                          <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1.5">Guarantees</p>
-                          <div className="flex flex-wrap gap-1">{bb.guarantees.map(g => <span key={g} className="px-2 py-0.5 bg-emerald-900/20 text-emerald-400 rounded text-[10px] font-semibold">{g}</span>)}</div>
+                        {bb.unique_mechanism && <div className="mb-3"><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Unique Mechanism</p><p className="text-zinc-300 text-sm">{bb.unique_mechanism}</p></div>}
+                      </>
+                    )}
+                    {bb.phases?.length > 0 && (
+                      <div className="mb-3">
+                        <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-2">Programme Phases</p>
+                        <div className="flex gap-2 overflow-x-auto pb-1">
+                          {bb.phases.filter(p => p.name).map((phase, i) => (
+                            <div key={i} className="flex-shrink-0 bg-zinc-800 rounded-lg p-3 min-w-[140px]">
+                              <p className="text-gold text-[10px] font-bold uppercase tracking-widest">Phase {i + 1}</p>
+                              <p className="text-white text-sm font-semibold mt-0.5">{phase.name}</p>
+                              {phase.duration && <p className="text-zinc-600 text-xs mt-0.5">{phase.duration}</p>}
+                            </div>
+                          ))}
                         </div>
-                      )}
-                      {bb.continuity_offer && (
-                        <div className="mt-3 pt-3 border-t border-zinc-800">
-                          <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Continuity</p>
-                          <p className="text-zinc-300 text-sm">{bb.continuity_offer}{bb.continuity_price ? ` — £${Number(bb.continuity_price).toLocaleString()}` : ''}</p>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                      </div>
+                    )}
+                    {bb.guarantees?.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-zinc-800">
+                        <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1.5">Guarantees</p>
+                        <div className="flex flex-wrap gap-1">{bb.guarantees.map(g => <span key={g} className="px-2 py-0.5 bg-emerald-900/20 text-emerald-400 rounded text-[10px] font-semibold">{g}</span>)}</div>
+                      </div>
+                    )}
+                    {!ed && bb.continuity_offer && (
+                      <div className="mt-3 pt-3 border-t border-zinc-800">
+                        <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Continuity</p>
+                        <p className="text-zinc-300 text-sm">{bb.continuity_offer}{bb.continuity_price ? ` — £${Number(bb.continuity_price).toLocaleString()}` : ''}</p>
+                      </div>
+                    )}
+                  </div>
 
                   {/* Signature Framework Summary */}
-                  {clientPlaybook.framework?.framework_name && (() => {
-                    const fw = clientPlaybook.framework
-                    return (
-                      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-4">
-                        <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                          <span className="text-base">🏗️</span> Signature Framework™ — {fw.framework_name}
-                        </h3>
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-4">
+                    <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <span className="text-base">🏗️</span> Signature Framework™ {fw.framework_name ? `— ${fw.framework_name}` : ''}
+                    </h3>
+                    {ed ? (
+                      <div className="space-y-4">
+                        <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Framework Name</p><input className={inputCls} value={fw.framework_name || ''} onChange={e => ef('framework.framework_name', e.target.value)} /></div>
+                        <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Tagline</p><input className={inputCls} value={fw.tagline || ''} onChange={e => ef('framework.tagline', e.target.value)} /></div>
+                      </div>
+                    ) : (
+                      <>
                         {fw.tagline && <p className="text-zinc-400 text-sm italic mb-4">{fw.tagline}</p>}
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                           {(fw.pillars || []).map((pillar, pi) => pillar.name && (
@@ -3546,9 +3651,9 @@ function AdminPageInner() {
                             </div>
                           ))}
                         </div>
-                      </div>
-                    )
-                  })()}
+                      </>
+                    )}
+                  </div>
                 </div>
                 )
               })()}
@@ -3573,6 +3678,10 @@ function AdminPageInner() {
                 const star = pp.brand_star || {}
                 const hero = pp.hero || {}
                 const remarkable = pp.remarkable || {}
+                const ed = editingPremiumPos
+                const ef = (path, val) => updatePlaybookField(setClientPremiumPos, path, val)
+                const inputCls = 'w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-white focus:border-gold/50 focus:outline-none'
+                const textareaCls = inputCls + ' min-h-[60px] resize-y'
 
                 return (
                 <div className="fade-in">
@@ -3590,7 +3699,7 @@ function AdminPageInner() {
                           <span className="text-[10px] font-bold text-zinc-500">/ {maxScore}</span>
                         </div>
                       </div>
-                      <div className="text-center sm:text-left">
+                      <div className="text-center sm:text-left flex-1">
                         <h2 className="text-lg font-black text-white uppercase tracking-wider">Premium Position™</h2>
                         <div className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border ${
                           totalScore >= 41 ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
@@ -3600,6 +3709,11 @@ function AdminPageInner() {
                         }`}>{band}</div>
                         <p className="text-zinc-600 text-xs mt-2">Stage {pp.current_stage || 1} of 5 · Updated {pp.updated_at ? new Date(pp.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'}</p>
                       </div>
+                      <button onClick={() => ed ? savePlaybookAdmin('premium-position') : setEditingPremiumPos(true)} disabled={playbookSaving}
+                        className={`px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest transition ${ed ? 'bg-gold text-zinc-950 hover:bg-gold-light' : 'bg-zinc-800 text-gold border border-gold/30 hover:bg-zinc-700'}`}>
+                        {ed ? (playbookSaving ? 'Saving...' : 'Save Changes') : 'Edit'}
+                      </button>
+                      {ed && <button onClick={() => setEditingPremiumPos(false)} className="px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest bg-zinc-800 text-zinc-400 hover:text-white transition">Cancel</button>}
                     </div>
                     <div className="grid grid-cols-4 gap-3 mt-6">
                       {[
@@ -3622,91 +3736,107 @@ function AdminPageInner() {
                   </div>
 
                   {/* Brand Bucket Diagnosis */}
-                  {bucket.likerts && (
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-4">
-                      <h3 className="text-xs font-bold text-sky-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <span className="text-base">🪣</span> Brand Bucket™ Diagnosis
-                      </h3>
-                      <div className="grid grid-cols-3 gap-4 mb-4">
-                        {[
-                          { label: 'Visibility', score: (bucket.likerts?.v1 || 0) + (bucket.likerts?.v2 || 0) + (bucket.likerts?.v3 || 0) + (bucket.likerts?.v4 || 0), color: 'text-sky-400' },
-                          { label: 'Engagement', score: (bucket.likerts?.e1 || 0) + (bucket.likerts?.e2 || 0) + (bucket.likerts?.e3 || 0) + (bucket.likerts?.e4 || 0), color: 'text-violet-400' },
-                          { label: 'Trust', score: (bucket.likerts?.t1 || 0) + (bucket.likerts?.t2 || 0) + (bucket.likerts?.t3 || 0) + (bucket.likerts?.t4 || 0), color: 'text-gold' },
-                        ].map(l => {
-                          const verdict = l.score >= 15 ? 'Healthy' : l.score >= 9 ? 'Needs attention' : 'Critical leak'
-                          const vColor = l.score >= 15 ? 'text-emerald-400' : l.score >= 9 ? 'text-amber-400' : 'text-red-400'
-                          return (
-                            <div key={l.label} className="text-center">
-                              <p className={`text-2xl font-black ${l.color}`}>{l.score}/20</p>
-                              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-1">{l.label}</p>
-                              <p className={`text-[10px] font-bold uppercase tracking-widest mt-0.5 ${vColor}`}>{verdict}</p>
-                            </div>
-                          )
-                        })}
-                      </div>
-                      {bucket.gap_description && (
-                        <div className="mt-3 pt-3 border-t border-zinc-800">
-                          <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">In Their Own Words</p>
-                          <p className="text-zinc-300 text-sm leading-relaxed">{bucket.gap_description}</p>
-                        </div>
-                      )}
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-4">
+                    <h3 className="text-xs font-bold text-sky-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <span className="text-base">🪣</span> Brand Bucket™ Diagnosis
+                    </h3>
+                    <div className="grid grid-cols-3 gap-4 mb-4">
+                      {[
+                        { label: 'Visibility', score: (bucket.likerts?.v1 || 0) + (bucket.likerts?.v2 || 0) + (bucket.likerts?.v3 || 0) + (bucket.likerts?.v4 || 0), color: 'text-sky-400' },
+                        { label: 'Engagement', score: (bucket.likerts?.e1 || 0) + (bucket.likerts?.e2 || 0) + (bucket.likerts?.e3 || 0) + (bucket.likerts?.e4 || 0), color: 'text-violet-400' },
+                        { label: 'Trust', score: (bucket.likerts?.t1 || 0) + (bucket.likerts?.t2 || 0) + (bucket.likerts?.t3 || 0) + (bucket.likerts?.t4 || 0), color: 'text-gold' },
+                      ].map(l => {
+                        const verdict = l.score >= 15 ? 'Healthy' : l.score >= 9 ? 'Needs attention' : 'Critical leak'
+                        const vColor = l.score >= 15 ? 'text-emerald-400' : l.score >= 9 ? 'text-amber-400' : 'text-red-400'
+                        return (
+                          <div key={l.label} className="text-center">
+                            <p className={`text-2xl font-black ${l.color}`}>{l.score}/20</p>
+                            <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mt-1">{l.label}</p>
+                            <p className={`text-[10px] font-bold uppercase tracking-widest mt-0.5 ${vColor}`}>{verdict}</p>
+                          </div>
+                        )
+                      })}
                     </div>
-                  )}
+                    <div className="mt-3 pt-3 border-t border-zinc-800">
+                      <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">In Their Own Words</p>
+                      {ed ? <textarea className={textareaCls} value={bucket.gap_description || ''} onChange={e => ef('bucket.gap_description', e.target.value)} /> : <p className="text-zinc-300 text-sm leading-relaxed">{bucket.gap_description || '—'}</p>}
+                    </div>
+                  </div>
 
                   {/* Brand Star Summary */}
-                  {(star.name || star.specific_description || star.contrarian_belief) && (
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-4">
-                      <h3 className="text-xs font-bold text-violet-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <span className="text-base">⭐</span> Colt Brand Star™
-                      </h3>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {star.name && <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Brand</p><p className="text-white text-sm font-semibold">{star.name}</p></div>}
-                        {star.specific_description && <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Who They Serve</p><p className="text-zinc-300 text-sm">{star.specific_description}</p></div>}
-                        {star.what_you_do && <div className="sm:col-span-2"><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">What They Do</p><p className="text-zinc-300 text-sm">{star.what_you_do}</p></div>}
-                        {star.contrarian_belief && <div className="sm:col-span-2"><p className="text-[10px] font-bold text-gold uppercase tracking-widest mb-1">Contrarian Belief</p><p className="text-white text-sm leading-relaxed italic">"{star.contrarian_belief}"</p></div>}
-                        {star.refuse && <div className="sm:col-span-2"><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">What They Refuse</p><p className="text-zinc-300 text-sm">{star.refuse}</p></div>}
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-4">
+                    <h3 className="text-xs font-bold text-violet-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <span className="text-base">⭐</span> Colt Brand Star™
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Brand</p>
+                        {ed ? <input className={inputCls} value={star.name || ''} onChange={e => ef('brand_star.name', e.target.value)} /> : <p className="text-white text-sm font-semibold">{star.name || '—'}</p>}
+                      </div>
+                      <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Who They Serve</p>
+                        {ed ? <input className={inputCls} value={star.specific_description || ''} onChange={e => ef('brand_star.specific_description', e.target.value)} /> : <p className="text-zinc-300 text-sm">{star.specific_description || '—'}</p>}
+                      </div>
+                      <div className="sm:col-span-2"><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">What They Do</p>
+                        {ed ? <textarea className={textareaCls} value={star.what_you_do || ''} onChange={e => ef('brand_star.what_you_do', e.target.value)} /> : <p className="text-zinc-300 text-sm">{star.what_you_do || '—'}</p>}
+                      </div>
+                      <div className="sm:col-span-2"><p className="text-[10px] font-bold text-gold uppercase tracking-widest mb-1">Contrarian Belief</p>
+                        {ed ? <textarea className={textareaCls} value={star.contrarian_belief || ''} onChange={e => ef('brand_star.contrarian_belief', e.target.value)} /> : <p className="text-white text-sm leading-relaxed italic">{star.contrarian_belief ? `"${star.contrarian_belief}"` : '—'}</p>}
+                      </div>
+                      <div className="sm:col-span-2"><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">What They Refuse</p>
+                        {ed ? <input className={inputCls} value={star.refuse || ''} onChange={e => ef('brand_star.refuse', e.target.value)} /> : <p className="text-zinc-300 text-sm">{star.refuse || '—'}</p>}
                       </div>
                     </div>
-                  )}
+                  </div>
 
                   {/* Hero Framework Summary */}
-                  {(hero.origin || hero.turning_point || hero.gift) && (
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-4">
-                      <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <span className="text-base">🦸</span> Hero Framework
-                      </h3>
-                      <div className="space-y-3">
-                        {hero.origin && <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Origin</p><p className="text-zinc-300 text-sm leading-relaxed">{hero.origin}</p></div>}
-                        {hero.turning_point && <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Turning Point</p><p className="text-zinc-300 text-sm leading-relaxed">{hero.turning_point}</p></div>}
-                        {hero.gift && <div><p className="text-[10px] font-bold text-gold uppercase tracking-widest mb-1">The Gift</p><p className="text-white text-sm leading-relaxed">{hero.gift}</p></div>}
-                        {hero.identity_label && <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Identity Label</p><p className="text-violet-400 text-sm font-semibold">{hero.identity_label}</p></div>}
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-4">
+                    <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <span className="text-base">🦸</span> Hero Framework
+                    </h3>
+                    <div className="space-y-3">
+                      <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Origin</p>
+                        {ed ? <textarea className={textareaCls} value={hero.origin || ''} onChange={e => ef('hero.origin', e.target.value)} /> : <p className="text-zinc-300 text-sm leading-relaxed">{hero.origin || '—'}</p>}
+                      </div>
+                      <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Turning Point</p>
+                        {ed ? <textarea className={textareaCls} value={hero.turning_point || ''} onChange={e => ef('hero.turning_point', e.target.value)} /> : <p className="text-zinc-300 text-sm leading-relaxed">{hero.turning_point || '—'}</p>}
+                      </div>
+                      <div><p className="text-[10px] font-bold text-gold uppercase tracking-widest mb-1">The Gift</p>
+                        {ed ? <textarea className={textareaCls} value={hero.gift || ''} onChange={e => ef('hero.gift', e.target.value)} /> : <p className="text-white text-sm leading-relaxed">{hero.gift || '—'}</p>}
+                      </div>
+                      <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Identity Label</p>
+                        {ed ? <input className={inputCls} value={hero.identity_label || ''} onChange={e => ef('hero.identity_label', e.target.value)} /> : <p className="text-violet-400 text-sm font-semibold">{hero.identity_label || '—'}</p>}
                       </div>
                     </div>
-                  )}
+                  </div>
 
                   {/* Remarkable Factor Summary */}
-                  {(remarkable.category || remarkable.mechanism || remarkable.provocation) && (
-                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-4">
-                      <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                        <span className="text-base">💎</span> Remarkable Factor
-                      </h3>
-                      {remarkable.category && <div className="mb-3"><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Category Owned</p><p className="text-white text-sm font-semibold">{remarkable.category}</p></div>}
-                      {remarkable.mechanism && <div className="mb-3"><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Unique Mechanism</p><p className="text-zinc-300 text-sm">{remarkable.mechanism}</p></div>}
-                      {remarkable.provocation && <div className="mb-3"><p className="text-[10px] font-bold text-gold uppercase tracking-widest mb-1">Provocation</p><p className="text-white text-sm leading-relaxed italic">"{remarkable.provocation}"</p></div>}
-                      {remarkable.signals?.length > 0 && (
-                        <div className="mt-3 pt-3 border-t border-zinc-800">
-                          <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1.5">Premium Signals</p>
-                          <div className="flex flex-wrap gap-1">{remarkable.signals.map(s => <span key={s} className="px-2 py-0.5 bg-emerald-900/20 text-emerald-400 rounded text-[10px] font-semibold">{s}</span>)}</div>
-                        </div>
-                      )}
-                      {remarkable.signal_gaps?.length > 0 && (
-                        <div className="mt-2">
-                          <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1.5">Signal Gaps</p>
-                          <div className="flex flex-wrap gap-1">{remarkable.signal_gaps.map(s => <span key={s} className="px-2 py-0.5 bg-red-900/20 text-red-400 rounded text-[10px] font-semibold">{s}</span>)}</div>
-                        </div>
-                      )}
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-4">
+                    <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <span className="text-base">💎</span> Remarkable Factor
+                    </h3>
+                    <div className="space-y-3">
+                      <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Category Owned</p>
+                        {ed ? <input className={inputCls} value={remarkable.category || ''} onChange={e => ef('remarkable.category', e.target.value)} /> : <p className="text-white text-sm font-semibold">{remarkable.category || '—'}</p>}
+                      </div>
+                      <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Unique Mechanism</p>
+                        {ed ? <textarea className={textareaCls} value={remarkable.mechanism || ''} onChange={e => ef('remarkable.mechanism', e.target.value)} /> : <p className="text-zinc-300 text-sm">{remarkable.mechanism || '—'}</p>}
+                      </div>
+                      <div><p className="text-[10px] font-bold text-gold uppercase tracking-widest mb-1">Provocation</p>
+                        {ed ? <textarea className={textareaCls} value={remarkable.provocation || ''} onChange={e => ef('remarkable.provocation', e.target.value)} /> : <p className="text-white text-sm leading-relaxed italic">{remarkable.provocation ? `"${remarkable.provocation}"` : '—'}</p>}
+                      </div>
                     </div>
-                  )}
+                    {remarkable.signals?.length > 0 && (
+                      <div className="mt-3 pt-3 border-t border-zinc-800">
+                        <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1.5">Premium Signals</p>
+                        <div className="flex flex-wrap gap-1">{remarkable.signals.map(s => <span key={s} className="px-2 py-0.5 bg-emerald-900/20 text-emerald-400 rounded text-[10px] font-semibold">{s}</span>)}</div>
+                      </div>
+                    )}
+                    {remarkable.signal_gaps?.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1.5">Signal Gaps</p>
+                        <div className="flex flex-wrap gap-1">{remarkable.signal_gaps.map(s => <span key={s} className="px-2 py-0.5 bg-red-900/20 text-red-400 rounded text-[10px] font-semibold">{s}</span>)}</div>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 )
               })()}
@@ -3730,6 +3860,9 @@ function AdminPageInner() {
                   'The Trinity Trap™', 'The Ascension Ladder™', 'The Brokie Venn™', 'The Rewire Triangle™',
                   'The Matrix™', 'The Transition Bridge™', 'The Financial Sabotage Loop™', 'The Wealth Cycle™'
                 ]
+                const ed = editingWealthWired
+                const ef = (path, val) => updatePlaybookField(setClientWealthWired, path, val)
+                const textareaCls = 'w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-white focus:border-gold/50 focus:outline-none min-h-[60px] resize-y'
 
                 return (
                 <div className="fade-in">
@@ -3747,7 +3880,7 @@ function AdminPageInner() {
                           <span className="text-[10px] font-bold text-zinc-500">/ 40</span>
                         </div>
                       </div>
-                      <div className="text-center sm:text-left">
+                      <div className="text-center sm:text-left flex-1">
                         <h2 className="text-lg font-black text-white uppercase tracking-wider">Wealth Wired™</h2>
                         <div className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border ${
                           totalScore >= 35 ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
@@ -3757,6 +3890,11 @@ function AdminPageInner() {
                         }`}>{band}</div>
                         <p className="text-zinc-600 text-xs mt-2">Module {ww.current_module || 1} of 8 · Updated {ww.updated_at ? new Date(ww.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'}</p>
                       </div>
+                      <button onClick={() => ed ? savePlaybookAdmin('wealth-wired') : setEditingWealthWired(true)} disabled={playbookSaving}
+                        className={`px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest transition ${ed ? 'bg-gold text-zinc-950 hover:bg-gold-light' : 'bg-zinc-800 text-gold border border-gold/30 hover:bg-zinc-700'}`}>
+                        {ed ? (playbookSaving ? 'Saving...' : 'Save Changes') : 'Edit'}
+                      </button>
+                      {ed && <button onClick={() => setEditingWealthWired(false)} className="px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest bg-zinc-800 text-zinc-400 hover:text-white transition">Cancel</button>}
                     </div>
                   </div>
 
@@ -3768,28 +3906,22 @@ function AdminPageInner() {
                       return (
                         <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
                           <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-3">Module {i + 1} — {name}</h3>
-                          {!hasMod ? (
+                          {!ed && !hasMod ? (
                             <p className="text-zinc-600 text-sm">Not started</p>
                           ) : (
                             <div className="space-y-3">
-                              {mod.reflection && (
-                                <div>
-                                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Reflection</p>
-                                  <p className="text-zinc-300 text-sm leading-relaxed">{mod.reflection}</p>
-                                </div>
-                              )}
-                              {mod.audit && (
-                                <div>
-                                  <p className="text-[10px] font-bold text-sky-400 uppercase tracking-widest mb-1">Audit</p>
-                                  <p className="text-zinc-300 text-sm leading-relaxed">{mod.audit}</p>
-                                </div>
-                              )}
-                              {mod.go_deeper && (
-                                <div>
-                                  <p className="text-[10px] font-bold text-violet-400 uppercase tracking-widest mb-1">Go Deeper</p>
-                                  <p className="text-zinc-300 text-sm leading-relaxed">{mod.go_deeper}</p>
-                                </div>
-                              )}
+                              <div>
+                                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Reflection</p>
+                                {ed ? <textarea className={textareaCls} value={mod.reflection || ''} onChange={e => ef(`module_${i + 1}.reflection`, e.target.value)} /> : <p className="text-zinc-300 text-sm leading-relaxed">{mod.reflection || '—'}</p>}
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-bold text-sky-400 uppercase tracking-widest mb-1">Audit</p>
+                                {ed ? <textarea className={textareaCls} value={mod.audit || ''} onChange={e => ef(`module_${i + 1}.audit`, e.target.value)} /> : <p className="text-zinc-300 text-sm leading-relaxed">{mod.audit || '—'}</p>}
+                              </div>
+                              <div>
+                                <p className="text-[10px] font-bold text-violet-400 uppercase tracking-widest mb-1">Go Deeper</p>
+                                {ed ? <textarea className={textareaCls} value={mod.go_deeper || ''} onChange={e => ef(`module_${i + 1}.go_deeper`, e.target.value)} /> : <p className="text-zinc-300 text-sm leading-relaxed">{mod.go_deeper || '—'}</p>}
+                              </div>
                             </div>
                           )}
                         </div>
