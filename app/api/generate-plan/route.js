@@ -285,12 +285,24 @@ Reference their specific offer details, ICP data, and pricing throughout. Make i
 
     const maxTokens = type === 'unshakeable' && Number(data.duration) >= 14 ? 4500 : 2500
 
-    const message = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: maxTokens,
-      system: systemPrompt,
-      messages: [{ role: 'user', content: userPrompt }],
-    })
+    let message
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        message = await client.messages.create({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: maxTokens,
+          system: systemPrompt,
+          messages: [{ role: 'user', content: userPrompt }],
+        })
+        break
+      } catch (apiErr) {
+        if (apiErr.status === 529 && attempt < 2) {
+          await new Promise(r => setTimeout(r, (attempt + 1) * 2000))
+          continue
+        }
+        throw apiErr
+      }
+    }
 
     const text = message.content[0].type === 'text' ? message.content[0].text : ''
 
@@ -323,6 +335,7 @@ Reference their specific offer details, ICP data, and pricing throughout. Make i
     return NextResponse.json({ plan: text })
   } catch (err) {
     console.error('Generate plan error:', err)
-    return NextResponse.json({ error: err.message || 'Failed to generate plan' }, { status: 500 })
+    const msg = err.status === 529 ? 'AI is temporarily busy — please try again in a minute' : (err.message || 'Failed to generate plan')
+    return NextResponse.json({ error: msg }, { status: 500 })
   }
 }
