@@ -118,12 +118,13 @@ function defaultAdventures() {
   }))
 }
 
-function expandTasksForRange(tasks, startStr, endStr, taskCompletions = []) {
+function expandTasksForRange(tasks, startStr, endStr, taskCompletions = [], taskExclusions = []) {
   const start = new Date(startStr + 'T00:00:00')
   const end = new Date(endStr + 'T23:59:59')
   const result = []
   // Build a Set of "taskId:date" for fast lookup of per-day completions
   const completionSet = new Set(taskCompletions.map(c => `${c.task_id}:${c.completion_date}`))
+  const exclusionSet = new Set(taskExclusions.map(e => `${e.task_id}:${e.exclusion_date}`))
   tasks.filter(t => t.status === 'schedule' && t.scheduled_date).forEach(task => {
     const recurring = task.recurring || 'none'
     let d = new Date(task.scheduled_date + 'T00:00:00')
@@ -134,7 +135,7 @@ function expandTasksForRange(tasks, startStr, endStr, taskCompletions = []) {
       while (d <= end && iter < 500) {
         iter++
         const dateStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-        if (d >= start) {
+        if (d >= start && !exclusionSet.has(`${task.id}:${dateStr}`)) {
           // For recurring tasks, check per-day completion instead of the task's own completed flag
           const dayCompleted = completionSet.has(`${task.id}:${dateStr}`)
           result.push({ ...task, _displayDate: dateStr, completed: dayCompleted, _isRecurring: true })
@@ -368,6 +369,7 @@ export default function ClientPage() {
   // Weekly War Map
   const [warMapTasks, setWarMapTasks] = useState([])
   const [warMapTaskCompletions, setWarMapTaskCompletions] = useState([])
+  const [warMapTaskExclusions, setWarMapTaskExclusions] = useState([])
   const [warMapInput, setWarMapInput] = useState('')
   const [editingTaskId, setEditingTaskId] = useState(null)
   const [editingTaskTitle, setEditingTaskTitle] = useState('')
@@ -534,10 +536,15 @@ export default function ClientPage() {
       // Fetch per-day completions for recurring tasks
       const recurringIds = warRes.data.filter(t => t.recurring && t.recurring !== 'none').map(t => t.id)
       if (recurringIds.length > 0) {
-        const { data: compData } = await supabase.from('war_map_task_completions').select('task_id, completion_date').in('task_id', recurringIds)
+        const [{ data: compData }, { data: exclData }] = await Promise.all([
+          supabase.from('war_map_task_completions').select('task_id, completion_date').in('task_id', recurringIds),
+          supabase.from('war_map_task_exclusions').select('task_id, exclusion_date').in('task_id', recurringIds),
+        ])
         if (compData) setWarMapTaskCompletions(compData)
+        if (exclData) setWarMapTaskExclusions(exclData)
       } else {
         setWarMapTaskCompletions([])
+        setWarMapTaskExclusions([])
       }
     }
     if (weeklyRes.data) {
@@ -1250,6 +1257,14 @@ export default function ClientPage() {
     }
   }
 
+  const skipOccurrence = async (taskId, displayDate) => {
+    const { data } = await supabase.from('war_map_task_exclusions').insert([{
+      task_id: taskId,
+      exclusion_date: displayDate,
+    }]).select().single()
+    if (data) setWarMapTaskExclusions(prev => [...prev, data])
+  }
+
   // ── Drag-and-drop for calendar ──────────────────────────────────────────────
 
   const moveTask = async (task, newDate, newTime) => {
@@ -1613,10 +1628,10 @@ export default function ClientPage() {
     return result
   }
 
-  const warTasksWeek = expandTasksForRange(warMapTasks, weekDays[0], weekDays[6], warMapTaskCompletions)
-  const warTasksMonth = expandTasksForRange(warMapTasks, monthStart, monthEnd, warMapTaskCompletions)
-  const warTasksDay = expandTasksForRange(warMapTasks, dayViewDate, dayViewDate, warMapTaskCompletions)
-  const warTasksPulse = expandTasksForRange(warMapTasks, dailyPulseDate, dailyPulseDate, warMapTaskCompletions)
+  const warTasksWeek = expandTasksForRange(warMapTasks, weekDays[0], weekDays[6], warMapTaskCompletions, warMapTaskExclusions)
+  const warTasksMonth = expandTasksForRange(warMapTasks, monthStart, monthEnd, warMapTaskCompletions, warMapTaskExclusions)
+  const warTasksDay = expandTasksForRange(warMapTasks, dayViewDate, dayViewDate, warMapTaskCompletions, warMapTaskExclusions)
+  const warTasksPulse = expandTasksForRange(warMapTasks, dailyPulseDate, dailyPulseDate, warMapTaskCompletions, warMapTaskExclusions)
 
   // Get Design™ calendar items (adventures, days off) as all-day reminders
   const getDesignCalendarItems = (startStr, endStr) => {
@@ -5018,16 +5033,24 @@ export default function ClientPage() {
                       <p className="text-zinc-300 text-sm capitalize">{taskModal.task.recurring}</p>
                     </div>
                   )}
-                  <div className="flex gap-3 pt-2">
-                    {!taskModal.task.completed && (
-                      <button onClick={() => openEditModal(taskModal.task)}
-                        className="flex-1 py-2.5 border border-zinc-700 hover:border-gold hover:text-gold text-zinc-300 font-bold text-xs uppercase tracking-widest rounded transition">
-                        Edit
-                      </button>
-                    )}
-                    <button onClick={() => setConfirmAction({ message: 'This task will be permanently deleted.', onConfirm: () => { deleteTask(taskModal.task.id, taskModal.task._isProjectTask); setTaskModal(null) } })}
-                      className="flex-1 py-2.5 border border-red-900 hover:bg-red-900/20 text-red-400 font-bold text-xs uppercase tracking-widest rounded transition">
-                      Delete
+                  <div className="flex flex-col gap-2 pt-2">
+                    <div className="flex gap-3">
+                      {!taskModal.task.completed && (
+                        <button onClick={() => openEditModal(taskModal.task)}
+                          className="flex-1 py-2.5 border border-zinc-700 hover:border-gold hover:text-gold text-zinc-300 font-bold text-xs uppercase tracking-widest rounded transition">
+                          Edit
+                        </button>
+                      )}
+                      {taskModal.task._isRecurring && (
+                        <button onClick={() => { skipOccurrence(taskModal.task.id, taskModal.task._displayDate); setTaskModal(null) }}
+                          className="flex-1 py-2.5 border border-amber-900 hover:bg-amber-900/20 text-amber-400 font-bold text-xs uppercase tracking-widest rounded transition">
+                          Skip This Day
+                        </button>
+                      )}
+                    </div>
+                    <button onClick={() => setConfirmAction({ message: taskModal.task._isRecurring ? 'This will delete the ENTIRE recurring series. Use "Skip This Day" to remove just one occurrence.' : 'This task will be permanently deleted.', onConfirm: () => { deleteTask(taskModal.task.id, taskModal.task._isProjectTask); setTaskModal(null) } })}
+                      className="w-full py-2.5 border border-red-900 hover:bg-red-900/20 text-red-400 font-bold text-xs uppercase tracking-widest rounded transition">
+                      {taskModal.task._isRecurring ? 'Delete Entire Series' : 'Delete'}
                     </button>
                   </div>
                 </div>
