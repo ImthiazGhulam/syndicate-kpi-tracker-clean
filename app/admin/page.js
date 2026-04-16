@@ -213,6 +213,8 @@ function AdminPageInner() {
   const [editingWealthWired, setEditingWealthWired] = useState(false)
   const [playbookSaving, setPlaybookSaving] = useState(false)
   const [clientUnshakeable, setClientUnshakeable] = useState(null)
+  const [clientBounceBack, setClientBounceBack] = useState(null)
+  const [editingBounceBack, setEditingBounceBack] = useState(false)
   const [clientAIAccelerator, setClientAIAccelerator] = useState(null)
   const [identityChange, setIdentityChange] = useState(null)
   const [lifeDesign, setLifeDesign] = useState(null)
@@ -368,6 +370,7 @@ function AdminPageInner() {
     setClientPremiumPos(null)
     setClientWealthWired(null)
     setClientUnshakeable(null)
+    setClientBounceBack(null)
     setClientAIAccelerator(null)
     setAllClientLockIns([])
     setAllClientWarMaps([])
@@ -403,6 +406,7 @@ function AdminPageInner() {
       premiumPosRes,    // 16. premium_position
       wealthWiredRes,   // 16b. wealth_wired
       unshakeableRes,   // 16c. unshakeable_playbook
+      bounceBackRes,    // 16e. bounce_back
       aiAccelRes,       // 16d. ai_accelerator
       allLockInsRes,    // 17. weekly_review (all)
       allWarMapsRes,    // 18. war_map_weekly (all)
@@ -425,6 +429,7 @@ function AdminPageInner() {
       safe(supabase.from('premium_position').select('*').eq('client_id', client.id).maybeSingle()),                                         // 16
       safe(supabase.from('wealth_wired').select('*').eq('client_id', client.id).maybeSingle()),                                              // 16b
       safe(supabase.from('unshakeable_playbook').select('*').eq('client_id', client.id).order('created_at', { ascending: false })),         // 16c
+      safe(supabase.from('bounce_back').select('*').eq('client_id', client.id).maybeSingle()),                                              // 16e
       safe(supabase.from('ai_accelerator').select('*').eq('client_id', client.id).order('created_at', { ascending: false })),              // 16d
       safe(supabase.from('weekly_review').select('week_of, completed, completed_at, revenue, week_rating').eq('client_id', client.id).order('week_of', { ascending: false })), // 17
       safe(supabase.from('war_map_weekly').select('week_of, completed, completed_at, number_one_priority').eq('client_id', client.id).order('week_of', { ascending: false })), // 18
@@ -445,6 +450,7 @@ function AdminPageInner() {
     setClientPremiumPos(premiumPosRes.data && !Array.isArray(premiumPosRes.data) ? premiumPosRes.data : null)
     setClientWealthWired(wealthWiredRes.data && !Array.isArray(wealthWiredRes.data) ? wealthWiredRes.data : null)
     setClientUnshakeable(Array.isArray(unshakeableRes.data) && unshakeableRes.data.length > 0 ? unshakeableRes.data : null)
+    setClientBounceBack(bounceBackRes.data && !Array.isArray(bounceBackRes.data) ? bounceBackRes.data : null)
     setClientAIAccelerator(Array.isArray(aiAccelRes.data) && aiAccelRes.data.length > 0 ? aiAccelRes.data : null)
     setAllClientLockIns(Array.isArray(allLockInsRes.data) ? allLockInsRes.data : [])
     setAllClientWarMaps(Array.isArray(allWarMapsRes.data) ? allWarMapsRes.data : [])
@@ -746,6 +752,12 @@ function AdminPageInner() {
         const { error } = await supabase.from('wealth_wired').update(payload).eq('id', clientWealthWired.id)
         if (error) { alert('Save failed: ' + error.message); setPlaybookSaving(false); return }
         setEditingWealthWired(false)
+      } else if (type === 'bounce-back' && clientBounceBack?.id) {
+        const payload = { updated_at: new Date().toISOString() }
+        for (let i = 1; i <= 5; i++) payload[`module_${i}`] = clientBounceBack[`module_${i}`] || {}
+        const { error } = await supabase.from('bounce_back').update(payload).eq('id', clientBounceBack.id)
+        if (error) { alert('Save failed: ' + error.message); setPlaybookSaving(false); return }
+        setEditingBounceBack(false)
       }
     } catch (e) { alert('Save failed: ' + e.message) }
     setPlaybookSaving(false)
@@ -858,6 +870,7 @@ function AdminPageInner() {
     { heading: 'Rewire™', items: [
       { id: 'wealth-wired', label: 'Wealth Wired™' },
       { id: 'unshakeable', label: 'Performance Flywheel™' },
+      { id: 'bounce-back', label: 'BounceBackAbility™' },
     ]},
   ]
 
@@ -4038,6 +4051,131 @@ function AdminPageInner() {
                     </div>
                     )
                   })}
+                </div>
+                )
+              })()}
+
+              {activeTab === 'bounce-back' && (() => {
+                if (!clientBounceBack) return (
+                  <div className="fade-in text-center py-16">
+                    <span className="text-4xl mb-4 block">🎾</span>
+                    <p className="text-zinc-500 text-sm font-medium">Client hasn&apos;t started their BounceBackAbility&trade; Playbook yet.</p>
+                  </div>
+                )
+
+                const bb = clientBounceBack
+                const scores = bb.scores || {}
+                const totalScore = scores.total_score || 0
+                const band = totalScore >= 41 ? 'Resilient' : totalScore >= 31 ? 'Strong' : totalScore >= 21 ? 'Getting There' : 'Needs Work'
+                const BB_MODULES = [
+                  'Look Back', 'Acknowledge', 'Recognize', 'Climb Out', 'Consolidate'
+                ]
+                const BB_QUESTIONS = [
+                  [
+                    'What specific event or situation has knocked you off course?',
+                    'Were you genuinely unlucky, or were there red flags you ignored?',
+                    'What were you not paying attention to?',
+                    'Who or what did you allow to distract you?',
+                    'What would your future self tell you to pay attention to?',
+                  ],
+                  [
+                    'What role did you knowingly play in this situation?',
+                    'What decisions did you make or avoid that contributed?',
+                    'Were there people who tried to warn you?',
+                    'What story have you been telling yourself vs the truth?',
+                    'How much of this was within your control?',
+                  ],
+                  [
+                    'How has this affected your health?',
+                    'How has it affected your productivity and output?',
+                    'How has it affected your relationships?',
+                    'How has it affected your finances?',
+                    'What emotional trigger is driving your current behaviour?',
+                  ],
+                  [
+                    'Three most important actions this week?',
+                    'What tools/systems/habits do you need to restart?',
+                    'Who do you need to talk to and what needs to be said?',
+                    'What ONE thing would create the most momentum?',
+                    'What does your daily routine need to look like for 30 days?',
+                  ],
+                  [
+                    'What will you do differently next time?',
+                    'What new system/boundary/rule are you putting in place?',
+                    'What has this taught you about yourself?',
+                    'How has this made you stronger? What weapon have you forged?',
+                    'Message to your future self for the next time life throws a punch?',
+                  ],
+                ]
+                const ed = editingBounceBack
+                const ef = (path, val) => updatePlaybookField(setClientBounceBack, path, val)
+                const textareaCls = 'w-full bg-zinc-800 border border-zinc-700 rounded px-3 py-2 text-sm text-white focus:border-gold/50 focus:outline-none min-h-[60px] resize-y'
+
+                return (
+                <div className="fade-in">
+                  {/* Score Hero */}
+                  <div className="bg-gradient-to-br from-zinc-900 via-zinc-900 to-zinc-800 border border-zinc-700/50 rounded-2xl p-6 sm:p-8 mb-6">
+                    <div className="flex flex-col sm:flex-row items-center gap-6">
+                      <div className="relative flex-shrink-0">
+                        <svg className="w-28 h-28 -rotate-90" viewBox="0 0 120 120">
+                          <circle cx="60" cy="60" r="52" fill="none" stroke="#27272a" strokeWidth="6" />
+                          <circle cx="60" cy="60" r="52" fill="none" stroke="#C9A84C" strokeWidth="6"
+                            strokeDasharray={`${(totalScore / 50) * 326.7} 326.7`} strokeLinecap="round" />
+                        </svg>
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                          <span className="text-3xl font-black text-white">{totalScore}</span>
+                          <span className="text-[10px] font-bold text-zinc-500">/ 50</span>
+                        </div>
+                      </div>
+                      <div className="text-center sm:text-left flex-1">
+                        <h2 className="text-lg font-black text-white uppercase tracking-wider">BounceBackAbility&trade;</h2>
+                        <div className={`inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border ${
+                          totalScore >= 41 ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
+                          totalScore >= 31 ? 'bg-gold/20 text-gold border-gold/30' :
+                          totalScore >= 21 ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
+                          'bg-red-500/20 text-red-400 border-red-500/30'
+                        }`}>{band}</div>
+                        <p className="text-zinc-600 text-xs mt-2">Module {bb.current_module || 1} of 5 &middot; Updated {bb.updated_at ? new Date(bb.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '\u2014'}</p>
+                      </div>
+                      <button onClick={() => ed ? savePlaybookAdmin('bounce-back') : setEditingBounceBack(true)} disabled={playbookSaving}
+                        className={`px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest transition ${ed ? 'bg-gold text-zinc-950 hover:bg-gold-light' : 'bg-zinc-800 text-gold border border-gold/30 hover:bg-zinc-700'}`}>
+                        {ed ? (playbookSaving ? 'Saving...' : 'Save Changes') : 'Edit'}
+                      </button>
+                      {ed && <button onClick={() => setEditingBounceBack(false)} className="px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest bg-zinc-800 text-zinc-400 hover:text-white transition">Cancel</button>}
+                    </div>
+                  </div>
+
+                  {/* Module Answers */}
+                  <div className="space-y-4">
+                    {BB_MODULES.map((name, i) => {
+                      const mod = bb[`module_${i + 1}`] || {}
+                      const hasMod = mod.q1 || mod.q2 || mod.q3 || mod.q4 || mod.q5
+                      return (
+                        <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+                          <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-3">Module {i + 1} &mdash; {name}</h3>
+                          {!ed && !hasMod ? (
+                            <p className="text-zinc-600 text-sm">Not started</p>
+                          ) : (
+                            <div className="space-y-3">
+                              {BB_QUESTIONS[i].map((q, qi) => (
+                                <div key={qi}>
+                                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1">Q{qi + 1}: {q}</p>
+                                  {ed ? <textarea className={textareaCls} value={mod[`q${qi + 1}`] || ''} onChange={e => ef(`module_${i + 1}.q${qi + 1}`, e.target.value)} /> : <p className="text-zinc-300 text-sm leading-relaxed">{mod[`q${qi + 1}`] || '\u2014'}</p>}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  {/* Generated Plan */}
+                  {bb.generated_plan && (
+                    <div className="bg-zinc-900 border border-gold/30 rounded-xl p-6 mt-6">
+                      <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-4">Generated BounceBackAbility&trade; Action Plan</h3>
+                      <div className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">{bb.generated_plan}</div>
+                    </div>
+                  )}
+                  </div>
                 </div>
                 )
               })()}

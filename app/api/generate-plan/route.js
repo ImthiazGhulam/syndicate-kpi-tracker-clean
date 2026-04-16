@@ -277,6 +277,58 @@ Write a 30-day offer launch plan:
 - Revenue projection based on their pricing and a realistic conversion path
 
 Reference their specific offer details, ICP data, and pricing throughout. Make it a plan they can execute immediately.`
+
+    } else if (type === 'bounce-back') {
+      systemPrompt = 'You are a direct, no-nonsense resilience coach inspired by David Goggins. You write raw, honest, actionable recovery plans. No fluff, no motivational filler. Every sentence must be a specific action or a hard truth tied to what the client actually wrote. Tone: like a mentor who genuinely cares but refuses to let you stay in the pit. You understand the LARCC framework — Look back, Acknowledge, Recognize, Climb out, Consolidate.'
+      userPrompt = `Based on this client's BounceBackAbility™ LARCC framework answers, write a personalised recovery and growth plan.
+
+Their answers across 5 resilience modules:
+
+LOOK BACK (Were you unlucky or not paying attention?)
+Q1 - The situation: ${data.module_1?.q1 || 'Not answered'}
+Q2 - Red flags ignored: ${data.module_1?.q2 || 'Not answered'}
+Q3 - Where focus slipped: ${data.module_1?.q3 || 'Not answered'}
+Q4 - Distractions allowed: ${data.module_1?.q4 || 'Not answered'}
+Q5 - Future self advice: ${data.module_1?.q5 || 'Not answered'}
+
+ACKNOWLEDGE (What role did you knowingly play?)
+Q1 - Their role: ${data.module_2?.q1 || 'Not answered'}
+Q2 - Decisions made/avoided: ${data.module_2?.q2 || 'Not answered'}
+Q3 - Warnings dismissed: ${data.module_2?.q3 || 'Not answered'}
+Q4 - Story vs truth: ${data.module_2?.q4 || 'Not answered'}
+Q5 - Control assessment: ${data.module_2?.q5 || 'Not answered'}
+
+RECOGNIZE (How bad has it got?)
+Q1 - Health impact: ${data.module_3?.q1 || 'Not answered'}
+Q2 - Productivity impact: ${data.module_3?.q2 || 'Not answered'}
+Q3 - Relationship impact: ${data.module_3?.q3 || 'Not answered'}
+Q4 - Financial impact: ${data.module_3?.q4 || 'Not answered'}
+Q5 - Emotional trigger: ${data.module_3?.q5 || 'Not answered'}
+
+CLIMB OUT (What actions need to be taken?)
+Q1 - This week's actions: ${data.module_4?.q1 || 'Not answered'}
+Q2 - Systems to restart: ${data.module_4?.q2 || 'Not answered'}
+Q3 - Conversations needed: ${data.module_4?.q3 || 'Not answered'}
+Q4 - Highest leverage fix: ${data.module_4?.q4 || 'Not answered'}
+Q5 - 30-day routine: ${data.module_4?.q5 || 'Not answered'}
+
+CONSOLIDATE (What will you do differently?)
+Q1 - Prevention plan: ${data.module_5?.q1 || 'Not answered'}
+Q2 - New systems/boundaries: ${data.module_5?.q2 || 'Not answered'}
+Q3 - Self-knowledge gained: ${data.module_5?.q3 || 'Not answered'}
+Q4 - Weapon forged: ${data.module_5?.q4 || 'Not answered'}
+Q5 - Message to future self: ${data.module_5?.q5 || 'Not answered'}
+
+Write a 30-day BounceBackAbility™ recovery plan structured as:
+- Week 1 — STABILISE: 3 specific actions to stop the bleeding, based on their Look Back and Acknowledge answers. Address the red flags they identified and the role they played.
+- Week 2 — REBUILD: 3 specific actions to repair the damage they identified in Recognize. Hit their health, productivity, relationships, and finances directly.
+- Week 3 — ACCELERATE: 3 specific actions from their Climb Out answers. Use the exact systems and conversations they identified. Build on the momentum they named.
+- Week 4 — FORTIFY: 3 specific actions from their Consolidate answers. Lock in the new systems, boundaries, and prevention measures so this never happens again.
+- 3 Non-Negotiable Commitments pulled from what they actually wrote — the three things that, if they do nothing else, will break the cycle.
+
+End with their own message to their future self (from Consolidate Q5) as a reminder of who they are becoming.
+
+Reference their specific words and situations throughout. Do not give generic advice. Every action must be tied to something they personally revealed. Be direct. Be specific. Be useful. This person needs to bounce back — help them weaponize this setback.`
     }
 
     if (!systemPrompt) {
