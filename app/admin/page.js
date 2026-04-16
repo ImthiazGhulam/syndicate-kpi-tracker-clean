@@ -4074,7 +4074,7 @@ function AdminPageInner() {
                   [
                     'What specific event or situation has knocked you off course?',
                     'Were you genuinely unlucky, or were there red flags you ignored?',
-                    'What were you not paying attention to?',
+                    'What were you not paying attention to? Health, relationships, routine, finances, time?',
                     'Who or what did you allow to distract you?',
                     'What would your future self tell you to pay attention to?',
                   ],
@@ -4087,14 +4087,14 @@ function AdminPageInner() {
                   ],
                   [
                     'How has this affected your health?',
-                    'How has it affected your productivity and output?',
+                    'How has it affected your productivity and output in life or work?',
                     'How has it affected your relationships?',
                     'How has it affected your finances?',
                     'What emotional trigger is driving your current behaviour?',
                   ],
                   [
                     'Three most important actions this week?',
-                    'What tools/systems/habits do you need to restart?',
+                    'What habits, routines, or systems do you need to restart?',
                     'Who do you need to talk to and what needs to be said?',
                     'What ONE thing would create the most momentum?',
                     'What does your daily routine need to look like for 30 days?',

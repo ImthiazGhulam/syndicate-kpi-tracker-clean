@@ -25,7 +25,7 @@ const MODULES = [
     questions: [
       'What specific event or situation has knocked you off course? Describe it in detail — what happened, when, and how it hit you.',
       'Looking back honestly — were you genuinely unlucky, or were there red flags you ignored? List any warning signs you can now see.',
-      'What were you not paying attention to? Was it your hot list, your business tracker, your morning ops, your time management — where did your focus slip?',
+      'What were you not paying attention to? Your health, your relationships, your routine, your finances, your time management — where did your focus slip?',
       'Who or what did you allow to distract you from what mattered most during this period?',
       'If your future self could go back to the week before this happened — what would they tell you to pay attention to?',
     ],
@@ -34,7 +34,7 @@ const MODULES = [
     num: 2,
     title: 'Acknowledge',
     letter: 'A',
-    recap: 'Instead of blaming the market, the economy, your clients, or bad luck — ask yourself one question: what role did I knowingly play? This is the hardest step because it requires radical honesty. Neglect, avoidance, laziness, fear — whatever it was, name it. The moment you own your role in what happened, you take back the power to change it. Blaming keeps you stuck. Acknowledging sets you free.',
+    recap: 'Instead of blaming other people, circumstances, or bad luck — ask yourself one question: what role did I knowingly play? This is the hardest step because it requires radical honesty. Neglect, avoidance, laziness, fear — whatever it was, name it. The moment you own your role in what happened, you take back the power to change it. Blaming keeps you stuck. Acknowledging sets you free.',
     questions: [
       'What role did you knowingly play in this situation happening? Be brutally honest — neglect, avoidance, laziness, fear — name it.',
       'What decisions did you make (or avoid making) that contributed directly to where you are now?',
@@ -50,7 +50,7 @@ const MODULES = [
     recap: 'Recognize how bad it has actually got. Not how bad you think it is, not the version you tell other people — the truth. Your health, your productivity, your relationships, your finances. When you are in a downward spiral, it bleeds into everything. You get snappy with the missus. Your finances slip. Your energy tanks. You stop doing the basics. This step forces you to take an honest audit of the real damage — because you cannot fix what you refuse to see.',
     questions: [
       'How has this situation affected your health — sleep, energy, fitness, eating habits? Be specific about what\'s changed.',
-      'How has it affected your productivity and output? What\'s dropped, stalled, or been neglected in your business?',
+      'How has it affected your productivity and output? What\'s dropped, stalled, or been neglected in your life or work?',
       'How has it affected your relationships — partner, family, friends, clients? Are you snappy, withdrawn, distant?',
       'How has it affected your finances — cash flow, savings, spending habits, debt? What\'s the real damage?',
       'What is the single biggest thing that\'s been triggered emotionally — and how is that emotion driving your current behaviour?',
@@ -60,10 +60,10 @@ const MODULES = [
     num: 4,
     title: 'Climb Out',
     letter: 'C',
-    recap: 'Now you know what happened, you own your role in it, and you can see the real damage. This is where you build the ladder out of the pit. What actions need to be taken right now? Not next month, not when you feel ready — now. Maybe you need to start using your business tracker again. Maybe you need to update your hot list. Maybe you need to have a difficult conversation. The climb out is about identifying the specific, concrete actions that will create momentum.',
+    recap: 'Now you know what happened, you own your role in it, and you can see the real damage. This is where you build the ladder out of the pit. What actions need to be taken right now? Not next month, not when you feel ready — now. Maybe you need to restart a habit you dropped. Maybe you need to set a boundary. Maybe you need to have a difficult conversation. The climb out is about identifying the specific, concrete actions that will create momentum.',
     questions: [
       'What are the three most important actions you need to take THIS WEEK to start climbing out of this situation?',
-      'What tools, systems, or habits did you stop using that you need to restart immediately? (Business tracker, hot list, morning ops, debrief, etc.)',
+      'What habits, routines, or systems did you stop doing that you need to restart immediately?',
       'Who do you need to have a conversation with — and what needs to be said? Be specific about the person and the message.',
       'What is the ONE thing that, if you fixed it first, would create the most momentum for everything else to follow?',
       'What does your daily routine need to look like for the next 30 days to rebuild? Map out your non-negotiable schedule.',

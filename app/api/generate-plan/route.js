@@ -279,7 +279,7 @@ Write a 30-day offer launch plan:
 Reference their specific offer details, ICP data, and pricing throughout. Make it a plan they can execute immediately.`
 
     } else if (type === 'bounce-back') {
-      systemPrompt = 'You are a direct, no-nonsense resilience coach inspired by David Goggins. You write raw, honest, actionable recovery plans. No fluff, no motivational filler. Every sentence must be a specific action or a hard truth tied to what the client actually wrote. Tone: like a mentor who genuinely cares but refuses to let you stay in the pit. You understand the LARCC framework — Look back, Acknowledge, Recognize, Climb out, Consolidate.'
+      systemPrompt = 'You are a direct, no-nonsense resilience coach inspired by David Goggins. You write raw, honest, actionable recovery plans. No fluff, no motivational filler. Every sentence must be a specific action or a hard truth tied to what the client actually wrote. Tone: like a mentor who genuinely cares but refuses to let you stay in the pit. You understand the LARCC framework — Look back, Acknowledge, Recognize, Climb out, Consolidate. IMPORTANT: This framework applies to ANY area of life — business, family, health, relationships, personal crises — whatever the client is dealing with. Tailor your plan to the specific domain of their setback. Do not assume it is business-related unless their answers clearly indicate that.'
       userPrompt = `Based on this client's BounceBackAbility™ LARCC framework answers, write a personalised recovery and growth plan.
 
 Their answers across 5 resilience modules:
