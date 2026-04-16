@@ -173,6 +173,14 @@ export default function BounceBackPage() {
   const [clientData, setClientData] = useState(null)
   const [loading, setLoading] = useState(true)
 
+  // Multi-entry state
+  const [allEntries, setAllEntries] = useState([])
+  const [selectedEntry, setSelectedEntry] = useState(null)
+  const [newTitle, setNewTitle] = useState('')
+  const [newSetback, setNewSetback] = useState('')
+  const [creatingEntry, setCreatingEntry] = useState(false)
+
+  // Active entry state
   const [record, setRecord] = useState(null)
   const [currentModule, setCurrentModule] = useState(1)
   const [moduleData, setModuleData] = useState({
@@ -215,43 +223,88 @@ export default function BounceBackPage() {
       if (!client) { router.push('/client'); return }
       setClientData(client)
 
-      const { data: existing } = await supabase.from('bounce_back').select('*').eq('client_id', client.id).maybeSingle()
-      if (existing) {
-        setRecord(existing)
-        setCurrentModule(existing.current_module || 1)
-        setModuleData({
-          module_1: { ...defaultModule(), ...(existing.module_1 || {}) },
-          module_2: { ...defaultModule(), ...(existing.module_2 || {}) },
-          module_3: { ...defaultModule(), ...(existing.module_3 || {}) },
-          module_4: { ...defaultModule(), ...(existing.module_4 || {}) },
-          module_5: { ...defaultModule(), ...(existing.module_5 || {}) },
-        })
-        setGeneratedPlan(existing.generated_plan || '')
-      } else {
-        const initModules = {
-          module_1: defaultModule(),
-          module_2: defaultModule(),
-          module_3: defaultModule(),
-          module_4: defaultModule(),
-          module_5: defaultModule(),
-        }
-        const { data: newRec } = await supabase
-          .from('bounce_back')
-          .insert({
-            client_id: client.id,
-            current_module: 1,
-            ...initModules,
-            scores: {},
-            generated_plan: '',
-          })
-          .select()
-          .single()
-        if (newRec) setRecord(newRec)
-      }
+      const { data: entries } = await supabase
+        .from('bounce_back')
+        .select('*')
+        .eq('client_id', client.id)
+        .order('created_at', { ascending: false })
+      setAllEntries(entries || [])
       setLoading(false)
     }
     init()
   }, [])
+
+  // ── Entry Selection ─────────────────────────────────────────────────────────
+
+  const selectEntry = (entry) => {
+    setRecord(entry)
+    setSelectedEntry(entry.id)
+    setCurrentModule(entry.current_module || 1)
+    setModuleData({
+      module_1: { ...defaultModule(), ...(entry.module_1 || {}) },
+      module_2: { ...defaultModule(), ...(entry.module_2 || {}) },
+      module_3: { ...defaultModule(), ...(entry.module_3 || {}) },
+      module_4: { ...defaultModule(), ...(entry.module_4 || {}) },
+      module_5: { ...defaultModule(), ...(entry.module_5 || {}) },
+    })
+    setGeneratedPlan(entry.generated_plan || '')
+  }
+
+  const backToSetbacks = async () => {
+    if (record) {
+      if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
+      const s = computeScores()
+      await saveToSupabase({
+        ...moduleData,
+        current_module: currentModule,
+        generated_plan: generatedPlan,
+        scores: {
+          total_score: s.total,
+          band: s.band,
+          module_scores: s.moduleScores,
+        },
+      })
+    }
+    setSelectedEntry(null)
+    setRecord(null)
+    supabase.from('bounce_back').select('*').eq('client_id', clientData.id).order('created_at', { ascending: false })
+      .then(({ data }) => { if (data) setAllEntries(data) })
+  }
+
+  // ── Create New Entry ────────────────────────────────────────────────────────
+
+  const createNewEntry = async () => {
+    if (!newSetback.trim()) return
+    setCreatingEntry(true)
+    const title = newTitle.trim() || newSetback.trim().slice(0, 60)
+    const initModules = {
+      module_1: defaultModule(),
+      module_2: defaultModule(),
+      module_3: defaultModule(),
+      module_4: defaultModule(),
+      module_5: defaultModule(),
+    }
+    const { data: newRec } = await supabase
+      .from('bounce_back')
+      .insert({
+        client_id: clientData.id,
+        current_module: 1,
+        title: title,
+        setback_description: newSetback.trim(),
+        ...initModules,
+        scores: {},
+        generated_plan: '',
+      })
+      .select()
+      .single()
+    if (newRec) {
+      setAllEntries(prev => [newRec, ...prev])
+      selectEntry(newRec)
+      setNewTitle('')
+      setNewSetback('')
+    }
+    setCreatingEntry(false)
+  }
 
   // ── Save Functions ──────────────────────────────────────────────────────────
 
@@ -321,8 +374,6 @@ export default function BounceBackPage() {
       total += modScore
     }
 
-    // Max 50 (5 modules × 5 questions × 2 points)
-    // Bands: 0-20 Needs Work, 21-30 Getting There, 31-40 Strong, 41-50 Resilient
     let band = 'Needs Work'
     let bandDescription = 'You have significant gaps. Go back and answer each question with real depth and honesty.'
     if (total >= 41) { band = 'Resilient'; bandDescription = 'Outstanding. You have done the deep work. Your BounceBackAbility is locked in — this setback is now a weapon.' }
@@ -349,7 +400,7 @@ export default function BounceBackPage() {
       const result = await res.json()
       if (result.error) { alert('Failed to generate: ' + result.error); setPlanLoading(false); return }
       setGeneratedPlan(result.plan)
-      const { error: planError } = await supabase.from('bounce_back').update({ generated_plan: result.plan, updated_at: new Date().toISOString() }).eq('client_id', clientData.id)
+      const { error: planError } = await supabase.from('bounce_back').update({ generated_plan: result.plan, updated_at: new Date().toISOString() }).eq('id', record.id)
       if (planError) { console.error('bounce_back save error:', planError); alert('Failed to save plan'); return }
     } catch (e) { alert('Failed: ' + e.message) }
     setPlanLoading(false)
@@ -366,7 +417,7 @@ export default function BounceBackPage() {
 
   const stages = [
     ...MODULES.map(m => ({ num: m.num, label: m.title, icon: m.letter })),
-    { num: 6, label: 'Generate Plan', icon: '⚡' },
+    { num: 6, label: 'Generate Plan', icon: '\u26A1' },
   ]
 
   const moduleComplete = (num) => {
@@ -374,6 +425,102 @@ export default function BounceBackPage() {
     const key = `module_${num}`
     const mod = moduleData[key] || {}
     return !!(mod.q1 && mod.q1.trim() && mod.q2 && mod.q2.trim() && mod.q3 && mod.q3.trim() && mod.q4 && mod.q4.trim() && mod.q5 && mod.q5.trim())
+  }
+
+  // ── Render Setback Picker ─────────────────────────────────────────────────
+
+  const renderSetbackPicker = () => {
+    return (
+      <div className="min-h-screen bg-zinc-950">
+        <div className="max-w-2xl mx-auto p-4 md:px-8 md:py-10">
+          {/* Header */}
+          <div className="flex items-center gap-3 mb-2">
+            <button onClick={() => router.push('/client')} className="text-zinc-400 hover:text-white transition">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+            </button>
+            <img src="/logo.png" alt="The Syndicate" className="h-8 w-auto" />
+          </div>
+          <h1 className="text-lg font-black text-white uppercase tracking-widest mt-6 mb-1">BounceBackAbility&trade;</h1>
+          <p className="text-zinc-500 text-sm mb-8">The LARCC Framework. Use it every time life throws a punch — business, family, health, anything. Each setback gets its own playbook.</p>
+
+          {/* New Setback Form */}
+          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-8">
+            <GoldLabel>New Setback</GoldLabel>
+            <input
+              type="text"
+              value={newTitle}
+              onChange={e => setNewTitle(e.target.value)}
+              placeholder="Give it a title (e.g. 'Lost biggest client', 'Health scare', 'Family fallout')"
+              className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm mb-3"
+            />
+            <TextArea
+              value={newSetback}
+              onChange={setNewSetback}
+              onBlur={() => {}}
+              placeholder="Briefly describe what happened — what knocked you off course?"
+              rows={3}
+            />
+            <button
+              onClick={createNewEntry}
+              disabled={!newSetback.trim() || creatingEntry}
+              className="mt-4 w-full px-6 py-3 bg-gold text-zinc-950 font-bold text-xs uppercase tracking-widest rounded-lg hover:bg-gold-light transition disabled:opacity-50"
+            >
+              {creatingEntry ? 'Creating...' : 'Start LARCC Framework'}
+            </button>
+          </div>
+
+          {/* Existing Setbacks */}
+          {allEntries.length > 0 && (
+            <div>
+              <h2 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-4">Your Setbacks</h2>
+              <div className="space-y-3">
+                {allEntries.map(entry => {
+                  const s = entry.scores || {}
+                  const total = s.total_score || 0
+                  const hasPlan = !!entry.generated_plan
+                  const completedModules = [1,2,3,4,5].filter(i => {
+                    const mod = entry[`module_${i}`] || {}
+                    return mod.q1?.trim() && mod.q2?.trim() && mod.q3?.trim() && mod.q4?.trim() && mod.q5?.trim()
+                  }).length
+
+                  return (
+                    <button
+                      key={entry.id}
+                      onClick={() => selectEntry(entry)}
+                      className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-5 text-left hover:border-zinc-700 active:border-gold/30 transition"
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-white truncate">{entry.title || 'Untitled'}</p>
+                          {entry.setback_description && <p className="text-xs text-zinc-500 mt-1 line-clamp-2">{entry.setback_description}</p>}
+                          <div className="flex items-center gap-3 mt-3 flex-wrap">
+                            <span className="text-xs text-zinc-600">{completedModules}/5 modules</span>
+                            <span className="text-xs text-zinc-700">&middot;</span>
+                            <span className="text-xs text-zinc-600">{total}/50 score</span>
+                            {hasPlan && (
+                              <>
+                                <span className="text-xs text-zinc-700">&middot;</span>
+                                <span className="text-xs text-emerald-400 font-semibold">Plan generated</span>
+                              </>
+                            )}
+                            <span className="text-xs text-zinc-700">&middot;</span>
+                            <span className="text-xs text-zinc-600">{entry.created_at ? new Date(entry.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : ''}</span>
+                          </div>
+                        </div>
+                        <svg className="w-5 h-5 text-zinc-600 flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                      </div>
+                      <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden mt-3">
+                        <div className={`h-full rounded-full transition-all ${hasPlan ? 'bg-emerald-500' : 'bg-gold'}`} style={{ width: `${(completedModules / 5) * 100}%` }} />
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )
   }
 
   // ── Render Module ─────────────────────────────────────────────────────────
@@ -439,8 +586,6 @@ export default function BounceBackPage() {
   }
 
   // ── Stage 6: Generate Plan & Summary ──────────────────────────────────────
-
-  const QUESTION_LABELS = ['Q1', 'Q2', 'Q3', 'Q4', 'Q5']
 
   const renderPlanStage = () => {
     return (
@@ -538,14 +683,14 @@ export default function BounceBackPage() {
                 if (!answer.trim()) {
                   improvements.push({ module: m.num, title: m.title, field: `Q${qi + 1}`, msg: `Answer question ${qi + 1}` })
                 } else if (wc(answer) < 15) {
-                  improvements.push({ module: m.num, title: m.title, field: `Q${qi + 1}`, msg: 'Add more depth — needs 15+ words for full marks' })
+                  improvements.push({ module: m.num, title: m.title, field: `Q${qi + 1}`, msg: 'Add more depth \u2014 needs 15+ words for full marks' })
                 }
               }
             })
             return (
               <div>
                 <div className="text-center mb-6">
-                  <p className="text-zinc-400 text-sm font-medium mb-1">Score {scores.total}/50 — you need 35 to unlock your action plan</p>
+                  <p className="text-zinc-400 text-sm font-medium mb-1">Score {scores.total}/50 \u2014 you need 35 to unlock your action plan</p>
                   <div className="w-full max-w-xs mx-auto h-3 bg-zinc-800 rounded-full overflow-hidden mt-3">
                     <div className="h-full bg-gold rounded-full transition-all duration-500" style={{ width: `${(scores.total / 35) * 100}%` }} />
                   </div>
@@ -558,10 +703,10 @@ export default function BounceBackPage() {
                       {improvements.slice(0, 10).map((imp, i) => (
                         <button key={i} onClick={() => goToModule(imp.module)}
                           className="w-full flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-left hover:border-gold/30 active:border-gold/30 transition">
-                          <span className="text-amber-400 text-lg flex-shrink-0">&#9888;&#65039;</span>
+                          <span className="text-amber-400 text-lg flex-shrink-0">{'\u26A0\uFE0F'}</span>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-white">{imp.title}</p>
-                            <p className="text-xs text-zinc-500">{imp.field} — {imp.msg}</p>
+                            <p className="text-xs text-zinc-500">{imp.field} \u2014 {imp.msg}</p>
                           </div>
                           <svg className="w-4 h-4 text-zinc-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                         </button>
@@ -601,7 +746,11 @@ export default function BounceBackPage() {
     </div>
   )
 
-  // ── Sidebar Content ───────────────────────────────────────────────────────
+  // ── Setback Picker (no entry selected) ────────────────────────────────────
+
+  if (!selectedEntry) return renderSetbackPicker()
+
+  // ── Sidebar Content (entry selected) ──────────────────────────────────────
 
   const sidebarNav = (
     <nav className="flex flex-col h-full">
@@ -610,15 +759,15 @@ export default function BounceBackPage() {
       </div>
 
       <div className="px-5 py-4 border-b border-zinc-800">
-        <button onClick={() => router.push('/client')} className="flex items-center gap-2 text-zinc-400 hover:text-white transition text-sm">
+        <button onClick={backToSetbacks} className="flex items-center gap-2 text-zinc-400 hover:text-white transition text-sm">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-          <span className="tracking-wide">Back to App</span>
+          <span className="tracking-wide">All Setbacks</span>
         </button>
       </div>
 
       <div className="px-5 py-4 border-b border-zinc-800">
-        <p className="text-white text-sm font-semibold truncate">{clientData.name}</p>
-        <p className="text-zinc-600 text-xs truncate mt-0.5">{clientData.business}</p>
+        <p className="text-white text-sm font-semibold truncate">{record?.title || 'Untitled'}</p>
+        {record?.setback_description && <p className="text-zinc-600 text-xs mt-0.5 line-clamp-2">{record.setback_description}</p>}
       </div>
 
       <div className="flex-1 py-4 overflow-y-auto">
@@ -659,7 +808,7 @@ export default function BounceBackPage() {
     </nav>
   )
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  // ── Render (entry selected) ───────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-zinc-950 flex">
