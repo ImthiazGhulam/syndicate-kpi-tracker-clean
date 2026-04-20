@@ -1612,6 +1612,20 @@ export default function ClientPage() {
   // ── Computed ──────────────────────────────────────────────────────────────────
 
   const todayStr = localDateStr()
+
+  // Projects approaching deadline (not complete, has end_date, within 30 days or overdue)
+  const projectDeadlines = projects
+    .filter(p => p.end_date && p.status !== 'complete')
+    .map(p => {
+      const today = new Date(localDateStr() + 'T12:00:00')
+      const deadline = new Date(p.end_date + 'T12:00:00')
+      const diffMs = deadline - today
+      const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+      return { ...p, daysLeft }
+    })
+    .filter(p => p.daysLeft <= 30)
+    .sort((a, b) => a.daysLeft - b.daysLeft)
+
   const weekDays = getWeekDays(warMapWeek)
   const monthStart = `${calendarYear}-${String(calendarMonth + 1).padStart(2, '0')}-01`
   const monthEnd = localDateStr(new Date(calendarYear, calendarMonth + 1, 0))
@@ -2010,6 +2024,37 @@ export default function ClientPage() {
               </div>
             </div>
 
+            {/* Project Deadline Countdown */}
+            {projectDeadlines.length > 0 && (
+              <div className="mb-6 space-y-2">
+                {projectDeadlines.map(p => (
+                  <button key={p.id} onClick={() => { setActiveTab('projects'); setExpandedProjects(prev => ({ ...prev, [p.id]: true })) }}
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg border text-left transition ${
+                      p.daysLeft <= 0
+                        ? 'bg-red-900/20 border-red-800/50 hover:border-red-700/60'
+                        : p.daysLeft <= 3
+                          ? 'bg-amber-900/20 border-amber-800/40 hover:border-amber-700/50'
+                          : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'
+                    }`}>
+                    <span className={`text-2xl font-black tabular-nums min-w-[3ch] text-center ${
+                      p.daysLeft <= 0 ? 'text-red-400' : p.daysLeft <= 3 ? 'text-amber-400' : p.daysLeft <= 7 ? 'text-gold' : 'text-zinc-300'
+                    }`}>
+                      {p.daysLeft <= 0 ? Math.abs(p.daysLeft) : p.daysLeft}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-white truncate">{p.name}</p>
+                      <p className={`text-[10px] font-bold uppercase tracking-widest ${
+                        p.daysLeft <= 0 ? 'text-red-400' : p.daysLeft <= 3 ? 'text-amber-400' : p.daysLeft <= 7 ? 'text-gold' : 'text-zinc-500'
+                      }`}>
+                        {p.daysLeft < 0 ? `${Math.abs(p.daysLeft)} day${Math.abs(p.daysLeft) !== 1 ? 's' : ''} overdue` : p.daysLeft === 0 ? 'Due today' : `${p.daysLeft} day${p.daysLeft !== 1 ? 's' : ''} left`}
+                      </p>
+                    </div>
+                    <svg className="w-4 h-4 text-zinc-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+                  </button>
+                ))}
+              </div>
+            )}
+
             {/* Score Breakdown — 6 Cards */}
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-8">
               {Object.values(scores).map(s => (
@@ -2372,6 +2417,37 @@ export default function ClientPage() {
                     <p className="text-[10px] text-zinc-600 uppercase tracking-widest">Earned so far</p>
                     <p className="text-emerald-400 font-bold text-lg mt-0.5">£{(weeklyKpiTotals.revenue || 0).toLocaleString()}</p>
                   </div>
+                </div>
+              )}
+
+              {/* Project Deadline Countdown */}
+              {projectDeadlines.length > 0 && (
+                <div className="mb-6 space-y-2">
+                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-2">Project Deadlines</p>
+                  {projectDeadlines.map(p => (
+                    <div key={p.id}
+                      className={`flex items-center gap-3 px-4 py-3 rounded-lg border ${
+                        p.daysLeft <= 0
+                          ? 'bg-red-900/20 border-red-800/50'
+                          : p.daysLeft <= 3
+                            ? 'bg-amber-900/20 border-amber-800/40'
+                            : 'bg-zinc-900 border-zinc-800'
+                      }`}>
+                      <span className={`text-2xl font-black tabular-nums min-w-[3ch] text-center ${
+                        p.daysLeft <= 0 ? 'text-red-400' : p.daysLeft <= 3 ? 'text-amber-400' : p.daysLeft <= 7 ? 'text-gold' : 'text-zinc-300'
+                      }`}>
+                        {p.daysLeft <= 0 ? Math.abs(p.daysLeft) : p.daysLeft}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-white truncate">{p.name}</p>
+                        <p className={`text-[10px] font-bold uppercase tracking-widest ${
+                          p.daysLeft <= 0 ? 'text-red-400' : p.daysLeft <= 3 ? 'text-amber-400' : p.daysLeft <= 7 ? 'text-gold' : 'text-zinc-500'
+                        }`}>
+                          {p.daysLeft < 0 ? `${Math.abs(p.daysLeft)} day${Math.abs(p.daysLeft) !== 1 ? 's' : ''} overdue` : p.daysLeft === 0 ? 'Due today' : `${p.daysLeft} day${p.daysLeft !== 1 ? 's' : ''} left`}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
 
