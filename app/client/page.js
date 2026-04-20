@@ -370,6 +370,7 @@ export default function ClientPage() {
   const [warMapTasks, setWarMapTasks] = useState([])
   const [warMapTaskCompletions, setWarMapTaskCompletions] = useState([])
   const [warMapTaskExclusions, setWarMapTaskExclusions] = useState([])
+  const [recurringDragChoice, setRecurringDragChoice] = useState(null)
   const [warMapInput, setWarMapInput] = useState('')
   const [editingTaskId, setEditingTaskId] = useState(null)
   const [editingTaskTitle, setEditingTaskTitle] = useState('')
@@ -1303,7 +1304,7 @@ export default function ClientPage() {
   const autoScrollRef = useRef(null)
 
   const handleCalDragStart = (e, task) => {
-    if (task._isRecurring || task.completed) return
+    if (task.completed) return
     e.preventDefault()
     e.stopPropagation()
     const el = e.currentTarget
@@ -1431,11 +1432,47 @@ export default function ClientPage() {
 
     if (!moved || !over) return
 
-    // Apply the move
     const newDate = over.date
     const newTime = over.time
-    if (newDate !== d.task.scheduled_date || newTime !== (d.task.scheduled_time?.slice(0, 5) || null)) {
+    if (newDate === d.task._displayDate && newTime === (d.task.scheduled_time?.slice(0, 5) || null)) return
+
+    if (d.task._isRecurring) {
+      setRecurringDragChoice({ task: d.task, newDate, newTime })
+    } else {
       await moveTask(d.task, newDate, newTime)
+    }
+  }
+
+  const handleRecurringDragChoice = async (choice) => {
+    const { task, newDate, newTime } = recurringDragChoice
+    setRecurringDragChoice(null)
+
+    if (choice === 'this') {
+      // Exclude this occurrence + create a new standalone task at the new position
+      const { data: exData } = await supabase.from('war_map_task_exclusions').insert([{
+        task_id: task.id,
+        exclusion_date: task._displayDate,
+      }]).select().single()
+      if (exData) setWarMapTaskExclusions(prev => [...prev, exData])
+
+      const { data: newTask } = await supabase.from('war_map_tasks').insert([{
+        client_id: clientData.id,
+        title: task.title,
+        status: 'schedule',
+        scheduled_date: newDate,
+        scheduled_time: newTime || null,
+        duration_minutes: task.duration_minutes || 60,
+        recurring: 'none',
+        week_of: getMonday(new Date(newDate)),
+      }]).select().single()
+      if (newTask) setWarMapTasks(prev => [newTask, ...prev])
+    } else if (choice === 'following') {
+      // Update the base task's scheduled_date and time (moves this + all future occurrences)
+      const { data } = await supabase.from('war_map_tasks').update({
+        scheduled_date: newDate,
+        scheduled_time: newTime || null,
+      }).eq('id', task.id).select().single()
+      if (data) setWarMapTasks(prev => prev.map(t => t.id === task.id ? data : t))
     }
   }
 
@@ -1854,6 +1891,33 @@ export default function ClientPage() {
         <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
         <span className="text-xs font-semibold text-zinc-300 uppercase tracking-wider">Saved</span>
       </div>
+
+      {/* Recurring drag choice modal */}
+      {recurringDragChoice && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setRecurringDragChoice(null)} />
+          <div className="relative bg-zinc-900 border border-zinc-700 rounded-xl p-6 max-w-sm w-full mx-4 shadow-2xl">
+            <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-1">Move Recurring Task</h3>
+            <p className="text-zinc-500 text-xs mb-5">{recurringDragChoice.task.title}</p>
+            <div className="space-y-2">
+              <button onClick={() => handleRecurringDragChoice('this')}
+                className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-lg text-left hover:border-gold/40 transition">
+                <p className="text-sm font-semibold text-white">This event only</p>
+                <p className="text-xs text-zinc-500 mt-0.5">Move just this occurrence. The rest stay where they are.</p>
+              </button>
+              <button onClick={() => handleRecurringDragChoice('following')}
+                className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-lg text-left hover:border-gold/40 transition">
+                <p className="text-sm font-semibold text-white">This and following events</p>
+                <p className="text-xs text-zinc-500 mt-0.5">Move this and all future occurrences to the new time.</p>
+              </button>
+            </div>
+            <button onClick={() => setRecurringDragChoice(null)}
+              className="w-full mt-3 px-4 py-2.5 text-zinc-500 text-xs font-semibold uppercase tracking-widest hover:text-white transition">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Desktop sidebar */}
       <aside className="hidden md:flex md:flex-col md:w-60 md:fixed md:inset-y-0 bg-zinc-950 border-r border-zinc-800 z-20">
@@ -3188,7 +3252,7 @@ export default function ClientPage() {
                       {timedTasks.map((task, tIdx) => {
                         const top = getTimeTopPx(task.scheduled_time)
                         const height = Math.max(40, ((task.duration_minutes || 60) / 60) * HOUR_H)
-                        const draggable = !task._isRecurring && !task.completed
+                        const draggable = !task.completed
                         return (
                           <div key={`${task.id}-${task._displayDate}`}
                             style={{ top: `${top}px`, height: `${height}px`, left: '60px', touchAction: draggable ? 'none' : undefined }}
@@ -3294,7 +3358,7 @@ export default function ClientPage() {
                             {timedTasks.map((task, tIdx) => {
                               const top = getTimeTopPx(task.scheduled_time)
                               const height = Math.max(24, ((task.duration_minutes || 60) / 60) * HOUR_H)
-                              const draggable = !task._isRecurring && !task.completed
+                              const draggable = !task.completed
                               return (
                                 <div key={`${task.id}-${task._displayDate}`}
                                   style={{ top: `${top}px`, height: `${height}px`, left: `${tIdx * 2}px`, touchAction: draggable ? 'none' : undefined }}
@@ -4564,7 +4628,7 @@ export default function ClientPage() {
                         {timedTasks.map((task, tIdx) => {
                           const top = getTimeTopPx(task.scheduled_time)
                           const height = Math.max(40, ((task.duration_minutes || 60) / 60) * HOUR_H)
-                          const draggable = !task._isRecurring && !task.completed
+                          const draggable = !task.completed
                           return (
                             <div key={`${task.id}-${task._displayDate}`}
                               style={{ top: `${top}px`, height: `${height}px`, left: '60px', touchAction: draggable ? 'none' : undefined }}
@@ -4654,7 +4718,7 @@ export default function ClientPage() {
                               {timedTasks.map((task, tIdx) => {
                                 const top = getTimeTopPx(task.scheduled_time)
                                 const height = Math.max(24, ((task.duration_minutes || 60) / 60) * HOUR_H)
-                                const draggable = !task._isRecurring && !task.completed
+                                const draggable = !task.completed
                                 return (
                                   <div key={`${task.id}-${task._displayDate}`}
                                     style={{ top: `${top}px`, height: `${height}px`, left: `${tIdx * 2}px`, touchAction: draggable ? 'none' : undefined }}
