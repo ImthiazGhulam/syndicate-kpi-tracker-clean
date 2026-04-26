@@ -1402,6 +1402,52 @@ export default function PlaybookPage() {
       <div className="mt-8">
         <SectionHeading title="Programme Phases" description="Your Path Planner milestones become programme phases. Add detail about what happens in each." />
 
+        {/* Pull from Path Planner button */}
+        {(pathData.milestone_1.promise || pathData.milestone_2.promise) && (
+          <button
+            onClick={() => {
+              const phases = []
+              if (pathData.onboarding.duration || pathData.onboarding.activities) {
+                phases.push({
+                  name: 'Onboarding',
+                  duration: pathData.onboarding.duration || '5-7 days',
+                  description: [pathData.onboarding.activities, pathData.onboarding.boring_stuff].filter(Boolean).join('. '),
+                  outcome: 'Client fully set up and ready to begin',
+                })
+              }
+              if (pathData.milestone_1.promise) {
+                phases.push({
+                  name: 'Phase 1 — Quick Wins',
+                  duration: pathData.milestone_1.timeframe || '4 weeks',
+                  description: pathData.milestone_1.deliverables || '',
+                  outcome: pathData.milestone_1.promise,
+                })
+              }
+              if (pathData.milestone_2.promise) {
+                phases.push({
+                  name: 'Phase 2 — Launch & Grow',
+                  duration: pathData.milestone_2.timeframe || '',
+                  description: pathData.milestone_2.deliverables || '',
+                  outcome: pathData.milestone_2.promise,
+                })
+              }
+              if (pathData.extended.description) {
+                phases.push({
+                  name: 'Phase 3 — Scale',
+                  duration: pathData.total_duration ? `Remaining ${pathData.total_duration}` : '',
+                  description: pathData.extended.description,
+                  outcome: icpData.promise || 'Full transformation delivered',
+                })
+              }
+              if (phases.length > 0) setBangBangData(prev => ({ ...prev, phases }))
+            }}
+            className="mb-4 px-4 py-2.5 bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-emerald-500/20 transition flex items-center gap-2"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+            Pull Phases from Path Planner
+          </button>
+        )}
+
         <div className="space-y-4">
           {(bangBangData.phases || []).map((phase, i) => (
             <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
