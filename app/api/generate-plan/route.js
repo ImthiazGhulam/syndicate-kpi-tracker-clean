@@ -436,6 +436,36 @@ Respond with ONLY this JSON where keys are "pillar_slot" format:
         return NextResponse.json({ suggestions: JSON.parse(cleaned) })
       } catch { return NextResponse.json({ error: 'Failed to parse suggestions' }, { status: 500 }) }
 
+    } else if (type === 'distinction-name') {
+      const b = data.brand?.brand_star || {}
+      const brandCtx = b.name ? `Brand personality: ${(b.personality || []).join(', ')} | Values: ${(b.values || []).join(', ')} | Contrarian belief: ${b.contrarian_belief || ''}. Names MUST match this brand energy.` : ''
+
+      systemPrompt = 'You are a brand naming expert who creates ownable, premium system names for coaches, consultants, and service providers. Respond ONLY with valid JSON — no markdown, no code fences.'
+      userPrompt = `A coach/consultant needs a creative name for their complete signature system (their "Distinction Engine").
+
+Their promise: "${data.promise}"
+Their three pillars: ${data.pillar_1}, ${data.pillar_2}, ${data.pillar_3}
+Their niche: ${data.niche || 'coaching'}
+${brandCtx}
+
+Suggest 5 creative names for this system. These should:
+- Sound like premium intellectual property
+- Be 2-4 words
+- Feel ownable and hard to ignore
+- Reflect the transformation/promise they deliver
+- Work in a sentence like "I use my [NAME] to help clients..."
+- End with a power word like System, Method, Engine, Framework, Blueprint, Architecture, Protocol, Code, Formula, Matrix
+
+Respond with ONLY this JSON:
+["Name One", "Name Two", "Name Three", "Name Four", "Name Five"]`
+
+      const msg = await callClaude(systemPrompt, userPrompt, 300)
+      const text = msg.content[0].type === 'text' ? msg.content[0].text : ''
+      try {
+        const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
+        return NextResponse.json({ suggestions: JSON.parse(cleaned) })
+      } catch { return NextResponse.json({ error: 'Failed to parse suggestions' }, { status: 500 }) }
+
     } else if (type === 'distinction-engine') {
       const b = data.brand?.brand_star || {}
       const h = data.brand?.hero || {}
@@ -451,6 +481,9 @@ IMPORTANT: The narrative MUST be written in this person's brand voice. Match the
       systemPrompt = 'You are a premium brand strategist and copywriter. You create compelling intellectual property frameworks for coaches, consultants, and service providers. You write with clarity, authority, and commercial intent. No fluff.'
       userPrompt = `Build a complete Distinction Engine output for this person based on their framework:
 ${brandBlock}
+
+ENGINE NAME: ${data.engine_name || 'Distinction Engine'}
+THE PROMISE: ${data.promise || 'Not specified'}
 
 PILLAR 1: ${data.pillar_1}
 Problem it solves: ${data.problem_1}
@@ -475,13 +508,13 @@ Unique Mechanisms:
 
 Write TWO sections:
 
-SECTION 1 — COMPILED DISTINCTION ENGINE
-Lay out the complete framework in a clean, structured format. Show the three pillars with their mechanisms underneath. Make it look like premium intellectual property.
+SECTION 1 — ${data.engine_name || 'DISTINCTION ENGINE'} (COMPILED)
+Title this section with their engine name. Lay out the complete framework in a clean, structured format. Lead with the promise, then show the three pillars with their mechanisms underneath. Make it look like premium intellectual property that belongs on a sales page or keynote slide.
 
 SECTION 2 — NARRATIVE EXPLANATION
-Write a compelling narrative they can use in sales calls, bios, webinars, presentations, and content. It should explain what they do, how their three-part system works, and why their method is different. Write it in first person ("I help..."). Make it sound natural, confident, and commercially powerful — not robotic. Keep it under 300 words.
+Write a compelling narrative they can use in sales calls, bios, webinars, presentations, and content. It should explain what they do, how their ${data.engine_name || 'system'} works, and why their method is different. Write it in first person ("I help..."). Reference the engine name, the promise, all three pillar names, and the mechanism names naturally. Make it sound natural, confident, and commercially powerful — not robotic. Keep it under 300 words.
 
-Reference their specific pillar names and mechanism names throughout. This is THEIR framework — make it sound owned, structured, and hard to ignore.`
+Use their engine name "${data.engine_name || 'Distinction Engine'}" throughout. This is THEIR framework — make it sound owned, structured, and hard to ignore.`
     }
 
     if (!systemPrompt) {

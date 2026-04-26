@@ -7,10 +7,14 @@ import { supabase } from '../../lib/supabase'
 // ── Default Data ────────────────────────────────────────────────────────────
 
 const defaultData = () => ({
-  // Stage 1: Three core problems
+  // Stage 1: Three core problems + promise
   problem_1: '',
   problem_2: '',
   problem_3: '',
+  promise: '',
+  // Stage 5: Engine name
+  engine_name: '',
+  engine_name_suggestions: [],
   // Stage 2: Branded pillar names (chosen by client)
   pillar_1: '',
   pillar_2: '',
@@ -200,6 +204,7 @@ export default function DistinctionEnginePage() {
   const [suggestingPillars, setSuggestingPillars] = useState(false)
   const [suggestingMechanisms, setSuggestingMechanisms] = useState(false)
   const [generating, setGenerating] = useState(false)
+  const [suggestingName, setSuggestingName] = useState(false)
 
   const generatePillarSuggestions = async () => {
     if (!data.problem_1.trim() || !data.problem_2.trim() || !data.problem_3.trim()) {
@@ -275,8 +280,37 @@ export default function DistinctionEnginePage() {
     setSuggestingMechanisms(false)
   }
 
+  const generateEngineName = async () => {
+    if (!data.promise?.trim()) { alert('Fill in your promise on Stage 1 first.'); return }
+    if (!data.pillar_1?.trim() || !data.pillar_2?.trim() || !data.pillar_3?.trim()) { alert('Name all three pillars first.'); return }
+    setSuggestingName(true)
+    try {
+      const res = await fetch('/api/generate-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'distinction-name',
+          data: {
+            promise: data.promise,
+            pillar_1: data.pillar_1,
+            pillar_2: data.pillar_2,
+            pillar_3: data.pillar_3,
+            niche: clientData.business || '',
+            brand: brandData || null,
+          },
+        }),
+      })
+      const result = await res.json()
+      if (result.suggestions) {
+        setData(prev => ({ ...prev, engine_name_suggestions: result.suggestions }))
+        saveAll()
+      }
+    } catch (e) { alert('Failed: ' + e.message) }
+    setSuggestingName(false)
+  }
+
   const generateFinalOutput = async () => {
-    // Check all mechanisms are named
+    if (!data.engine_name?.trim()) { alert('Name your Distinction Engine first.'); return }
     for (let p = 1; p <= 3; p++) {
       if (!data[`pillar_${p}`]?.trim()) { alert(`Name pillar ${p} first.`); return }
       for (let s = 1; s <= 3; s++) {
@@ -350,6 +384,18 @@ export default function DistinctionEnginePage() {
           />
         </div>
       ))}
+
+      <div className="bg-zinc-900 border border-gold/20 rounded-xl p-5 mb-5">
+        <GoldLabel>The Promise</GoldLabel>
+        <p className="text-sm text-zinc-400 mb-3 leading-relaxed">What is the end result or transformation your clients get when they work with you? This is the destination — the thing your entire system delivers.</p>
+        <TextArea
+          value={data.promise}
+          onChange={v => updateField('promise', v)}
+          onBlur={saveAll}
+          placeholder="e.g. I take coaches from invisible to fully booked in 90 days without paid ads"
+          rows={2}
+        />
+      </div>
 
       <div className="flex justify-end mt-8">
         <button onClick={() => goToStage(2)} className="px-6 py-2.5 bg-gold text-black font-semibold text-sm rounded-lg hover:bg-gold-light transition">
@@ -489,12 +535,38 @@ export default function DistinctionEnginePage() {
   )
 
   const renderStage5 = () => {
-    const allComplete = stageComplete(4)
+    const allComplete = stageComplete(4) && !!data.engine_name?.trim()
     return (
       <div>
         <div className="mb-6">
           <h1 className="text-base font-bold text-white uppercase tracking-widest mb-1">Your Distinction Engine&trade;</h1>
-          <p className="text-zinc-500 text-sm">Review your framework and generate your compiled Distinction Engine with a narrative explanation.</p>
+          <p className="text-zinc-500 text-sm">Name your engine, review your framework, and generate your compiled output with a narrative explanation.</p>
+        </div>
+
+        {/* Engine Name */}
+        <div className="bg-zinc-900 border border-gold/20 rounded-xl p-5 mb-6">
+          <GoldLabel>Name Your Engine</GoldLabel>
+          <p className="text-sm text-zinc-400 mb-3 leading-relaxed">This is the name of your complete system — your intellectual property. It should feel owned, premium, and memorable.</p>
+          <TextInput
+            value={data.engine_name}
+            onChange={v => updateField('engine_name', v)}
+            onBlur={saveAll}
+            placeholder='e.g. The Revenue Architecture™, The Impact Blueprint™'
+          />
+          <SuggestionPills
+            suggestions={data.engine_name_suggestions}
+            current={data.engine_name}
+            onSelect={v => { updateField('engine_name', v); setTimeout(saveAll, 100) }}
+          />
+          <div className="mt-3">
+            <button onClick={generateEngineName} disabled={suggestingName}
+              className="px-5 py-2 bg-zinc-800 border border-gold/30 text-gold font-bold text-xs uppercase tracking-widest rounded-lg hover:bg-zinc-700 transition disabled:opacity-50">
+              {suggestingName ? 'Generating...' : 'Suggest Names'}
+            </button>
+          </div>
+          {data.promise && (
+            <p className="text-zinc-600 text-xs mt-3">Based on your promise: &ldquo;{data.promise}&rdquo;</p>
+          )}
         </div>
 
         {/* Visual Summary */}
