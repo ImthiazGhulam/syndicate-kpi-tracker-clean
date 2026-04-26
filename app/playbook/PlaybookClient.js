@@ -4,90 +4,101 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { supabase } from '../../lib/supabase'
 
-// ── Default Data Shapes ─────────────────────────────────────────────────────
+// ── Default Data Shapes (v2) ───────────────────────────────────────────────
 
-const defaultIcp = () => ({
-  client_type: '',
-  sector: '',
-  specific_description: '',
-  age_from: '',
-  age_to: '',
-  gender_focus: '',
-  geography: [],
-  life_stage: [],
-  income_level: '',
-  prior_coaching: '',
-  current_self_perception: '',
-  desired_identity: '',
-  identity_label: '',
-  values: [],
-  current_beliefs: '',
-  investment_relationship: '',
-  scepticism_level: '',
-  buying_behaviour: [],
-  personality: [],
-  emotional_state: [],
-  trigger_moment: '',
-  influences: '',
-  buying_influencers: [],
-  real_objections: [],
-  cost_of_inaction: '',
-  dream_outcome: '',
-  already_tried: [''],
-  pains: [''],
-  sophistication_level: '',
-  channels: [],
-  who_not_for: '',
+const defaultIcpSniper = () => ({
+  // Person — Pyramid
+  pyramid_level: '',
+  current_clients_level: '',
+  target_level: '',
+  vertical_niche: '',
+  niche_criteria: { like_them: false, qualified: false, can_afford: false },
+
+  // Person — Demographics
+  client_type: '', sector: '', specific_description: '',
+  age_from: '', age_to: '', gender_focus: '', geography: [],
+  life_stage: [], income_level: '', prior_coaching: '',
+
+  // Person — Psychographics
+  current_self_perception: '', desired_identity: '', identity_label: '',
+  values: [], current_beliefs: '', investment_relationship: '',
+  scepticism_level: '', buying_behaviour: [], personality: [],
+  emotional_state: [], trigger_moment: '', influences: '',
+  buying_influencers: [], real_objections: [], cost_of_inaction: '',
+
+  // Market Context
+  dream_outcome: '', already_tried: [''], pains: [''],
+  sophistication_level: '', channels: [], who_not_for: '',
+
+  // Promise
+  promise: '',
+
+  // Problem + Path (auto-populated from Distinction Engine)
+  problems: ['', '', ''],
+  pillar_names: ['', '', ''],
+  solutions: [['', '', ''], ['', '', ''], ['', '', '']],
+  mechanisms: [['', '', ''], ['', '', ''], ['', '', '']],
+  engine_name: '',
+
+  // AI Research
+  ai_niche_research: '',
+  ai_suggestions: {},
 })
 
-const defaultDip = () => ({
-  problem: '',
-  format: '',
-  outcome: '',
-  delivery: [],
-  duration: '',
-  time_to_first_result: '',
-  price: '',
-  client_effort: '',
-  bridge: '',
-  belief_to_create: '',
-  psychographic_fit: [],
+const defaultPathPlanner = () => ({
+  total_duration: '',
+  onboarding: { duration: '', activities: '', boring_stuff: '' },
+  milestone_1: { timeframe: '', promise: '', deliverables: '' },
+  milestone_2: { timeframe: '', promise: '', deliverables: '' },
+  extended: { description: '', milestones: [{ timeframe: '', outcome: '' }] },
+  ai_suggestions: '',
 })
 
 const defaultBangBang = () => ({
-  name: '',
-  promise: '',
-  who_not_for: '',
-  dream_score: '',
-  unique_mechanism: '',
-  category: '',
-  duration: '',
+  name: '', promise: '', who_for: '', who_not_for: '',
   phases: [{ name: '', duration: '', description: '', outcome: '' }],
-  touch_points: [],
-  client_commitment: '',
-  milestones: { at_30_days: '', at_90_days: '', at_6_months: '' },
   stack: [{ component: '', value: '', description: '' }],
   stack_value: '',
   price: '',
-  payment_options: [],
-  delivery_model: [],
-  guarantees: [],
-  guarantee_detail: '',
-  scarcity: '',
-  social_proof: [],
-  continuity_offer: '',
-  continuity_format: '',
-  continuity_price: '',
-  downsell: '',
-  alignment_checks: {
-    q1: { answer: '', detail: '' },
-    q2: { answer: '', detail: '' },
-    q3: { answer: '', detail: '' },
-    q4: { answer: '', detail: '' },
-  },
+  staggered_payments: [{ month: '', amount: '' }],
+  pay_in_full_discount: '',
+  bonuses: [{ name: '', description: '', value: '' }],
+  guarantee_type: '', guarantee_detail: '', guarantee_duration: '',
+  scarcity: '', urgency: '', intake_model: true,
+  social_proof: [], big_names: '', results_numbers: '',
+  delivery_model: [], touch_points: [],
+  continuity_offer: '', continuity_format: '', continuity_price: '',
+  tiers: [{ name: '', range: '', description: '' }],
+  cta_action: '', cta_url: '',
+  ai_draft: '',
+})
+
+const defaultDip = () => ({
+  name: '', promise: '', problem: '', outcome: '',
+  format: '', delivery: [], duration: '', price: '',
+  bonuses: [{ name: '', description: '', value: '' }],
+  guarantee_type: '', guarantee_detail: '',
+  bridge_to_main: '', belief_to_create: '',
+  ai_draft: '',
+})
+
+const defaultComms = () => ({
+  daily: [], async_feedback: [],
+  calls_1_1: '', group_calls: '',
+  events: '', workshops: '',
+  education_platform: '',
+  custom_items: [{ name: '', frequency: '' }],
+  ai_suggestions: '',
 })
 
 // ── Option Arrays ───────────────────────────────────────────────────────────
+
+const PYRAMID_LEVELS = [
+  { id: 'dying', label: 'Dying', desc: 'Struggling, just starting out', motivation: 'Safety', color: 'red' },
+  { id: 'surviving', label: 'Surviving', desc: 'Hanging on, getting by', motivation: 'Structure', color: 'orange' },
+  { id: 'stalling', label: 'Stalling', desc: 'Got to a level but can\'t break through', motivation: 'Scale', color: 'yellow' },
+  { id: 'thriving', label: 'Thriving', desc: 'Winning, want to go faster', motivation: 'Speed', color: 'emerald' },
+]
 
 const CLIENT_TYPES = ['B2B', 'B2C', 'Both']
 const GENDER_OPTIONS = ['All genders', 'Predominantly male', 'Predominantly female', 'Non-binary inclusive']
@@ -102,16 +113,9 @@ const PERSONALITY_OPTIONS = ['Lone wolf', 'Community-driven', 'Competitive', 'Co
 const EMOTIONAL_STATE_OPTIONS = ['Frustrated', 'Desperate', 'Ambitious', 'Fearful', 'Excited', 'Burnt out', 'Confused', 'Ready to change']
 const BUYING_INFLUENCERS_OPTIONS = ['Decides alone', 'Partner/spouse', 'Business partner', 'Accountant/advisor', 'Peers/mastermind']
 const REAL_OBJECTIONS_OPTIONS = [
-  "I've been burned before",
-  "I can't afford it right now",
-  "I don't have time",
-  "My partner won't agree",
-  "I need to think about it",
-  "I'm not sure it'll work for me",
-  "I've tried something similar",
-  "I don't trust online programmes",
-  "I want to but I'm scared",
-  "What if I fail again?",
+  "I've been burned before", "I can't afford it right now", "I don't have time",
+  "My partner won't agree", "I need to think about it", "I'm not sure it'll work for me",
+  "I've tried something similar", "I don't trust online programmes", "I want to but I'm scared", "What if I fail again?",
 ]
 const SOPHISTICATION_OPTIONS = ['Unaware', 'Problem-aware', 'Solution-aware', 'Product-aware', 'Most-aware']
 const CHANNELS_OPTIONS = ['Instagram', 'Facebook', 'LinkedIn', 'TikTok', 'YouTube', 'X/Twitter', 'Email', 'Podcast', 'SEO/Blog', 'Referrals', 'Paid ads', 'Events/speaking', 'Webinars', 'Communities']
@@ -119,22 +123,15 @@ const SECTOR_SUGGESTIONS = ['Health & Fitness', 'Business Coaching', 'Life Coach
 
 const DIP_FORMAT_OPTIONS = ['Workshop', 'Audit', 'Mini-course', 'Template', 'Challenge', 'Strategy Session', 'Done-for-you Starter', 'Masterclass']
 const DIP_DELIVERY_OPTIONS = ['Live online', 'Pre-recorded', 'In person', 'Async', 'Hybrid']
-
 const TOUCH_POINTS_OPTIONS = ['1:1 calls', 'Group calls', 'Slack/community', 'Email support', 'Voxer access', 'In-person meetups', 'Video feedback', 'Templates/worksheets', 'Portal/course', 'WhatsApp group']
-const PAYMENT_OPTIONS = ['Pay in full', 'Split pay (2-3)', 'Monthly subscription', 'Payment plan (6-12)']
 const DELIVERY_MODEL_OPTIONS = ['1:1 only', 'Group only', 'Hybrid (1:1 + group)', 'Self-paced + support', 'Done with you', 'Done for you']
-const GUARANTEE_OPTIONS = ['Money-back guarantee', 'Results guarantee', 'Conditional guarantee', 'No guarantee (premium positioning)', 'Trial period']
+const GUARANTEE_OPTIONS = ['Money-back guarantee', 'Results guarantee', 'Conditional guarantee', 'Love it or leave it', 'Trial period', 'No guarantee (premium positioning)']
 const SOCIAL_PROOF_OPTIONS = ['Case studies', 'Video testimonials', 'Screenshots/DMs', 'Before/after', 'Revenue numbers', 'Media features', 'Certifications', 'Years experience']
 const CONTINUITY_FORMAT_OPTIONS = ['Monthly membership', 'Quarterly retainer', 'Annual programme', 'Pay-per-session', 'Lifetime access']
+const DAILY_COMMS_OPTIONS = ['WhatsApp messages', 'Slack', 'Telegram', 'Email', 'Voxer']
+const ASYNC_FEEDBACK_OPTIONS = ['Loom as needed', 'Written feedback', 'Voice notes', 'Video review']
 
-const ALIGNMENT_QUESTIONS = [
-  'Does this offer solve a genuine, urgent problem your ICP has right now?',
-  'Can you confidently deliver the promised outcome within the stated timeframe?',
-  'Does the pricing reflect the value AND match your ICP\'s ability to invest?',
-  'Is the offer structure sustainable for you to deliver at scale?',
-]
-
-// ── Reusable Sub-components (outside main component to prevent remounting) ──
+// ── Reusable Sub-components (outside main component for mobile perf) ────────
 
 function TextInput({ value, onChange, placeholder, type = 'text', step, onBlur }) {
   return (
@@ -263,7 +260,55 @@ function ProgressBar({ score, max, label, color = 'bg-gold' }) {
   )
 }
 
-// ── Component ───────────────────────────────────────────────────────────────
+function AIButton({ loading, onClick, label = 'AI Research & Suggest', regenerateLabel = 'Regenerate' , hasOutput = false }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={loading}
+      className={`px-5 py-3 rounded-lg text-xs font-bold uppercase tracking-widest transition flex items-center gap-2 ${
+        hasOutput
+          ? 'bg-zinc-800 hover:bg-zinc-700 text-gold border border-gold/30'
+          : 'bg-gold hover:bg-gold-light text-zinc-950'
+      } disabled:opacity-50`}
+    >
+      {loading ? (
+        <>
+          <div className="w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+          Generating...
+        </>
+      ) : (
+        <>
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+          {hasOutput ? regenerateLabel : label}
+        </>
+      )}
+    </button>
+  )
+}
+
+function AIOutput({ content, title = 'AI Suggestions' }) {
+  if (!content) return null
+  return (
+    <div className="bg-zinc-900 border border-gold/20 rounded-xl p-5 mt-4">
+      <h4 className="text-xs font-bold text-gold uppercase tracking-widest mb-3">{title}</h4>
+      <div className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">{content}</div>
+    </div>
+  )
+}
+
+function AutoPopBanner({ source, onDismiss }) {
+  return (
+    <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-lg p-3 mb-4 flex items-center justify-between">
+      <div className="flex items-center gap-2">
+        <svg className="w-4 h-4 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+        <span className="text-xs text-emerald-300 font-semibold">Auto-populated from your {source}</span>
+      </div>
+      {onDismiss && <button onClick={onDismiss} className="text-zinc-500 hover:text-white text-xs">Dismiss</button>}
+    </div>
+  )
+}
+
+// ── Main Component ─────────────────────────────────────────────────────────
 
 export default function PlaybookPage() {
   const router = useRouter()
@@ -273,32 +318,38 @@ export default function PlaybookPage() {
   const [clientData, setClientData] = useState(null)
   const [loading, setLoading] = useState(true)
 
-  // Playbook
+  // Playbook data
   const [playbook, setPlaybook] = useState(null)
   const [currentStage, setCurrentStage] = useState(1)
-  const [icpData, setIcpData] = useState(defaultIcp())
-  const [dipData, setDipData] = useState(defaultDip())
+  const [icpData, setIcpData] = useState(defaultIcpSniper())
+  const [pathData, setPathData] = useState(defaultPathPlanner())
   const [bangBangData, setBangBangData] = useState(defaultBangBang())
-  const [frameworkData, setFrameworkData] = useState({
-    pillars: [
-      { name: '', description: '', modules: [{ name: '', description: '' }, { name: '', description: '' }, { name: '', description: '' }] },
-      { name: '', description: '', modules: [{ name: '', description: '' }, { name: '', description: '' }, { name: '', description: '' }] },
-      { name: '', description: '', modules: [{ name: '', description: '' }, { name: '', description: '' }, { name: '', description: '' }] },
-    ],
-    framework_name: '',
-    tagline: '',
-  })
+  const [dipData, setDipData] = useState(defaultDip())
+  const [commsData, setCommsData] = useState(defaultComms())
+
+  // External data
+  const [brandData, setBrandData] = useState(null)
+  const [deData, setDeData] = useState(null)
+  const [dePopulated, setDePopulated] = useState(false)
+
+  // UI state
   const [saving, setSaving] = useState(false)
   const [showToast, setShowToast] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [icpSection, setIcpSection] = useState('demographics')
+  const [icpSection, setIcpSection] = useState('pyramid')
+  const [aiLoading, setAiLoading] = useState({})
 
   const saveTimerRef = useRef(null)
   const localSaveTimerRef = useRef(null)
+  const toastRef = useRef(null)
 
-  const flash = () => { setShowToast(true); setTimeout(() => setShowToast(false), 2000) }
+  const flash = () => {
+    if (toastRef.current) clearTimeout(toastRef.current)
+    setShowToast(true)
+    toastRef.current = setTimeout(() => setShowToast(false), 2000)
+  }
 
-  // ── Auth Init ───────────────────────────────────────────────────────────────
+  // ── Auth Init ──────────────────────────────────────────────────────────────
 
   useEffect(() => {
     const init = async () => {
@@ -309,9 +360,32 @@ export default function PlaybookPage() {
       if (!client) { router.push('/client'); return }
       setClientData(client)
       await fetchPlaybook(client.id)
+      await fetchExternalData(client.id)
     }
     init()
   }, [])
+
+  const fetchExternalData = async (clientId) => {
+    // Fetch Premium Position (brand voice)
+    const { data: pp } = await supabase
+      .from('premium_position')
+      .select('brand_star, hero, remarkable')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+    if (pp) setBrandData(pp)
+
+    // Fetch Distinction Engine (problems, solutions, mechanisms)
+    const { data: de } = await supabase
+      .from('distinction_engine')
+      .select('engine_data')
+      .eq('client_id', clientId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+    if (de?.engine_data) setDeData(de.engine_data)
+  }
 
   const fetchPlaybook = async (clientId) => {
     const { data, error } = await supabase
@@ -322,25 +396,29 @@ export default function PlaybookPage() {
       .limit(1)
       .single()
 
-    if (data) {
+    if (data && data.version === 2) {
       setPlaybook(data)
       setCurrentStage(data.current_stage || 1)
-      setIcpData({ ...defaultIcp(), ...(data.icp || {}) })
-      setDipData({ ...defaultDip(), ...(data.dip || {}) })
+      setIcpData({ ...defaultIcpSniper(), ...(data.icp || {}) })
+      setPathData({ ...defaultPathPlanner(), ...(data.path_planner || {}) })
       setBangBangData({ ...defaultBangBang(), ...(data.bang_bang || {}) })
-      if (data.framework) setFrameworkData(prev => ({ ...prev, ...data.framework }))
+      setDipData({ ...defaultDip(), ...(data.dip || {}) })
+      setCommsData({ ...defaultComms(), ...(data.comms || {}) })
     } else {
-      // Create new playbook
+      // Create new v2 playbook (clean slate)
       const { data: newPb } = await supabase
         .from('offer_playbooks')
         .insert({
           client_id: clientId,
-          name: 'My Offer Playbook',
+          name: 'Sold Out™ Playbook',
           status: 'draft',
           current_stage: 1,
-          icp: defaultIcp(),
-          dip: defaultDip(),
+          version: 2,
+          icp: defaultIcpSniper(),
+          path_planner: defaultPathPlanner(),
           bang_bang: defaultBangBang(),
+          dip: defaultDip(),
+          comms: defaultComms(),
           scores: {},
         })
         .select()
@@ -353,53 +431,80 @@ export default function PlaybookPage() {
     setLoading(false)
   }
 
-  // ── Save Functions ──────────────────────────────────────────────────────────
+  // Auto-populate from Distinction Engine
+  useEffect(() => {
+    if (!deData || dePopulated) return
+    if (icpData.problems[0] && icpData.problems[1] && icpData.problems[2]) return // Already has data
+
+    const problems = [deData.problem_1, deData.problem_2, deData.problem_3].filter(Boolean)
+    if (problems.length === 0) return
+
+    setIcpData(prev => ({
+      ...prev,
+      problems: [deData.problem_1 || '', deData.problem_2 || '', deData.problem_3 || ''],
+      pillar_names: [deData.pillar_1 || '', deData.pillar_2 || '', deData.pillar_3 || ''],
+      solutions: [
+        [deData.solution_1_1 || '', deData.solution_1_2 || '', deData.solution_1_3 || ''],
+        [deData.solution_2_1 || '', deData.solution_2_2 || '', deData.solution_2_3 || ''],
+        [deData.solution_3_1 || '', deData.solution_3_2 || '', deData.solution_3_3 || ''],
+      ],
+      mechanisms: [
+        [deData.mechanism_1_1 || '', deData.mechanism_1_2 || '', deData.mechanism_1_3 || ''],
+        [deData.mechanism_2_1 || '', deData.mechanism_2_2 || '', deData.mechanism_2_3 || ''],
+        [deData.mechanism_3_1 || '', deData.mechanism_3_2 || '', deData.mechanism_3_3 || ''],
+      ],
+      engine_name: deData.engine_name || '',
+      promise: prev.promise || deData.promise || '',
+    }))
+    setDePopulated(true)
+  }, [deData, dePopulated, icpData.problems])
+
+  // ── Save Functions ─────────────────────────────────────────────────────────
 
   const saveToSupabase = useCallback(async (fields) => {
     if (!playbook) return
-    const { error } = await supabase.from('offer_playbooks').update({
+    await supabase.from('offer_playbooks').update({
       ...fields,
       updated_at: new Date().toISOString(),
     }).eq('id', playbook.id)
-    if (error) { console.error('offer_playbooks save error:', error); return }
   }, [playbook])
 
-  // Save on blur — called when user leaves a field
   const saveAll = useCallback(() => {
     if (!playbook) return
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => {
       const s = computeScores()
       saveToSupabase({
-        icp: icpData, dip: dipData, bang_bang: bangBangData, framework: frameworkData, current_stage: currentStage,
-        scores: { icp_score: s.icp.total, dip_score: s.dip.total, bb_score: s.bangBang.total, fw_score: s.framework.total, total_score: s.overall.total, band: s.overall.band, flags: s.flags }
+        icp: icpData, path_planner: pathData, bang_bang: bangBangData, dip: dipData, comms: commsData,
+        current_stage: currentStage,
+        scores: {
+          icp_score: s.icp.total, path_score: s.path.total, bb_score: s.bangBang.total,
+          dip_score: s.dip.total, comms_score: s.comms.total, de_score: s.de.total,
+          total_score: s.overall.total, band: s.overall.band, flags: s.flags,
+        },
       })
+      flash()
     }, 500)
-  }, [playbook, saveToSupabase, icpData, dipData, bangBangData, frameworkData, currentStage])
+  }, [playbook, saveToSupabase, icpData, pathData, bangBangData, dipData, commsData, currentStage])
 
-  // Save when switching stages
   useEffect(() => {
     if (!playbook) return
     saveToSupabase({ current_stage: currentStage })
   }, [currentStage])
 
-  // LocalStorage backup every 30 seconds
   useEffect(() => {
     localSaveTimerRef.current = setInterval(() => {
       if (playbook) {
-        localStorage.setItem(`playbook_${playbook.id}`, JSON.stringify({
-          icp: icpData,
-          dip: dipData,
-          bang_bang: bangBangData,
-          current_stage: currentStage,
-          saved_at: new Date().toISOString(),
+        localStorage.setItem(`playbook_v2_${playbook.id}`, JSON.stringify({
+          icp: icpData, path_planner: pathData, bang_bang: bangBangData, dip: dipData, comms: commsData,
+          current_stage: currentStage, saved_at: new Date().toISOString(),
         }))
       }
     }, 30000)
     return () => clearInterval(localSaveTimerRef.current)
-  }, [playbook, icpData, dipData, bangBangData, currentStage])
+  }, [playbook, icpData, pathData, bangBangData, dipData, commsData, currentStage])
 
-  // ── ICP Updaters ──────────────────────────────────────────────────────────
+  // ── Updaters ───────────────────────────────────────────────────────────────
 
   const updateIcp = (key, val) => setIcpData(prev => ({ ...prev, [key]: val }))
   const toggleIcpMulti = (key, val) => {
@@ -408,18 +513,38 @@ export default function PlaybookPage() {
       return { ...prev, [key]: arr.includes(val) ? arr.filter(v => v !== val) : [...arr, val] }
     })
   }
-
-  // ── Dip Updaters ──────────────────────────────────────────────────────────
-
-  const updateDip = (key, val) => setDipData(prev => ({ ...prev, [key]: val }))
-  const toggleDipMulti = (key, val) => {
-    setDipData(prev => {
-      const arr = prev[key] || []
-      return { ...prev, [key]: arr.includes(val) ? arr.filter(v => v !== val) : [...arr, val] }
-    })
+  const updateIcpNested = (key, subKey, val) => {
+    setIcpData(prev => ({ ...prev, [key]: { ...prev[key], [subKey]: val } }))
+  }
+  const addIcpListItem = (key) => setIcpData(prev => ({ ...prev, [key]: [...(prev[key] || []), ''] }))
+  const removeIcpListItem = (key, idx) => setIcpData(prev => ({ ...prev, [key]: prev[key].filter((_, i) => i !== idx) }))
+  const updateIcpListItem = (key, idx, val) => {
+    setIcpData(prev => { const arr = [...prev[key]]; arr[idx] = val; return { ...prev, [key]: arr } })
   }
 
-  // ── Bang Bang Updaters ────────────────────────────────────────────────────
+  const updatePath = (key, val) => setPathData(prev => ({ ...prev, [key]: val }))
+  const updatePathNested = (key, subKey, val) => {
+    setPathData(prev => ({ ...prev, [key]: { ...prev[key], [subKey]: val } }))
+  }
+  const addExtendedMilestone = () => {
+    setPathData(prev => ({
+      ...prev,
+      extended: { ...prev.extended, milestones: [...prev.extended.milestones, { timeframe: '', outcome: '' }] }
+    }))
+  }
+  const removeExtendedMilestone = (idx) => {
+    setPathData(prev => ({
+      ...prev,
+      extended: { ...prev.extended, milestones: prev.extended.milestones.filter((_, i) => i !== idx) }
+    }))
+  }
+  const updateExtendedMilestone = (idx, key, val) => {
+    setPathData(prev => {
+      const milestones = [...prev.extended.milestones]
+      milestones[idx] = { ...milestones[idx], [key]: val }
+      return { ...prev, extended: { ...prev.extended, milestones } }
+    })
+  }
 
   const updateBB = (key, val) => setBangBangData(prev => ({ ...prev, [key]: val }))
   const toggleBBMulti = (key, val) => {
@@ -429,235 +554,242 @@ export default function PlaybookPage() {
     })
   }
   const updateBBPhase = (idx, key, val) => {
-    setBangBangData(prev => {
-      const phases = [...prev.phases]
-      phases[idx] = { ...phases[idx], [key]: val }
-      return { ...prev, phases }
-    })
+    setBangBangData(prev => { const phases = [...prev.phases]; phases[idx] = { ...phases[idx], [key]: val }; return { ...prev, phases } })
   }
-  const addBBPhase = () => {
-    setBangBangData(prev => ({ ...prev, phases: [...prev.phases, { name: '', duration: '', description: '', outcome: '' }] }))
-  }
-  const removeBBPhase = (idx) => {
-    setBangBangData(prev => ({ ...prev, phases: prev.phases.filter((_, i) => i !== idx) }))
-  }
+  const addBBPhase = () => setBangBangData(prev => ({ ...prev, phases: [...prev.phases, { name: '', duration: '', description: '', outcome: '' }] }))
+  const removeBBPhase = (idx) => setBangBangData(prev => ({ ...prev, phases: prev.phases.filter((_, i) => i !== idx) }))
   const updateBBStack = (idx, key, val) => {
-    setBangBangData(prev => {
-      const stack = [...prev.stack]
-      stack[idx] = { ...stack[idx], [key]: val }
-      return { ...prev, stack }
+    setBangBangData(prev => { const stack = [...prev.stack]; stack[idx] = { ...stack[idx], [key]: val }; return { ...prev, stack } })
+  }
+  const addBBStack = () => setBangBangData(prev => ({ ...prev, stack: [...prev.stack, { component: '', value: '', description: '' }] }))
+  const removeBBStack = (idx) => setBangBangData(prev => ({ ...prev, stack: prev.stack.filter((_, i) => i !== idx) }))
+  const updateBBBonus = (idx, key, val) => {
+    setBangBangData(prev => { const bonuses = [...prev.bonuses]; bonuses[idx] = { ...bonuses[idx], [key]: val }; return { ...prev, bonuses } })
+  }
+  const addBBBonus = () => setBangBangData(prev => ({ ...prev, bonuses: [...prev.bonuses, { name: '', description: '', value: '' }] }))
+  const removeBBBonus = (idx) => setBangBangData(prev => ({ ...prev, bonuses: prev.bonuses.filter((_, i) => i !== idx) }))
+  const updateBBPayment = (idx, key, val) => {
+    setBangBangData(prev => { const sp = [...prev.staggered_payments]; sp[idx] = { ...sp[idx], [key]: val }; return { ...prev, staggered_payments: sp } })
+  }
+  const addBBPayment = () => setBangBangData(prev => ({ ...prev, staggered_payments: [...prev.staggered_payments, { month: '', amount: '' }] }))
+  const removeBBPayment = (idx) => setBangBangData(prev => ({ ...prev, staggered_payments: prev.staggered_payments.filter((_, i) => i !== idx) }))
+  const updateBBTier = (idx, key, val) => {
+    setBangBangData(prev => { const tiers = [...prev.tiers]; tiers[idx] = { ...tiers[idx], [key]: val }; return { ...prev, tiers } })
+  }
+  const addBBTier = () => setBangBangData(prev => ({ ...prev, tiers: [...prev.tiers, { name: '', range: '', description: '' }] }))
+  const removeBBTier = (idx) => setBangBangData(prev => ({ ...prev, tiers: prev.tiers.filter((_, i) => i !== idx) }))
+
+  const updateDip = (key, val) => setDipData(prev => ({ ...prev, [key]: val }))
+  const toggleDipMulti = (key, val) => {
+    setDipData(prev => {
+      const arr = prev[key] || []
+      return { ...prev, [key]: arr.includes(val) ? arr.filter(v => v !== val) : [...arr, val] }
     })
   }
-  const addBBStack = () => {
-    setBangBangData(prev => ({ ...prev, stack: [...prev.stack, { component: '', value: '', description: '' }] }))
+  const updateDipBonus = (idx, key, val) => {
+    setDipData(prev => { const bonuses = [...prev.bonuses]; bonuses[idx] = { ...bonuses[idx], [key]: val }; return { ...prev, bonuses } })
   }
-  const removeBBStack = (idx) => {
-    setBangBangData(prev => ({ ...prev, stack: prev.stack.filter((_, i) => i !== idx) }))
+  const addDipBonus = () => setDipData(prev => ({ ...prev, bonuses: [...prev.bonuses, { name: '', description: '', value: '' }] }))
+  const removeDipBonus = (idx) => setDipData(prev => ({ ...prev, bonuses: prev.bonuses.filter((_, i) => i !== idx) }))
+
+  const updateComms = (key, val) => setCommsData(prev => ({ ...prev, [key]: val }))
+  const toggleCommsMulti = (key, val) => {
+    setCommsData(prev => {
+      const arr = prev[key] || []
+      return { ...prev, [key]: arr.includes(val) ? arr.filter(v => v !== val) : [...arr, val] }
+    })
   }
-  const updateBBMilestone = (key, val) => {
-    setBangBangData(prev => ({ ...prev, milestones: { ...prev.milestones, [key]: val } }))
-  }
-  const updateBBAlignment = (qKey, field, val) => {
-    setBangBangData(prev => ({
-      ...prev,
-      alignment_checks: {
-        ...prev.alignment_checks,
-        [qKey]: { ...prev.alignment_checks[qKey], [field]: val },
-      },
-    }))
+  const addCommsItem = () => setCommsData(prev => ({ ...prev, custom_items: [...prev.custom_items, { name: '', frequency: '' }] }))
+  const removeCommsItem = (idx) => setCommsData(prev => ({ ...prev, custom_items: prev.custom_items.filter((_, i) => i !== idx) }))
+  const updateCommsItem = (idx, key, val) => {
+    setCommsData(prev => { const items = [...prev.custom_items]; items[idx] = { ...items[idx], [key]: val }; return { ...prev, custom_items: items } })
   }
 
-  // Computed stack value
   const computedStackValue = (bangBangData.stack || []).reduce((sum, s) => sum + (Number(s.value) || 0), 0)
 
-  // ── Dynamic List Helpers ──────────────────────────────────────────────────
+  // ── AI Calls ───────────────────────────────────────────────────────────────
 
-  const addIcpListItem = (key) => {
-    setIcpData(prev => ({ ...prev, [key]: [...(prev[key] || []), ''] }))
-  }
-  const removeIcpListItem = (key, idx) => {
-    setIcpData(prev => ({ ...prev, [key]: prev[key].filter((_, i) => i !== idx) }))
-  }
-  const updateIcpListItem = (key, idx, val) => {
-    setIcpData(prev => {
-      const arr = [...prev[key]]
-      arr[idx] = val
-      return { ...prev, [key]: arr }
-    })
+  const callAI = async (type, extraData = {}) => {
+    setAiLoading(prev => ({ ...prev, [type]: true }))
+    try {
+      const res = await fetch('/api/generate-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type,
+          data: {
+            icp: icpData,
+            path_planner: pathData,
+            bang_bang: bangBangData,
+            dip: dipData,
+            comms: commsData,
+            brand: brandData,
+            distinction_engine: deData,
+            ...extraData,
+          },
+        }),
+      })
+      const result = await res.json()
+      if (result.error) { alert('AI generation failed: ' + result.error); return null }
+      return result
+    } catch (e) { alert('AI generation failed: ' + e.message); return null }
+    finally { setAiLoading(prev => ({ ...prev, [type]: false })) }
   }
 
-  // ── Scoring Engine ────────────────────────────────────────────────────────
+  const runNicheResearch = async () => {
+    const result = await callAI('sold-out-niche-research')
+    if (result?.plan) {
+      updateIcp('ai_niche_research', result.plan)
+      saveAll()
+    }
+  }
 
-  // ── Framework Updaters ─────────────────────────────────────────────────────
-  const updateFramework = (key, val) => setFrameworkData(prev => ({ ...prev, [key]: val }))
-  const updatePillar = (pillarIdx, key, val) => {
-    setFrameworkData(prev => {
-      const pillars = [...prev.pillars]
-      pillars[pillarIdx] = { ...pillars[pillarIdx], [key]: val }
-      return { ...prev, pillars }
-    })
+  const runPromiseRefine = async () => {
+    const result = await callAI('sold-out-promise-refine')
+    if (result?.plan) {
+      updateIcp('ai_suggestions', { ...icpData.ai_suggestions, promise: result.plan })
+      saveAll()
+    }
   }
-  const updateModule = (pillarIdx, modIdx, key, val) => {
-    setFrameworkData(prev => {
-      const pillars = [...prev.pillars]
-      const modules = [...pillars[pillarIdx].modules]
-      modules[modIdx] = { ...modules[modIdx], [key]: val }
-      pillars[pillarIdx] = { ...pillars[pillarIdx], modules }
-      return { ...prev, pillars }
-    })
+
+  const runPathSuggest = async () => {
+    const result = await callAI('sold-out-path-suggest')
+    if (result?.plan) {
+      updatePath('ai_suggestions', result.plan)
+      saveAll()
+    }
   }
-  const addModule = (pillarIdx) => {
-    setFrameworkData(prev => {
-      const pillars = [...prev.pillars]
-      pillars[pillarIdx] = { ...pillars[pillarIdx], modules: [...pillars[pillarIdx].modules, { name: '', description: '' }] }
-      return { ...prev, pillars }
-    })
+
+  const runBangBangDraft = async () => {
+    const result = await callAI('sold-out-bangbang-draft')
+    if (result?.plan) {
+      updateBB('ai_draft', result.plan)
+      await saveToSupabase({ bang_bang: { ...bangBangData, ai_draft: result.plan }, generated_plan: result.plan })
+      flash()
+    }
   }
-  const removeModule = (pillarIdx, modIdx) => {
-    setFrameworkData(prev => {
-      const pillars = [...prev.pillars]
-      pillars[pillarIdx] = { ...pillars[pillarIdx], modules: pillars[pillarIdx].modules.filter((_, i) => i !== modIdx) }
-      return { ...prev, pillars }
-    })
+
+  const runDipDraft = async () => {
+    const result = await callAI('sold-out-dip-draft')
+    if (result?.plan) {
+      updateDip('ai_draft', result.plan)
+      await saveToSupabase({ dip: { ...dipData, ai_draft: result.plan }, generated_dip: result.plan })
+      flash()
+    }
   }
+
+  const runCommsSuggest = async () => {
+    const result = await callAI('sold-out-comms-suggest')
+    if (result?.plan) {
+      updateComms('ai_suggestions', result.plan)
+      saveAll()
+    }
+  }
+
+  // ── Scoring Engine ─────────────────────────────────────────────────────────
 
   const computeScores = () => {
-    let icpDemo = 0
-    let icpPsycho = 0
-    let dipScore = 0
-    let bbScore = 0
     const flags = []
+    let icpScore = 0
+    let pathScore = 0
+    let bbScore = 0
+    let dipScore = 0
+    let commsScore = 0
+    let deScore = 0
 
-    // ICP Demographics (7 points)
-    if (icpData.client_type) icpDemo += 1
-    if (icpData.sector) icpDemo += 1
-    if (icpData.specific_description && icpData.specific_description.length > 10) icpDemo += 1
-    if (icpData.age_from && icpData.age_to) icpDemo += 1
-    if (icpData.gender_focus) icpDemo += 0.5
-    if (icpData.geography && icpData.geography.length > 0) icpDemo += 0.5
-    if (icpData.life_stage && icpData.life_stage.length > 0) icpDemo += 1
-    if (icpData.income_level) icpDemo += 0.5
-    if (icpData.prior_coaching) icpDemo += 0.5
+    // ICP Sniper (12 points)
+    if (icpData.pyramid_level) icpScore += 1
+    if (icpData.target_level) icpScore += 0.5
+    if (icpData.vertical_niche) icpScore += 1
+    if (icpData.client_type) icpScore += 0.5
+    if (icpData.sector) icpScore += 0.5
+    if (icpData.specific_description && icpData.specific_description.length > 10) icpScore += 1
+    if (icpData.age_from && icpData.age_to) icpScore += 0.5
+    if (icpData.life_stage && icpData.life_stage.length > 0) icpScore += 0.5
+    if (icpData.income_level) icpScore += 0.5
+    if (icpData.current_self_perception && icpData.current_self_perception.length > 10) icpScore += 0.5
+    if (icpData.desired_identity && icpData.desired_identity.length > 10) icpScore += 0.5
+    if (icpData.values && icpData.values.length >= 2) icpScore += 0.5
+    if (icpData.emotional_state && icpData.emotional_state.length > 0) icpScore += 0.5
+    if (icpData.trigger_moment && icpData.trigger_moment.length > 10) icpScore += 0.5
+    if (icpData.cost_of_inaction && icpData.cost_of_inaction.length > 10) icpScore += 0.5
+    if (icpData.promise && icpData.promise.length > 10) icpScore += 1.5
+    if (icpData.dream_outcome) icpScore += 0.5
+    if (icpData.pains && icpData.pains.filter(x => x).length >= 2) icpScore += 0.5
+    if (icpData.channels && icpData.channels.length > 0) icpScore += 0.5
+    icpScore = Math.min(Math.round(icpScore * 10) / 10, 12)
 
-    // ICP Psychographics (8 points)
-    if (icpData.current_self_perception && icpData.current_self_perception.length > 10) icpPsycho += 1
-    if (icpData.desired_identity && icpData.desired_identity.length > 10) icpPsycho += 1
-    if (icpData.identity_label) icpPsycho += 0.5
-    if (icpData.values && icpData.values.length >= 2) icpPsycho += 0.5
-    if (icpData.current_beliefs && icpData.current_beliefs.length > 10) icpPsycho += 0.5
-    if (icpData.investment_relationship) icpPsycho += 0.5
-    if (icpData.scepticism_level) icpPsycho += 0.5
-    if (icpData.buying_behaviour && icpData.buying_behaviour.length > 0) icpPsycho += 0.5
-    if (icpData.personality && icpData.personality.length > 0) icpPsycho += 0.5
-    if (icpData.emotional_state && icpData.emotional_state.length > 0) icpPsycho += 0.5
-    if (icpData.trigger_moment && icpData.trigger_moment.length > 10) icpPsycho += 0.5
-    if (icpData.influences && icpData.influences.length > 5) icpPsycho += 0.5
-    if (icpData.buying_influencers && icpData.buying_influencers.length > 0) icpPsycho += 0.5
-    if (icpData.real_objections && icpData.real_objections.length >= 2) icpPsycho += 0.5
-    if (icpData.cost_of_inaction && icpData.cost_of_inaction.length > 10) icpPsycho += 0.5
+    // Path Planner (8 points)
+    if (pathData.total_duration) pathScore += 1
+    if (pathData.onboarding.duration) pathScore += 1
+    if (pathData.onboarding.activities && pathData.onboarding.activities.length > 10) pathScore += 1
+    if (pathData.milestone_1.timeframe) pathScore += 1
+    if (pathData.milestone_1.promise && pathData.milestone_1.promise.length > 10) pathScore += 1
+    if (pathData.milestone_1.deliverables && pathData.milestone_1.deliverables.length > 10) pathScore += 1
+    if (pathData.milestone_2.timeframe) pathScore += 0.5
+    if (pathData.milestone_2.promise) pathScore += 0.5
+    if (pathData.extended.description) pathScore += 1
+    pathScore = Math.min(Math.round(pathScore * 10) / 10, 8)
 
-    // Market context bonus (included in ICP total — adds to demo)
-    if (icpData.dream_outcome) icpDemo += 0 // already counted above limit
-    if (icpData.already_tried && icpData.already_tried.filter(x => x).length > 0) icpPsycho += 0 // bonus
-    if (icpData.pains && icpData.pains.filter(x => x).length > 0) icpPsycho += 0
-    if (icpData.sophistication_level) icpPsycho += 0
-    if (icpData.channels && icpData.channels.length > 0) icpPsycho += 0
-
-    // Cap ICP scores
-    icpDemo = Math.min(icpDemo, 7)
-    icpPsycho = Math.min(icpPsycho, 8)
-
-    // Dip Score (10 points)
-    if (dipData.problem && dipData.problem.length > 5) dipScore += 1.5
-    if (dipData.format) dipScore += 1
-    if (dipData.outcome && dipData.outcome.length > 5) dipScore += 1.5
-    if (dipData.delivery && dipData.delivery.length > 0) dipScore += 1
-    if (dipData.duration) dipScore += 1
-    if (dipData.time_to_first_result) dipScore += 1
-    if (dipData.price) dipScore += 1
-    if (dipData.client_effort) dipScore += 0.5
-    if (dipData.bridge && dipData.bridge.length > 10) dipScore += 1
-    if (dipData.belief_to_create) dipScore += 0.5
-    dipScore = Math.min(dipScore, 10)
-
-    // Bang Bang Score (15 points)
-    // Core (5)
+    // Bang Bang (12 points)
     if (bangBangData.name) bbScore += 1
     if (bangBangData.promise && bangBangData.promise.length > 10) bbScore += 1
-    if (bangBangData.dream_score) bbScore += 0.5
-    if (bangBangData.unique_mechanism && bangBangData.unique_mechanism.length > 10) bbScore += 1.5
-    if (bangBangData.category) bbScore += 1
-    // Structure (3)
-    if (bangBangData.duration) bbScore += 0.5
+    if (bangBangData.who_for && bangBangData.who_for.length > 10) bbScore += 0.5
+    if (bangBangData.who_not_for && bangBangData.who_not_for.length > 10) bbScore += 0.5
     if (bangBangData.phases && bangBangData.phases.filter(p => p.name).length > 0) bbScore += 1
-    if (bangBangData.touch_points && bangBangData.touch_points.length > 0) bbScore += 0.5
-    if (bangBangData.milestones && (bangBangData.milestones.at_30_days || bangBangData.milestones.at_90_days)) bbScore += 1
-    // Value & Pricing (3)
     if (bangBangData.stack && bangBangData.stack.filter(s => s.component).length > 0) bbScore += 1
     if (bangBangData.price) bbScore += 1
-    if (bangBangData.payment_options && bangBangData.payment_options.length > 0) bbScore += 1
-    // Risk & Positioning (2)
-    if (bangBangData.guarantees && bangBangData.guarantees.length > 0) bbScore += 1
-    if (bangBangData.social_proof && bangBangData.social_proof.length > 0) bbScore += 1
-    // Continuity (1)
-    if (bangBangData.continuity_offer) bbScore += 0.5
-    if (bangBangData.continuity_format) bbScore += 0.5
-    // Alignment (1)
-    const alignAnswered = Object.values(bangBangData.alignment_checks || {}).filter(a => a.answer).length
-    bbScore += Math.min(alignAnswered * 0.25, 1)
-    bbScore = Math.min(bbScore, 15)
+    if (bangBangData.staggered_payments && bangBangData.staggered_payments.filter(p => p.amount).length > 0) bbScore += 1
+    if (bangBangData.bonuses && bangBangData.bonuses.filter(b => b.name).length > 0) bbScore += 1
+    if (bangBangData.guarantee_type) bbScore += 1
+    if (bangBangData.guarantee_detail && bangBangData.guarantee_detail.length > 10) bbScore += 0.5
+    if (bangBangData.scarcity || bangBangData.urgency) bbScore += 1
+    if (bangBangData.social_proof && bangBangData.social_proof.length > 0) bbScore += 0.5
+    if (bangBangData.delivery_model && bangBangData.delivery_model.length > 0) bbScore += 0.5
+    if (bangBangData.touch_points && bangBangData.touch_points.length > 0) bbScore += 0.5
+    bbScore = Math.min(Math.round(bbScore * 10) / 10, 12)
+
+    // Dip (6 points)
+    if (dipData.name) dipScore += 0.5
+    if (dipData.promise && dipData.promise.length > 5) dipScore += 1
+    if (dipData.problem && dipData.problem.length > 5) dipScore += 1
+    if (dipData.format) dipScore += 0.5
+    if (dipData.duration) dipScore += 0.5
+    if (dipData.price) dipScore += 0.5
+    if (dipData.bridge_to_main && dipData.bridge_to_main.length > 10) dipScore += 1
+    if (dipData.guarantee_type) dipScore += 0.5
+    if (dipData.bonuses && dipData.bonuses.filter(b => b.name).length > 0) dipScore += 0.5
+    dipScore = Math.min(Math.round(dipScore * 10) / 10, 6)
+
+    // Comms (4 points)
+    if (commsData.daily && commsData.daily.length > 0) commsScore += 1
+    if (commsData.calls_1_1) commsScore += 1
+    if (commsData.group_calls) commsScore += 1
+    if (commsData.workshops || commsData.events) commsScore += 0.5
+    if (commsData.education_platform) commsScore += 0.5
+    commsScore = Math.min(Math.round(commsScore * 10) / 10, 4)
+
+    // Distinction Engine auto-populated (8 points)
+    if (icpData.problems && icpData.problems.filter(Boolean).length >= 3) deScore += 2
+    if (icpData.pillar_names && icpData.pillar_names.filter(Boolean).length >= 3) deScore += 2
+    const filledSolutions = icpData.solutions ? icpData.solutions.flat().filter(Boolean).length : 0
+    if (filledSolutions >= 9) deScore += 2
+    else if (filledSolutions >= 6) deScore += 1
+    if (icpData.mechanisms && icpData.mechanisms.flat().filter(Boolean).length >= 6) deScore += 1
+    if (icpData.engine_name) deScore += 1
+    deScore = Math.min(Math.round(deScore * 10) / 10, 8)
 
     // Flags
-    if (!icpData.specific_description || icpData.specific_description.length < 20) {
-      flags.push({ severity: 'high', message: 'ICP specific description is too vague or missing' })
-    }
-    if (!icpData.emotional_state || icpData.emotional_state.length === 0) {
-      flags.push({ severity: 'medium', message: 'No emotional state selected for ICP — this drives messaging' })
-    }
-    if (!dipData.problem) {
-      flags.push({ severity: 'high', message: 'Dip problem is not defined' })
-    }
-    if (!dipData.bridge || dipData.bridge.length < 20) {
-      flags.push({ severity: 'medium', message: 'Dip bridge to main offer needs more detail' })
-    }
-    if (!bangBangData.unique_mechanism || bangBangData.unique_mechanism.length < 20) {
-      flags.push({ severity: 'high', message: 'Unique mechanism is weak or missing — this is critical for differentiation' })
-    }
-    if (!bangBangData.promise || bangBangData.promise.length < 15) {
-      flags.push({ severity: 'high', message: 'Core promise is too short or missing' })
-    }
-    if (bangBangData.price && bangBangData.price < 500) {
-      flags.push({ severity: 'medium', message: 'Price may be too low for a premium offer' })
-    }
-    if (!bangBangData.guarantees || bangBangData.guarantees.length === 0) {
-      flags.push({ severity: 'low', message: 'No guarantee selected — consider adding one to reduce risk' })
-    }
-    const notYetAlignments = Object.values(bangBangData.alignment_checks || {}).filter(a => a.answer === 'not_yet').length
-    if (notYetAlignments >= 2) {
-      flags.push({ severity: 'high', message: `${notYetAlignments} alignment checks are "not yet" — review before launching` })
-    }
-    if (icpData.who_not_for && !bangBangData.who_not_for) {
-      flags.push({ severity: 'low', message: 'Consider copying ICP exclusions to your Bang Bang offer' })
-    }
+    if (!icpData.promise || icpData.promise.length < 15) flags.push({ severity: 'high', message: 'Your promise needs to be crystal clear — a 6-year-old should understand the transformation' })
+    if (icpData.pyramid_level === 'dying' || icpData.pyramid_level === 'surviving') flags.push({ severity: 'medium', message: 'Consider targeting Stalling or Thriving clients — they buy for growth, not survival' })
+    if (!icpData.specific_description || icpData.specific_description.length < 20) flags.push({ severity: 'high', message: 'ICP description is too vague — get specific about who you serve' })
+    if (!pathData.milestone_1.promise) flags.push({ severity: 'high', message: 'First milestone promise is missing — this becomes your Dip offer' })
+    if (!bangBangData.guarantee_type) flags.push({ severity: 'medium', message: 'No guarantee selected — reduces risk for buyers' })
+    if (bangBangData.price && bangBangData.price < 500) flags.push({ severity: 'medium', message: 'Price may be too low for a premium offer' })
+    if (!bangBangData.scarcity && !bangBangData.urgency) flags.push({ severity: 'low', message: 'No scarcity or urgency — consider running intakes' })
+    if (icpData.problems.filter(Boolean).length < 3) flags.push({ severity: 'high', message: 'Complete your Distinction Engine to populate the 3 problems and 9 solutions' })
 
-    const icpTotal = Math.round((icpDemo + icpPsycho) * 10) / 10
-    // Framework Score (10 points)
-    let fwScore = 0
-    if (frameworkData.framework_name) fwScore += 1
-    if (frameworkData.tagline && frameworkData.tagline.split(/\s+/).length >= 4) fwScore += 1
-    frameworkData.pillars.forEach(p => {
-      if (p.name) fwScore += 1
-      const filledMods = p.modules.filter(m => m.name).length
-      if (filledMods >= 2) fwScore += 1
-      else if (filledMods >= 1) fwScore += 0.5
-    })
-    fwScore = Math.min(Math.round(fwScore * 10) / 10, 10)
-
-    if (!frameworkData.framework_name) flags.push({ severity: 'low', message: 'Give your signature framework a name — it becomes your intellectual property' })
-    const emptyPillars = frameworkData.pillars.filter(p => !p.name).length
-    if (emptyPillars > 0) flags.push({ severity: 'low', message: `${emptyPillars} of 3 pillars are unnamed — each pillar should represent a key area your offer addresses` })
-
-    const total = Math.round((icpTotal + dipScore + bbScore + fwScore) * 10) / 10
+    const total = Math.round((icpScore + pathScore + bbScore + dipScore + commsScore + deScore) * 10) / 10
 
     let band = 'Needs Work'
     if (total >= 42) band = 'Offer-Ready'
@@ -665,10 +797,12 @@ export default function PlaybookPage() {
     else if (total >= 24) band = 'Getting There'
 
     return {
-      icp: { demo: Math.round(icpDemo * 10) / 10, psycho: Math.round(icpPsycho * 10) / 10, total: icpTotal, max: 15 },
-      dip: { total: Math.round(dipScore * 10) / 10, max: 10 },
-      bangBang: { total: Math.round(bbScore * 10) / 10, max: 15 },
-      framework: { total: fwScore, max: 10 },
+      icp: { total: icpScore, max: 12 },
+      path: { total: pathScore, max: 8 },
+      bangBang: { total: bbScore, max: 12 },
+      dip: { total: dipScore, max: 6 },
+      comms: { total: commsScore, max: 4 },
+      de: { total: deScore, max: 8 },
       overall: { total, max: 50, band },
       flags,
     }
@@ -676,102 +810,7 @@ export default function PlaybookPage() {
 
   const scores = computeScores()
 
-  // ── Generate AI Prompt ────────────────────────────────────────────────────
-
-  const generateAIPrompt = () => {
-    const lines = []
-    lines.push('=== OFFER PLAYBOOK DATA ===\n')
-
-    lines.push('--- ICP (Ideal Client Profile) ---')
-    lines.push(`Client Type: ${icpData.client_type}`)
-    lines.push(`Sector: ${icpData.sector}`)
-    lines.push(`Description: ${icpData.specific_description}`)
-    lines.push(`Age Range: ${icpData.age_from} - ${icpData.age_to}`)
-    lines.push(`Gender Focus: ${icpData.gender_focus}`)
-    lines.push(`Geography: ${(icpData.geography || []).join(', ')}`)
-    lines.push(`Life Stage: ${(icpData.life_stage || []).join(', ')}`)
-    lines.push(`Income Level: ${icpData.income_level}`)
-    lines.push(`Prior Coaching: ${icpData.prior_coaching}`)
-    lines.push(`Current Self-Perception: ${icpData.current_self_perception}`)
-    lines.push(`Desired Identity: ${icpData.desired_identity}`)
-    lines.push(`Identity Label: ${icpData.identity_label}`)
-    lines.push(`Core Values: ${(icpData.values || []).join(', ')}`)
-    lines.push(`Current Beliefs: ${icpData.current_beliefs}`)
-    lines.push(`Investment Relationship: ${icpData.investment_relationship}`)
-    lines.push(`Scepticism Level: ${icpData.scepticism_level}`)
-    lines.push(`Buying Behaviour: ${(icpData.buying_behaviour || []).join(', ')}`)
-    lines.push(`Personality: ${(icpData.personality || []).join(', ')}`)
-    lines.push(`Emotional State: ${(icpData.emotional_state || []).join(', ')}`)
-    lines.push(`Trigger Moment: ${icpData.trigger_moment}`)
-    lines.push(`Influences: ${icpData.influences}`)
-    lines.push(`Buying Influencers: ${(icpData.buying_influencers || []).join(', ')}`)
-    lines.push(`Real Objections: ${(icpData.real_objections || []).join(', ')}`)
-    lines.push(`Cost of Inaction: ${icpData.cost_of_inaction}`)
-    lines.push(`Dream Outcome: ${icpData.dream_outcome}`)
-    lines.push(`Already Tried: ${(icpData.already_tried || []).filter(x => x).join(', ')}`)
-    lines.push(`Pains: ${(icpData.pains || []).filter(x => x).join(', ')}`)
-    lines.push(`Sophistication Level: ${icpData.sophistication_level}`)
-    lines.push(`Channels: ${(icpData.channels || []).join(', ')}`)
-    lines.push(`Who NOT For: ${icpData.who_not_for}`)
-
-    lines.push('\n--- The Dip (Entry Offer) ---')
-    lines.push(`Problem: ${dipData.problem}`)
-    lines.push(`Format: ${dipData.format}`)
-    lines.push(`Outcome: ${dipData.outcome}`)
-    lines.push(`Delivery: ${(dipData.delivery || []).join(', ')}`)
-    lines.push(`Duration: ${dipData.duration}`)
-    lines.push(`Time to First Result: ${dipData.time_to_first_result}`)
-    lines.push(`Price: ${dipData.price}`)
-    lines.push(`Client Effort: ${dipData.client_effort}`)
-    lines.push(`Bridge to Main Offer: ${dipData.bridge}`)
-    lines.push(`Belief to Create: ${dipData.belief_to_create}`)
-    lines.push(`Psychographic Fit: ${(dipData.psychographic_fit || []).join(', ')}`)
-
-    lines.push('\n--- Bang Bang Offer (Core Offer) ---')
-    lines.push(`Name: ${bangBangData.name}`)
-    lines.push(`Promise: ${bangBangData.promise}`)
-    lines.push(`Who NOT For: ${bangBangData.who_not_for}`)
-    lines.push(`Dream Score: ${bangBangData.dream_score}/7`)
-    lines.push(`Unique Mechanism: ${bangBangData.unique_mechanism}`)
-    lines.push(`Category: ${bangBangData.category}`)
-    lines.push(`Duration: ${bangBangData.duration}`)
-    lines.push(`Phases: ${(bangBangData.phases || []).map(p => `${p.name} (${p.duration}): ${p.description} -> ${p.outcome}`).join(' | ')}`)
-    lines.push(`Touch Points: ${(bangBangData.touch_points || []).join(', ')}`)
-    lines.push(`Client Commitment: ${bangBangData.client_commitment}`)
-    lines.push(`Milestones: 30d: ${bangBangData.milestones?.at_30_days}, 90d: ${bangBangData.milestones?.at_90_days}, 6m: ${bangBangData.milestones?.at_6_months}`)
-    lines.push(`Value Stack: ${(bangBangData.stack || []).map(s => `${s.component} (${s.value}): ${s.description}`).join(' | ')}`)
-    lines.push(`Stack Value: ${bangBangData.stack_value || computedStackValue}`)
-    lines.push(`Price: ${bangBangData.price}`)
-    lines.push(`Payment Options: ${(bangBangData.payment_options || []).join(', ')}`)
-    lines.push(`Delivery Model: ${(bangBangData.delivery_model || []).join(', ')}`)
-    lines.push(`Guarantees: ${(bangBangData.guarantees || []).join(', ')}`)
-    lines.push(`Guarantee Detail: ${bangBangData.guarantee_detail}`)
-    lines.push(`Scarcity: ${bangBangData.scarcity}`)
-    lines.push(`Social Proof: ${(bangBangData.social_proof || []).join(', ')}`)
-    lines.push(`Continuity Offer: ${bangBangData.continuity_offer}`)
-    lines.push(`Continuity Format: ${bangBangData.continuity_format}`)
-    lines.push(`Continuity Price: ${bangBangData.continuity_price}`)
-    lines.push(`Downsell: ${bangBangData.downsell}`)
-
-    lines.push('\n--- Scores ---')
-    lines.push(`ICP: ${scores.icp.total}/${scores.icp.max}`)
-    lines.push(`Dip: ${scores.dip.total}/${scores.dip.max}`)
-    lines.push(`Bang Bang: ${scores.bangBang.total}/${scores.bangBang.max}`)
-    lines.push(`Total: ${scores.overall.total}/${scores.overall.max} (${scores.overall.band})`)
-
-    if (scores.flags.length > 0) {
-      lines.push('\n--- Flags ---')
-      scores.flags.forEach(f => lines.push(`[${f.severity.toUpperCase()}] ${f.message}`))
-    }
-
-    lines.push('\n=== END PLAYBOOK DATA ===')
-    lines.push('\nUsing this data, help me refine and improve my offer. Identify gaps, suggest copy angles, and give me specific next steps.')
-
-    navigator.clipboard.writeText(lines.join('\n'))
-    flash()
-  }
-
-  // ── Stage Navigation ──────────────────────────────────────────────────────
+  // ── Stage Navigation ───────────────────────────────────────────────────────
 
   const goToStage = (stage) => {
     saveAll()
@@ -781,24 +820,24 @@ export default function PlaybookPage() {
   }
 
   const stages = [
-    { num: 1, label: 'ICP Builder', icon: '1' },
-    { num: 2, label: 'The Dip', icon: '2' },
+    { num: 1, label: 'ICP Sniper', icon: '1' },
+    { num: 2, label: 'Path Planner', icon: '2' },
     { num: 3, label: 'Bang Bang Offer', icon: '3' },
-    { num: 4, label: 'Signature Framework™', icon: '4' },
-    { num: 5, label: 'Blueprint', icon: '5' },
+    { num: 4, label: 'The Dip', icon: '4' },
+    { num: 5, label: 'Communication', icon: '5' },
+    { num: 6, label: 'Blueprint', icon: '6' },
   ]
 
-  // ── Stage completion checks ───────────────────────────────────────────────
-
   const stageComplete = (num) => {
-    if (num === 1) return scores.icp.total >= 10
-    if (num === 2) return scores.dip.total >= 7
-    if (num === 3) return scores.bangBang.total >= 10
-    if (num === 4) return scores.overall.total >= 29
+    if (num === 1) return scores.icp.total >= 8
+    if (num === 2) return scores.path.total >= 5
+    if (num === 3) return scores.bangBang.total >= 8
+    if (num === 4) return scores.dip.total >= 4
+    if (num === 5) return scores.comms.total >= 3
     return false
   }
 
-  // ── Guards ────────────────────────────────────────────────────────────────
+  // ── Guards ─────────────────────────────────────────────────────────────────
 
   if (loading) return (
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
@@ -815,98 +854,124 @@ export default function PlaybookPage() {
     </div>
   )
 
-  // Sub-components (TextInput, TextArea, SingleSelectTags, MultiSelectTags, DynamicList,
-  // Label, SectionHeading, FieldGroup, ScoreRing) are all defined OUTSIDE the main
-  // component to prevent focus loss on mobile re-render
-
-  // ── Sidebar Content ───────────────────────────────────────────────────────
-
-  const sidebarNav = (
-    <nav className="flex flex-col h-full">
-      <div className="p-5 pb-4 border-b border-zinc-800">
-        <img src="/logo.png" alt="The Syndicate" className="h-12 w-auto" />
-      </div>
-
-      <div className="px-5 py-4 border-b border-zinc-800">
-        <button onClick={() => router.push('/client')} className="flex items-center gap-2 text-zinc-400 hover:text-white transition text-sm">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
-          <span className="tracking-wide">Back to App</span>
-        </button>
-      </div>
-
-      <div className="px-5 py-4 border-b border-zinc-800">
-        <p className="text-white text-sm font-semibold truncate">{clientData.name}</p>
-        <p className="text-zinc-600 text-xs truncate mt-0.5">{clientData.business}</p>
-      </div>
-
-      <div className="flex-1 py-4 overflow-y-auto">
-        <p className="px-5 pb-3 text-[10px] font-bold text-zinc-600 uppercase tracking-[0.2em]">Stages</p>
-        {stages.map(stage => (
-          <button
-            key={stage.num}
-            onClick={() => goToStage(stage.num)}
-            className={`w-full flex items-center gap-3 px-5 py-3 text-[13px] font-medium transition ${
-              currentStage === stage.num
-                ? 'text-gold bg-gold/[0.08] border-r-2 border-gold'
-                : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
-            }`}
-          >
-            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border ${
-              stageComplete(stage.num)
-                ? 'bg-gold/20 text-gold border-gold/40'
-                : currentStage === stage.num
-                  ? 'border-gold/40 text-gold'
-                  : 'border-zinc-700 text-zinc-600'
-            }`}>
-              {stageComplete(stage.num) ? (
-                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
-              ) : stage.icon}
-            </span>
-            <span className="tracking-wide">{stage.label}</span>
-          </button>
-        ))}
-      </div>
-
-      <div className="p-4 border-t border-zinc-800">
-        <div className="text-center">
-          <p className="text-xs text-zinc-600 mb-1">Overall Score</p>
-          <p className="text-lg font-bold text-white">{scores.overall.total}<span className="text-zinc-600 text-sm"> / {scores.overall.max}</span></p>
-          <p className={`text-xs font-semibold mt-0.5 ${scores.overall.band === 'Offer-Ready' ? 'text-gold' : scores.overall.band === 'Strong Foundation' ? 'text-emerald-400' : scores.overall.band === 'Getting There' ? 'text-yellow-400' : 'text-red-400'}`}>{scores.overall.band}</p>
-        </div>
-      </div>
-    </nav>
-  )
-
-  // ── Save Toast ────────────────────────────────────────────────────────────
-
-  const SaveToast = () => (
-    <div className={`fixed bottom-6 right-6 z-50 transition-all duration-300 ${showToast ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
-      <div className="bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 flex items-center gap-2 shadow-xl">
-        <svg className="w-4 h-4 text-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
-        <span className="text-sm text-zinc-300">Saved</span>
-      </div>
-    </div>
-  )
-
-  // ── Stage 1: ICP Builder ──────────────────────────────────────────────────
+  // ── Stage 1: ICP Sniper ────────────────────────────────────────────────────
 
   const renderStage1 = () => (
     <div>
       <div className="mb-6">
-        <h1 className="text-xl font-bold text-white mb-1">ICP Builder</h1>
-        <p className="text-zinc-500 text-sm">Define your Ideal Client Profile across three dimensions.</p>
+        <h1 className="text-xl font-bold text-white mb-1">ICP Sniper</h1>
+        <p className="text-zinc-500 text-sm">The 4 Ps: Person, Promise, Problem, Path. Define who you serve and how you transform them.</p>
       </div>
 
       {/* Section tabs */}
-      <div className="flex gap-1 mb-8 bg-zinc-900 rounded-lg p-1">
+      <div className="flex gap-1 mb-8 bg-zinc-900 rounded-lg p-1 overflow-x-auto">
         {[
+          { id: 'pyramid', label: 'Person' },
           { id: 'demographics', label: 'Demographics' },
           { id: 'psychographics', label: 'Psychographics' },
-          { id: 'market', label: 'Market Context' },
+          { id: 'market', label: 'Market' },
+          { id: 'promise', label: 'Promise' },
+          { id: 'path', label: 'Path' },
         ].map(tab => (
-          <button key={tab.id} onClick={() => setIcpSection(tab.id)} className={`flex-1 px-3 py-2 rounded-md text-xs font-semibold uppercase tracking-wider transition ${icpSection === tab.id ? 'bg-zinc-800 text-gold' : 'text-zinc-500 hover:text-zinc-300'}`}>{tab.label}</button>
+          <button key={tab.id} onClick={() => setIcpSection(tab.id)} className={`flex-1 px-3 py-2 rounded-md text-xs font-semibold uppercase tracking-wider transition whitespace-nowrap ${icpSection === tab.id ? 'bg-zinc-800 text-gold' : 'text-zinc-500 hover:text-zinc-300'}`}>{tab.label}</button>
         ))}
       </div>
+
+      {/* Person — Pyramid */}
+      {icpSection === 'pyramid' && (
+        <div>
+          <SectionHeading title="The Pyramid" description="Within every niche, there are four types of people. The bottom two are driven by pain (moving away), the top two by gain (moving toward). Ideally, you want to work with people at the Stalling or Thriving level." />
+
+          <FieldGroup label="Where do your ideal clients sit on the pyramid?">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {PYRAMID_LEVELS.map(level => (
+                <button
+                  key={level.id}
+                  onClick={() => updateIcp('pyramid_level', level.id)}
+                  className={`p-4 rounded-lg border text-left transition ${
+                    icpData.pyramid_level === level.id
+                      ? level.color === 'emerald' ? 'bg-emerald-500/10 border-emerald-500/40 ring-1 ring-emerald-500/20'
+                        : level.color === 'yellow' ? 'bg-yellow-500/10 border-yellow-500/40 ring-1 ring-yellow-500/20'
+                        : level.color === 'orange' ? 'bg-orange-500/10 border-orange-500/40 ring-1 ring-orange-500/20'
+                        : 'bg-red-500/10 border-red-500/40 ring-1 ring-red-500/20'
+                      : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className={`text-sm font-bold ${
+                      level.color === 'emerald' ? 'text-emerald-400'
+                        : level.color === 'yellow' ? 'text-yellow-400'
+                        : level.color === 'orange' ? 'text-orange-400'
+                        : 'text-red-400'
+                    }`}>{level.label}</span>
+                    <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Buys for {level.motivation}</span>
+                  </div>
+                  <p className="text-xs text-zinc-500">{level.desc}</p>
+                </button>
+              ))}
+            </div>
+          </FieldGroup>
+
+          {(icpData.pyramid_level === 'dying' || icpData.pyramid_level === 'surviving') && (
+            <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4 mb-5">
+              <p className="text-sm text-orange-300 font-medium mb-1">Consider niching up</p>
+              <p className="text-xs text-orange-400/70">People at the Dying and Surviving levels buy out of desperation, not aspiration. They often can't afford premium services and are harder to get results for. Think about who sits one level above your current clients.</p>
+            </div>
+          )}
+
+          <FieldGroup label="Where do your CURRENT clients sit?">
+            <SingleSelectTags options={['Dying', 'Surviving', 'Stalling', 'Thriving']} value={icpData.current_clients_level} onChange={v => updateIcp('current_clients_level', v)} />
+          </FieldGroup>
+
+          <FieldGroup label="Where do you WANT to move? (target level)">
+            <SingleSelectTags options={['Stalling', 'Thriving']} value={icpData.target_level} onChange={v => updateIcp('target_level', v)} />
+          </FieldGroup>
+
+          <SectionHeading title="Vertical Niching" description="Instead of niching horizontally (changing markets), niche vertically (moving up in your current market). Think about the different levels of people you could serve." />
+
+          <FieldGroup label="Describe your vertical niche">
+            <TextArea value={icpData.vertical_niche} onChange={v => updateIcp('vertical_niche', v)} placeholder="e.g. At the bottom: PTs just starting out. At the top: successful business owners turning IP into mentorship programmes." rows={4} />
+          </FieldGroup>
+
+          <SectionHeading title="Niche Criteria" description="Three things must be true about the people you choose to work with." />
+
+          <div className="space-y-3 mb-5">
+            {[
+              { key: 'like_them', label: 'You genuinely like and connect with them' },
+              { key: 'qualified', label: 'You are qualified to help them (even one level up)' },
+              { key: 'can_afford', label: 'They have the money to afford your service' },
+            ].map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => updateIcpNested('niche_criteria', key, !icpData.niche_criteria[key])}
+                className={`w-full flex items-center gap-3 p-3 rounded-lg border text-left transition ${
+                  icpData.niche_criteria[key] ? 'bg-gold/10 border-gold/30' : 'bg-zinc-900 border-zinc-800 hover:border-zinc-700'
+                }`}
+              >
+                <div className={`w-5 h-5 rounded flex items-center justify-center border ${
+                  icpData.niche_criteria[key] ? 'bg-gold/20 border-gold/40' : 'border-zinc-700'
+                }`}>
+                  {icpData.niche_criteria[key] && <svg className="w-3 h-3 text-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                </div>
+                <span className={`text-sm ${icpData.niche_criteria[key] ? 'text-gold' : 'text-zinc-400'}`}>{label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* AI Research Button */}
+          <div className="mt-6 pt-6 border-t border-zinc-800">
+            <p className="text-xs text-zinc-500 mb-3">Let AI research your niche and suggest targeted demographics, psychographics, and pain points specific to your market.</p>
+            <AIButton loading={aiLoading['sold-out-niche-research']} onClick={runNicheResearch} hasOutput={!!icpData.ai_niche_research} label="Research My Niche" regenerateLabel="Re-research My Niche" />
+            <AIOutput content={icpData.ai_niche_research} title="Niche Research" />
+          </div>
+
+          <div className="flex justify-end mt-8">
+            <button onClick={() => setIcpSection('demographics')} className="px-6 py-2.5 bg-gold/10 text-gold border border-gold/30 rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-gold/20 transition">
+              Next: Demographics &rarr;
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Demographics */}
       {icpSection === 'demographics' && (
@@ -965,7 +1030,10 @@ export default function PlaybookPage() {
             <SingleSelectTags options={PRIOR_COACHING_OPTIONS} value={icpData.prior_coaching} onChange={v => updateIcp('prior_coaching', v)} />
           </FieldGroup>
 
-          <div className="flex justify-end mt-8">
+          <div className="flex justify-between mt-8">
+            <button onClick={() => setIcpSection('pyramid')} className="px-6 py-2.5 bg-zinc-800 text-zinc-400 border border-zinc-700 rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-zinc-700 transition">
+              &larr; Person
+            </button>
             <button onClick={() => setIcpSection('psychographics')} className="px-6 py-2.5 bg-gold/10 text-gold border border-gold/30 rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-gold/20 transition">
               Next: Psychographics &rarr;
             </button>
@@ -1023,7 +1091,7 @@ export default function PlaybookPage() {
           </FieldGroup>
 
           <FieldGroup label="Influences">
-            <TextArea value={icpData.influences} onChange={v => updateIcp('influences', v)} placeholder="Who do they follow, listen to, or look up to? What content do they consume?" rows={3} />
+            <TextArea value={icpData.influences} onChange={v => updateIcp('influences', v)} placeholder="Who do they follow, listen to, or look up to?" rows={3} />
           </FieldGroup>
 
           <FieldGroup label="Buying Influencers">
@@ -1043,7 +1111,7 @@ export default function PlaybookPage() {
               &larr; Demographics
             </button>
             <button onClick={() => setIcpSection('market')} className="px-6 py-2.5 bg-gold/10 text-gold border border-gold/30 rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-gold/20 transition">
-              Next: Market Context &rarr;
+              Next: Market &rarr;
             </button>
           </div>
         </div>
@@ -1087,15 +1155,109 @@ export default function PlaybookPage() {
           </FieldGroup>
 
           <FieldGroup label="Who Is This NOT For?">
-            <TextArea value={icpData.who_not_for} onChange={v => updateIcp('who_not_for', v)} placeholder="Who should NOT buy from you? Be specific about exclusions." rows={3} />
+            <TextArea value={icpData.who_not_for} onChange={v => updateIcp('who_not_for', v)} placeholder="Who should NOT buy from you? Be specific." rows={3} />
           </FieldGroup>
 
           <div className="flex justify-between mt-8">
             <button onClick={() => setIcpSection('psychographics')} className="px-6 py-2.5 bg-zinc-800 text-zinc-400 border border-zinc-700 rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-zinc-700 transition">
               &larr; Psychographics
             </button>
+            <button onClick={() => setIcpSection('promise')} className="px-6 py-2.5 bg-gold/10 text-gold border border-gold/30 rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-gold/20 transition">
+              Next: Promise &rarr;
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Promise */}
+      {icpSection === 'promise' && (
+        <div>
+          <SectionHeading title="The Promise" description="Your promise needs to be so clear that a 6-year-old can understand it. 'He used to be broke, now he earns 10k a month.' It must be tangible — not mindset coaching or identity work. The brain needs to see the before and after." />
+
+          <FieldGroup label="Your Crystal Clear Promise">
+            <TextArea value={icpData.promise} onChange={v => updateIcp('promise', v)} placeholder="e.g. I help online coaches go from struggling to sign clients to consistently earning £10k+ per month within 12 months." rows={4} />
+          </FieldGroup>
+
+          <div className="mt-4">
+            <AIButton loading={aiLoading['sold-out-promise-refine']} onClick={runPromiseRefine} hasOutput={!!icpData.ai_suggestions?.promise} label="Sharpen My Promise" regenerateLabel="Re-sharpen" />
+            <AIOutput content={icpData.ai_suggestions?.promise} title="Promise Suggestions" />
+          </div>
+
+          <div className="flex justify-between mt-8">
+            <button onClick={() => setIcpSection('market')} className="px-6 py-2.5 bg-zinc-800 text-zinc-400 border border-zinc-700 rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-zinc-700 transition">
+              &larr; Market
+            </button>
+            <button onClick={() => setIcpSection('path')} className="px-6 py-2.5 bg-gold/10 text-gold border border-gold/30 rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-gold/20 transition">
+              Next: Path &rarr;
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Path — Auto-populated from Distinction Engine */}
+      {icpSection === 'path' && (
+        <div>
+          <SectionHeading title="The Path" description="Three problems hold your ideal client back from achieving your promise. For each problem, you've created three solutions with branded mechanisms. This data comes from your Distinction Engine." />
+
+          {dePopulated && <AutoPopBanner source="Distinction Engine" />}
+
+          {icpData.problems.filter(Boolean).length === 0 && (
+            <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 text-center mb-6">
+              <p className="text-zinc-400 text-sm mb-2">Your Distinction Engine data will auto-populate here.</p>
+              <p className="text-zinc-600 text-xs">Complete your Distinction Engine first to define your 3 problems, 9 solutions, and branded mechanisms.</p>
+              <button onClick={() => router.push('/distinction-engine')} className="mt-4 px-5 py-2 bg-gold/10 text-gold border border-gold/30 rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-gold/20 transition">
+                Go to Distinction Engine
+              </button>
+            </div>
+          )}
+
+          {icpData.engine_name && (
+            <div className="bg-gold/5 border border-gold/20 rounded-lg p-4 mb-6">
+              <p className="text-xs text-zinc-500 uppercase tracking-widest mb-1">Your Engine</p>
+              <p className="text-lg font-bold text-gold">{icpData.engine_name}</p>
+            </div>
+          )}
+
+          {icpData.problems.map((problem, pi) => (
+            problem && (
+              <div key={pi} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden mb-4">
+                <div className={`px-5 py-3 border-b border-zinc-800 ${pi === 0 ? 'bg-sky-500/5' : pi === 1 ? 'bg-violet-500/5' : 'bg-gold/5'}`}>
+                  <div className="flex items-center gap-3">
+                    <span className={`text-xs font-bold uppercase tracking-widest ${pi === 0 ? 'text-sky-400' : pi === 1 ? 'text-violet-400' : 'text-gold'}`}>Problem {pi + 1}</span>
+                    {icpData.pillar_names[pi] && <span className="text-xs text-zinc-500">({icpData.pillar_names[pi]})</span>}
+                  </div>
+                  <p className="text-sm text-white mt-1">{problem}</p>
+                </div>
+                <div className="p-5">
+                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Solutions & Mechanisms</p>
+                  <div className="space-y-2">
+                    {icpData.solutions[pi].map((sol, si) => (
+                      sol && (
+                        <div key={si} className="flex items-start gap-3">
+                          <span className="w-1.5 h-1.5 rounded-full bg-zinc-600 mt-2 flex-shrink-0" />
+                          <div>
+                            <p className="text-sm text-white">{sol}</p>
+                            {icpData.mechanisms[pi][si] && (
+                              <p className={`text-xs mt-0.5 ${pi === 0 ? 'text-sky-400/70' : pi === 1 ? 'text-violet-400/70' : 'text-gold/70'}`}>
+                                {icpData.mechanisms[pi][si]}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )
+          ))}
+
+          <div className="flex justify-between mt-8">
+            <button onClick={() => setIcpSection('promise')} className="px-6 py-2.5 bg-zinc-800 text-zinc-400 border border-zinc-700 rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-zinc-700 transition">
+              &larr; Promise
+            </button>
             <button onClick={() => goToStage(2)} className="px-6 py-2.5 bg-gold text-zinc-950 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-gold-light transition">
-              Continue to Stage 2 &rarr;
+              Continue to Path Planner &rarr;
             </button>
           </div>
         </div>
@@ -1103,471 +1265,619 @@ export default function PlaybookPage() {
     </div>
   )
 
-  // ── Stage 2: The Dip ──────────────────────────────────────────────────────
+  // ── Stage 2: Path Planner ──────────────────────────────────────────────────
 
   const renderStage2 = () => (
     <div>
       <div className="mb-6">
-        <h1 className="text-xl font-bold text-white mb-1">The Dip</h1>
-        <p className="text-zinc-500 text-sm">Design your entry-level offer that bridges to your core programme.</p>
+        <h1 className="text-xl font-bold text-white mb-1">Path Planner</h1>
+        <p className="text-zinc-500 text-sm">Map out the client journey from payment to transformation. Think milestones: early, midterm, and long-term. Your first milestone becomes The Dip (micro offer).</p>
       </div>
 
-      <SectionHeading title="Problem & Format" description="What specific problem does The Dip solve?" />
+      <FieldGroup label="Total Programme Duration">
+        <TextInput value={pathData.total_duration} onChange={v => updatePath('total_duration', v)} placeholder="e.g. 12 months, 6 months, 90 days" />
+      </FieldGroup>
+
+      {/* Onboarding */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-6">
+        <SectionHeading title="Onboarding (Day 0 → Day 1)" description="What happens between payment and the first call? This is where you handle the boring but necessary stuff — mindset, setup, assessments. Typically 5-7 days." />
+
+        <FieldGroup label="Onboarding Duration">
+          <TextInput value={pathData.onboarding.duration} onChange={v => updatePathNested('onboarding', 'duration', v)} placeholder="e.g. 5-7 days" />
+        </FieldGroup>
+
+        <FieldGroup label="What happens during onboarding?">
+          <TextArea value={pathData.onboarding.activities} onChange={v => updatePathNested('onboarding', 'activities', v)} placeholder="e.g. Welcome video, identity work, goal setting, brand audit, mindset foundations" rows={3} />
+        </FieldGroup>
+
+        <FieldGroup label="Tedious but necessary work (front-loaded here)">
+          <TextArea value={pathData.onboarding.boring_stuff} onChange={v => updatePathNested('onboarding', 'boring_stuff', v)} placeholder="e.g. Mindset reprogramming, values alignment, tech setup — the stuff that doesn't sound sexy but is essential" rows={3} />
+        </FieldGroup>
+      </div>
+
+      {/* Milestone 1 */}
+      <div className="bg-zinc-900 border border-gold/20 rounded-xl p-5 mb-6">
+        <SectionHeading title="First Milestone (becomes The Dip)" description="The first tangible outcome your clients hit. This milestone gets packaged as your micro offer — a standalone product that gives people a taste of what you do." />
+
+        <FieldGroup label="Timeframe">
+          <TextInput value={pathData.milestone_1.timeframe} onChange={v => updatePathNested('milestone_1', 'timeframe', v)} placeholder="e.g. 4 weeks from onboarding" />
+        </FieldGroup>
+
+        <FieldGroup label="Promise — what will they have by this point?">
+          <TextArea value={pathData.milestone_1.promise} onChange={v => updatePathNested('milestone_1', 'promise', v)} placeholder="e.g. Your premium position brand set up, your sold-out offer built, your marketing magnetising people, your sales system ready to go." rows={3} />
+        </FieldGroup>
+
+        <FieldGroup label="Specific deliverables">
+          <TextArea value={pathData.milestone_1.deliverables} onChange={v => updatePathNested('milestone_1', 'deliverables', v)} placeholder="e.g. Brand positioning complete, offer architecture done, first 3 content pieces live, sales script built" rows={3} />
+        </FieldGroup>
+      </div>
+
+      {/* Milestone 2 */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-6">
+        <SectionHeading title="Second Milestone" description="The next major checkpoint. What should they achieve here?" />
+
+        <FieldGroup label="Timeframe">
+          <TextInput value={pathData.milestone_2.timeframe} onChange={v => updatePathNested('milestone_2', 'timeframe', v)} placeholder="e.g. Week 10" />
+        </FieldGroup>
+
+        <FieldGroup label="Promise">
+          <TextArea value={pathData.milestone_2.promise} onChange={v => updatePathNested('milestone_2', 'promise', v)} placeholder="e.g. Launch your first intake, attract your first clients using the micro-offer, set up your demand engine" rows={3} />
+        </FieldGroup>
+
+        <FieldGroup label="Specific deliverables">
+          <TextArea value={pathData.milestone_2.deliverables} onChange={v => updatePathNested('milestone_2', 'deliverables', v)} placeholder="e.g. First 3 clients signed, launch sequence complete, content system running" rows={3} />
+        </FieldGroup>
+      </div>
+
+      {/* Extended Programme */}
+      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-6">
+        <SectionHeading title="Extended Programme" description="What happens after the initial milestones? Cover the remaining pillars and hit long-term goals." />
+
+        <FieldGroup label="Description">
+          <TextArea value={pathData.extended.description} onChange={v => updatePathNested('extended', 'description', v)} placeholder="e.g. Ongoing coaching covering the remaining pillars — lifestyle design, advanced scaling, team building, systems automation" rows={3} />
+        </FieldGroup>
+
+        <div className="mt-4">
+          <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Additional Milestones</label>
+          <div className="space-y-3">
+            {pathData.extended.milestones.map((ms, i) => (
+              <div key={i} className="flex gap-3">
+                <input value={ms.timeframe || ''} onChange={e => updateExtendedMilestone(i, 'timeframe', e.target.value)} placeholder="e.g. Month 6" className="w-32 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-1 focus:ring-gold" />
+                <input value={ms.outcome || ''} onChange={e => updateExtendedMilestone(i, 'outcome', e.target.value)} placeholder="What they achieve" className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-1 focus:ring-gold" />
+                <button onClick={() => removeExtendedMilestone(i)} className="text-zinc-700 hover:text-red-400 transition px-2">&#10005;</button>
+              </div>
+            ))}
+            <button onClick={addExtendedMilestone} className="text-xs text-gold hover:text-gold-light transition">+ Add Milestone</button>
+          </div>
+        </div>
+      </div>
+
+      {/* AI Suggestions */}
+      <div className="mt-6 pt-6 border-t border-zinc-800">
+        <p className="text-xs text-zinc-500 mb-3">Let AI suggest milestones and timelines based on your offer type and ICP.</p>
+        <AIButton loading={aiLoading['sold-out-path-suggest']} onClick={runPathSuggest} hasOutput={!!pathData.ai_suggestions} label="Suggest Milestones" regenerateLabel="Re-suggest" />
+        <AIOutput content={pathData.ai_suggestions} title="Path Suggestions" />
+      </div>
+
+      <div className="flex justify-between mt-8">
+        <button onClick={() => goToStage(1)} className="px-6 py-2.5 bg-zinc-800 text-zinc-400 border border-zinc-700 rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-zinc-700 transition">
+          &larr; ICP Sniper
+        </button>
+        <button onClick={() => goToStage(3)} className="px-6 py-2.5 bg-gold text-zinc-950 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-gold-light transition">
+          Continue to Bang Bang Offer &rarr;
+        </button>
+      </div>
+    </div>
+  )
+
+  // ── Stage 3: Bang Bang Offer ───────────────────────────────────────────────
+
+  const renderStage3 = () => (
+    <div>
+      <div className="mb-6">
+        <h1 className="text-xl font-bold text-white mb-1">Bang Bang Offer</h1>
+        <p className="text-zinc-500 text-sm">Five elements: Promise + Bonuses (increase reward), Guarantee + Payment Plan (reduce risk), and Urgency + Scarcity (get them over the line). Run it as intakes.</p>
+      </div>
+
+      {/* Offer Core */}
+      <SectionHeading title="Offer Core" description="Name, promise, and who it's for." />
+
+      <FieldGroup label="Offer Name">
+        <TextInput value={bangBangData.name} onChange={v => updateBB('name', v)} placeholder="e.g. The Accelerator, Black Belt, The Inner Circle" />
+      </FieldGroup>
+
+      <FieldGroup label="Core Promise">
+        <TextArea value={bangBangData.promise || icpData.promise} onChange={v => updateBB('promise', v)} placeholder="The transformation you promise — pulled from your ICP Sniper" rows={3} />
+      </FieldGroup>
+
+      <FieldGroup label="Who It's For (qualification criteria)">
+        <TextArea value={bangBangData.who_for} onChange={v => updateBB('who_for', v)} placeholder="e.g. You have actual skills and can help people win. You have clients already and want more. You take direction well and can follow a custom growth plan." rows={4} />
+      </FieldGroup>
+
+      <FieldGroup label="Who It's NOT For">
+        <TextArea value={bangBangData.who_not_for || icpData.who_not_for} onChange={v => updateBB('who_not_for', v)} placeholder="e.g. Just starting out and haven't made a sale yet. Think all you need to do is manifest. Have worked with 7 other coaches and 'they' were the problem." rows={4} />
+      </FieldGroup>
+
+      {/* Phases — from Path Planner */}
+      <div className="mt-8">
+        <SectionHeading title="Programme Phases" description="Your Path Planner milestones become programme phases. Add detail about what happens in each." />
+
+        <div className="space-y-4">
+          {(bangBangData.phases || []).map((phase, i) => (
+            <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Phase {i + 1}</span>
+                {bangBangData.phases.length > 1 && (
+                  <button onClick={() => removeBBPhase(i)} className="text-zinc-700 hover:text-red-400 transition text-sm">&#10005;</button>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label className="block text-xs text-zinc-500 mb-1">Name</label>
+                  <input value={phase.name || ''} onChange={e => updateBBPhase(i, 'name', e.target.value)} placeholder="e.g. Leads, Clients & Money" className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-1 focus:ring-gold" />
+                </div>
+                <div>
+                  <label className="block text-xs text-zinc-500 mb-1">Duration</label>
+                  <input value={phase.duration || ''} onChange={e => updateBBPhase(i, 'duration', e.target.value)} placeholder="e.g. 2 months" className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-1 focus:ring-gold" />
+                </div>
+              </div>
+              <div className="mb-3">
+                <label className="block text-xs text-zinc-500 mb-1">What happens in this phase?</label>
+                <textarea value={phase.description || ''} onChange={e => updateBBPhase(i, 'description', e.target.value)} placeholder="Describe the activities, systems installed, and wins expected" rows={2} className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 text-sm resize-none focus:outline-none focus:ring-1 focus:ring-gold" />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">Outcome</label>
+                <input value={phase.outcome || ''} onChange={e => updateBBPhase(i, 'outcome', e.target.value)} placeholder="What do they achieve by the end?" className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-1 focus:ring-gold" />
+              </div>
+            </div>
+          ))}
+        </div>
+        <button onClick={addBBPhase} className="text-xs text-gold hover:text-gold-light transition mt-3">+ Add Phase</button>
+      </div>
+
+      {/* Value Stack */}
+      <div className="mt-8">
+        <SectionHeading title="Value Stack" description="Everything included in the offer with its perceived value." />
+
+        <div className="space-y-3">
+          {(bangBangData.stack || []).map((item, i) => (
+            <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Item {i + 1}</span>
+                {bangBangData.stack.length > 1 && (
+                  <button onClick={() => removeBBStack(i)} className="text-zinc-700 hover:text-red-400 transition text-sm">&#10005;</button>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label className="block text-xs text-zinc-500 mb-1">Component</label>
+                  <input value={item.component || ''} onChange={e => updateBBStack(i, 'component', e.target.value)} placeholder="e.g. 12x 1:1 Strategy Calls" className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-1 focus:ring-gold" />
+                </div>
+                <div>
+                  <label className="block text-xs text-zinc-500 mb-1">Value (GBP)</label>
+                  <input type="number" value={item.value || ''} onChange={e => updateBBStack(i, 'value', e.target.value)} placeholder="2000" className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-1 focus:ring-gold" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">Description</label>
+                <input value={item.description || ''} onChange={e => updateBBStack(i, 'description', e.target.value)} placeholder="Why is this valuable?" className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-1 focus:ring-gold" />
+              </div>
+            </div>
+          ))}
+        </div>
+        <button onClick={addBBStack} className="text-xs text-gold hover:text-gold-light transition mt-3">+ Add Stack Item</button>
+        <p className="text-zinc-600 text-xs mt-2">Auto-calculated stack value: £{computedStackValue.toLocaleString()}</p>
+      </div>
+
+      {/* Pricing */}
+      <div className="mt-8">
+        <SectionHeading title="Pricing" description="Total price, staggered payments, and pay-in-full discount." />
+
+        <FieldGroup label="Total Programme Price (GBP)">
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-sm">£</span>
+            <input type="number" value={bangBangData.price || ''} onChange={e => updateBB('price', e.target.value)} placeholder="6000" className="w-full pl-7 pr-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-1 focus:ring-gold" />
+          </div>
+        </FieldGroup>
+
+        <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Staggered Payment Plan</label>
+        <div className="space-y-2 mb-4">
+          {(bangBangData.staggered_payments || []).map((p, i) => (
+            <div key={i} className="flex gap-3">
+              <input value={p.month || ''} onChange={e => updateBBPayment(i, 'month', e.target.value)} placeholder={`Month ${i + 1}`} className="w-32 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-1 focus:ring-gold" />
+              <div className="flex-1 relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-sm">£</span>
+                <input type="number" value={p.amount || ''} onChange={e => updateBBPayment(i, 'amount', e.target.value)} placeholder="300" className="w-full pl-7 pr-4 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-1 focus:ring-gold" />
+              </div>
+              <button onClick={() => removeBBPayment(i)} className="text-zinc-700 hover:text-red-400 transition px-2">&#10005;</button>
+            </div>
+          ))}
+          <button onClick={addBBPayment} className="text-xs text-gold hover:text-gold-light transition">+ Add Payment Step</button>
+        </div>
+
+        <FieldGroup label="Pay-in-Full Discount">
+          <TextInput value={bangBangData.pay_in_full_discount} onChange={v => updateBB('pay_in_full_discount', v)} placeholder="e.g. Save £500 when you pay in full" />
+        </FieldGroup>
+      </div>
+
+      {/* Increase Reward — Bonuses */}
+      <div className="mt-8">
+        <SectionHeading title="Increase Reward — Bonuses" description="What extras do they get that increase the perceived value?" />
+
+        <div className="space-y-3">
+          {(bangBangData.bonuses || []).map((bonus, i) => (
+            <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Bonus {i + 1}</span>
+                {bangBangData.bonuses.length > 1 && (
+                  <button onClick={() => removeBBBonus(i)} className="text-zinc-700 hover:text-red-400 transition text-sm">&#10005;</button>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label className="block text-xs text-zinc-500 mb-1">Name</label>
+                  <input value={bonus.name || ''} onChange={e => updateBBBonus(i, 'name', e.target.value)} placeholder="e.g. $10k in 10 Minutes" className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-1 focus:ring-gold" />
+                </div>
+                <div>
+                  <label className="block text-xs text-zinc-500 mb-1">Value (GBP)</label>
+                  <input type="number" value={bonus.value || ''} onChange={e => updateBBBonus(i, 'value', e.target.value)} placeholder="500" className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-1 focus:ring-gold" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">Description</label>
+                <input value={bonus.description || ''} onChange={e => updateBBBonus(i, 'description', e.target.value)} placeholder="What do they get and why is it valuable?" className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-1 focus:ring-gold" />
+              </div>
+            </div>
+          ))}
+        </div>
+        <button onClick={addBBBonus} className="text-xs text-gold hover:text-gold-light transition mt-3">+ Add Bonus</button>
+      </div>
+
+      {/* Reduce Risk — Guarantee */}
+      <div className="mt-8">
+        <SectionHeading title="Reduce Risk — Guarantee" description="Guarantees reduce perceived risk. Choose the type that fits your offer." />
+
+        <FieldGroup label="Guarantee Type">
+          <SingleSelectTags options={GUARANTEE_OPTIONS} value={bangBangData.guarantee_type} onChange={v => updateBB('guarantee_type', v)} />
+        </FieldGroup>
+
+        <FieldGroup label="Guarantee Detail">
+          <TextArea value={bangBangData.guarantee_detail} onChange={v => updateBB('guarantee_detail', v)} placeholder="e.g. 60-day 'Love it or leave it' period. If something's not right, we'll tear up the agreement and walk away as friends." rows={3} />
+        </FieldGroup>
+
+        <FieldGroup label="Guarantee Duration">
+          <TextInput value={bangBangData.guarantee_duration} onChange={v => updateBB('guarantee_duration', v)} placeholder="e.g. 60 days, 30 days" />
+        </FieldGroup>
+      </div>
+
+      {/* Urgency & Scarcity */}
+      <div className="mt-8">
+        <SectionHeading title="Urgency & Scarcity" description="These get people off the fence. Running as intakes is highly recommended." />
+
+        <FieldGroup label="Scarcity">
+          <TextInput value={bangBangData.scarcity} onChange={v => updateBB('scarcity', v)} placeholder="e.g. Limited to 10 spots per intake, application only" />
+        </FieldGroup>
+
+        <FieldGroup label="Urgency">
+          <TextInput value={bangBangData.urgency} onChange={v => updateBB('urgency', v)} placeholder="e.g. Early access closes Monday — opens to public Tuesday" />
+        </FieldGroup>
+
+        <div className="flex items-center gap-3 mt-3">
+          <button
+            onClick={() => updateBB('intake_model', !bangBangData.intake_model)}
+            className={`w-5 h-5 rounded flex items-center justify-center border transition ${bangBangData.intake_model ? 'bg-gold/20 border-gold/40' : 'border-zinc-700'}`}
+          >
+            {bangBangData.intake_model && <svg className="w-3 h-3 text-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+          </button>
+          <span className="text-sm text-zinc-400">Run as intakes (recommended)</span>
+        </div>
+      </div>
+
+      {/* Social Proof & Delivery */}
+      <div className="mt-8">
+        <SectionHeading title="Social Proof & Delivery" />
+
+        <FieldGroup label="Social Proof Available">
+          <MultiSelectTags options={SOCIAL_PROOF_OPTIONS} value={bangBangData.social_proof} onToggle={v => toggleBBMulti('social_proof', v)} />
+        </FieldGroup>
+
+        <FieldGroup label="Big Name Clients">
+          <TextInput value={bangBangData.big_names} onChange={v => updateBB('big_names', v)} placeholder="e.g. Dan Martell, Todd Herman, Alex Charfen" />
+        </FieldGroup>
+
+        <FieldGroup label="Results Numbers">
+          <TextInput value={bangBangData.results_numbers} onChange={v => updateBB('results_numbers', v)} placeholder="e.g. 3,000+ coaches helped, 8-figure business" />
+        </FieldGroup>
+
+        <FieldGroup label="Delivery Model">
+          <MultiSelectTags options={DELIVERY_MODEL_OPTIONS} value={bangBangData.delivery_model} onToggle={v => toggleBBMulti('delivery_model', v)} />
+        </FieldGroup>
+
+        <FieldGroup label="Touch Points">
+          <MultiSelectTags options={TOUCH_POINTS_OPTIONS} value={bangBangData.touch_points} onToggle={v => toggleBBMulti('touch_points', v)} />
+        </FieldGroup>
+      </div>
+
+      {/* Continuity */}
+      <div className="mt-8">
+        <SectionHeading title="Continuity" description="What happens after the initial programme? Month-to-month, as long as they're loving it." />
+
+        <FieldGroup label="Continuity Offer">
+          <TextInput value={bangBangData.continuity_offer} onChange={v => updateBB('continuity_offer', v)} placeholder="e.g. Ongoing monthly coaching, mastermind access" />
+        </FieldGroup>
+
+        <FieldGroup label="Format">
+          <SingleSelectTags options={CONTINUITY_FORMAT_OPTIONS} value={bangBangData.continuity_format} onChange={v => updateBB('continuity_format', v)} />
+        </FieldGroup>
+
+        <FieldGroup label="Continuity Price (GBP / month)">
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-sm">£</span>
+            <input type="number" value={bangBangData.continuity_price || ''} onChange={e => updateBB('continuity_price', e.target.value)} placeholder="500" className="w-full pl-7 pr-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-1 focus:ring-gold" />
+          </div>
+        </FieldGroup>
+      </div>
+
+      {/* Tiers */}
+      <div className="mt-8">
+        <SectionHeading title="Tiers (Optional)" description="Like Taki's 3 tiers — different levels for different clients." />
+
+        <div className="space-y-3">
+          {(bangBangData.tiers || []).map((tier, i) => (
+            <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+              <div className="flex justify-between items-center mb-3">
+                <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Tier {i + 1}</span>
+                {bangBangData.tiers.length > 1 && (
+                  <button onClick={() => removeBBTier(i)} className="text-zinc-700 hover:text-red-400 transition text-sm">&#10005;</button>
+                )}
+              </div>
+              <div className="grid grid-cols-2 gap-3 mb-3">
+                <div>
+                  <label className="block text-xs text-zinc-500 mb-1">Name</label>
+                  <input value={tier.name || ''} onChange={e => updateBBTier(i, 'name', e.target.value)} placeholder="e.g. Growth" className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-1 focus:ring-gold" />
+                </div>
+                <div>
+                  <label className="block text-xs text-zinc-500 mb-1">Revenue Range</label>
+                  <input value={tier.range || ''} onChange={e => updateBBTier(i, 'range', e.target.value)} placeholder="e.g. £10k-30k/m" className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-1 focus:ring-gold" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">Description</label>
+                <input value={tier.description || ''} onChange={e => updateBBTier(i, 'description', e.target.value)} placeholder="What this tier focuses on" className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-1 focus:ring-gold" />
+              </div>
+            </div>
+          ))}
+        </div>
+        <button onClick={addBBTier} className="text-xs text-gold hover:text-gold-light transition mt-3">+ Add Tier</button>
+      </div>
+
+      {/* CTA */}
+      <div className="mt-8">
+        <SectionHeading title="Call to Action" />
+
+        <div className="grid grid-cols-2 gap-4">
+          <FieldGroup label="CTA Action" className="mb-0">
+            <TextInput value={bangBangData.cta_action} onChange={v => updateBB('cta_action', v)} placeholder="e.g. Apply Now, Book a Call" />
+          </FieldGroup>
+          <FieldGroup label="CTA URL" className="mb-0">
+            <TextInput value={bangBangData.cta_url} onChange={v => updateBB('cta_url', v)} placeholder="e.g. https://..." />
+          </FieldGroup>
+        </div>
+      </div>
+
+      {/* AI Draft */}
+      <div className="mt-8 pt-6 border-t border-zinc-800">
+        <p className="text-xs text-zinc-500 mb-3">Generate a complete offer document in your brand voice, structured like a proven high-ticket sales page.</p>
+        <AIButton loading={aiLoading['sold-out-bangbang-draft']} onClick={runBangBangDraft} hasOutput={!!bangBangData.ai_draft} label="Generate Bang Bang Offer Doc" regenerateLabel="Regenerate Offer Doc" />
+        <AIOutput content={bangBangData.ai_draft} title="Your Bang Bang Offer" />
+      </div>
+
+      <div className="flex justify-between mt-8">
+        <button onClick={() => goToStage(2)} className="px-6 py-2.5 bg-zinc-800 text-zinc-400 border border-zinc-700 rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-zinc-700 transition">
+          &larr; Path Planner
+        </button>
+        <button onClick={() => goToStage(4)} className="px-6 py-2.5 bg-gold text-zinc-950 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-gold-light transition">
+          Continue to The Dip &rarr;
+        </button>
+      </div>
+    </div>
+  )
+
+  // ── Stage 4: The Dip (Micro Offer) ─────────────────────────────────────────
+
+  const renderStage4 = () => (
+    <div>
+      <div className="mb-6">
+        <h1 className="text-xl font-bold text-white mb-1">The Dip</h1>
+        <p className="text-zinc-500 text-sm">Your micro offer — the first milestone packaged as a standalone product. Same structure as the Bang Bang but shorter, lower barrier, no payment plan. It gives people a taste of what you do, then bridges to the main offer.</p>
+      </div>
+
+      {pathData.milestone_1.promise && (
+        <div className="bg-gold/5 border border-gold/20 rounded-lg p-4 mb-6">
+          <p className="text-xs text-zinc-500 uppercase tracking-widest mb-1">From your Path Planner — First Milestone</p>
+          <p className="text-sm text-gold">{pathData.milestone_1.promise}</p>
+          {pathData.milestone_1.timeframe && <p className="text-xs text-zinc-500 mt-1">Timeframe: {pathData.milestone_1.timeframe}</p>}
+        </div>
+      )}
+
+      <FieldGroup label="Dip Name">
+        <TextInput value={dipData.name} onChange={v => updateDip('name', v)} placeholder="e.g. The Launchpad, The Kickstart, The Sprint" />
+      </FieldGroup>
+
+      <FieldGroup label="Promise">
+        <TextArea value={dipData.promise || pathData.milestone_1.promise} onChange={v => updateDip('promise', v)} placeholder="What specific result will they get from The Dip?" rows={3} />
+      </FieldGroup>
 
       <FieldGroup label="Problem It Solves">
         <TextInput value={dipData.problem} onChange={v => updateDip('problem', v)} placeholder="The single, specific problem this entry offer addresses" />
       </FieldGroup>
 
+      <FieldGroup label="Outcome">
+        <TextInput value={dipData.outcome} onChange={v => updateDip('outcome', v)} placeholder="Tangible result they walk away with" />
+      </FieldGroup>
+
       <FieldGroup label="Format">
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {DIP_FORMAT_OPTIONS.map(opt => (
-            <button
-              key={opt}
-              onClick={() => updateDip('format', opt)}
-              className={`px-3 py-4 rounded-lg text-xs font-semibold uppercase tracking-wider transition border text-center ${dipData.format === opt ? 'bg-gold/10 text-gold border-gold/30' : 'bg-zinc-800 text-zinc-500 border-zinc-700 hover:border-zinc-600'}`}
-            >
-              {opt}
-            </button>
+            <button key={opt} onClick={() => updateDip('format', opt)} className={`px-3 py-4 rounded-lg text-xs font-semibold uppercase tracking-wider transition border text-center ${dipData.format === opt ? 'bg-gold/10 text-gold border-gold/30' : 'bg-zinc-800 text-zinc-500 border-zinc-700 hover:border-zinc-600'}`}>{opt}</button>
           ))}
         </div>
-      </FieldGroup>
-
-      <FieldGroup label="Outcome / Promise">
-        <TextInput value={dipData.outcome} onChange={v => updateDip('outcome', v)} placeholder="What specific result will they get from this?" />
       </FieldGroup>
 
       <FieldGroup label="Delivery Method">
         <MultiSelectTags options={DIP_DELIVERY_OPTIONS} value={dipData.delivery} onToggle={v => toggleDipMulti('delivery', v)} />
       </FieldGroup>
 
-      <SectionHeading title="Logistics" description="Duration, effort, and pricing." />
-
       <div className="grid grid-cols-2 gap-4 mb-5">
         <FieldGroup label="Duration" className="mb-0">
-          <TextInput value={dipData.duration} onChange={v => updateDip('duration', v)} placeholder="e.g. 90 minutes, 5 days" />
+          <TextInput value={dipData.duration} onChange={v => updateDip('duration', v)} placeholder="e.g. 2 months, 6 weeks" />
         </FieldGroup>
-        <FieldGroup label="Time to First Result" className="mb-0">
-          <TextInput value={dipData.time_to_first_result} onChange={v => updateDip('time_to_first_result', v)} placeholder="e.g. Same day, 48 hours" />
-        </FieldGroup>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 mb-5">
         <FieldGroup label="Price (GBP)" className="mb-0">
           <div className="relative">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-sm">£</span>
-            <input
-              type="number"
-              value={dipData.price || ''}
-              onChange={e => updateDip('price', e.target.value)}
-              placeholder="47"
-              className="w-full pl-7 pr-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm"
-            />
+            <input type="number" value={dipData.price || ''} onChange={e => updateDip('price', e.target.value)} placeholder="1500" className="w-full pl-7 pr-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-1 focus:ring-gold" />
           </div>
-        </FieldGroup>
-        <FieldGroup label="Client Effort Required" className="mb-0">
-          <TextInput value={dipData.client_effort} onChange={v => updateDip('client_effort', v)} placeholder="e.g. 2 hours, minimal" />
         </FieldGroup>
       </div>
 
-      <SectionHeading title="Bridge to Core Offer" description="How does The Dip connect to your main programme?" />
+      {/* Bonuses */}
+      <SectionHeading title="Bonuses" description="What do they get on top of the core Dip offer?" />
+      <div className="space-y-3 mb-4">
+        {(dipData.bonuses || []).map((bonus, i) => (
+          <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+            <div className="flex justify-between items-center mb-3">
+              <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Bonus {i + 1}</span>
+              {dipData.bonuses.length > 1 && <button onClick={() => removeDipBonus(i)} className="text-zinc-700 hover:text-red-400 transition text-sm">&#10005;</button>}
+            </div>
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">Name</label>
+                <input value={bonus.name || ''} onChange={e => updateDipBonus(i, 'name', e.target.value)} placeholder="e.g. Quick-Win Playbook" className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-1 focus:ring-gold" />
+              </div>
+              <div>
+                <label className="block text-xs text-zinc-500 mb-1">Value (GBP)</label>
+                <input type="number" value={bonus.value || ''} onChange={e => updateDipBonus(i, 'value', e.target.value)} placeholder="200" className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-1 focus:ring-gold" />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs text-zinc-500 mb-1">Description</label>
+              <input value={bonus.description || ''} onChange={e => updateDipBonus(i, 'description', e.target.value)} placeholder="What do they get?" className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-1 focus:ring-gold" />
+            </div>
+          </div>
+        ))}
+        <button onClick={addDipBonus} className="text-xs text-gold hover:text-gold-light transition">+ Add Bonus</button>
+      </div>
 
+      {/* Guarantee */}
+      <SectionHeading title="Guarantee" />
+      <FieldGroup label="Guarantee Type">
+        <SingleSelectTags options={GUARANTEE_OPTIONS} value={dipData.guarantee_type} onChange={v => updateDip('guarantee_type', v)} />
+      </FieldGroup>
+      <FieldGroup label="Guarantee Detail">
+        <TextInput value={dipData.guarantee_detail} onChange={v => updateDip('guarantee_detail', v)} placeholder="Describe your guarantee" />
+      </FieldGroup>
+
+      {/* Bridge */}
+      <SectionHeading title="Bridge to Main Offer" description="How does completing The Dip naturally lead them to wanting the full Bang Bang Offer?" />
       <FieldGroup label="Bridge">
-        <TextArea value={dipData.bridge} onChange={v => updateDip('bridge', v)} placeholder="How does completing The Dip naturally lead them to wanting your core offer? What gap remains?" rows={4} />
+        <TextArea value={dipData.bridge_to_main} onChange={v => updateDip('bridge_to_main', v)} placeholder="e.g. By the end of Phase 1, we'll both know if we want to keep working together. If we're both good, we move onto scaling in Phase 2 & 3." rows={4} />
       </FieldGroup>
 
       <FieldGroup label="Belief to Create">
         <TextInput value={dipData.belief_to_create} onChange={v => updateDip('belief_to_create', v)} placeholder="What new belief should they walk away with?" />
       </FieldGroup>
 
-      <FieldGroup label="Psychographic Fit">
-        <p className="text-zinc-600 text-xs mb-2">Which emotional states does this entry offer best serve?</p>
-        <MultiSelectTags options={EMOTIONAL_STATE_OPTIONS} value={dipData.psychographic_fit} onToggle={v => toggleDipMulti('psychographic_fit', v)} />
-      </FieldGroup>
-
-      <div className="flex justify-between mt-8">
-        <button onClick={() => goToStage(1)} className="px-6 py-2.5 bg-zinc-800 text-zinc-400 border border-zinc-700 rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-zinc-700 transition">
-          &larr; ICP Builder
-        </button>
-        <button onClick={() => goToStage(3)} className="px-6 py-2.5 bg-gold text-zinc-950 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-gold-light transition">
-          Continue to Stage 3 &rarr;
-        </button>
-      </div>
-    </div>
-  )
-
-  // ── Stage 3: Bang Bang Offer ──────────────────────────────────────────────
-
-  const renderStage3 = () => (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-white mb-1">Bang Bang Offer</h1>
-        <p className="text-zinc-500 text-sm">Build your core, premium offer with full structure and positioning.</p>
-      </div>
-
-      {/* Section A — Core */}
-      <SectionHeading title="A — Core" description="The heart of your offer. Name, promise, and differentiation." />
-
-      <FieldGroup label="Offer Name">
-        <TextInput value={bangBangData.name} onChange={v => updateBB('name', v)} placeholder="e.g. The Accelerator, The Inner Circle" />
-      </FieldGroup>
-
-      <FieldGroup label="Core Promise">
-        <TextArea value={bangBangData.promise} onChange={v => updateBB('promise', v)} placeholder="What specific transformation do you promise? Be bold but honest." rows={3} />
-      </FieldGroup>
-
-      <FieldGroup label="Who Is This NOT For?">
-        <TextArea value={bangBangData.who_not_for || icpData.who_not_for || ''} onChange={v => updateBB('who_not_for', v)} placeholder="Who should NOT join this programme?" rows={3} />
-      </FieldGroup>
-
-      <FieldGroup label="Dream Outcome Score (1-7)">
-        <p className="text-zinc-600 text-xs mb-2">How transformative is the promised outcome? 1 = incremental, 7 = life-changing.</p>
-        <div className="flex gap-2">
-          {[1, 2, 3, 4, 5, 6, 7].map(n => (
-            <button key={n} onClick={() => updateBB('dream_score', n)} className={`w-10 h-10 rounded-lg text-sm font-bold transition border ${bangBangData.dream_score === n ? 'bg-gold/10 text-gold border-gold/30' : 'bg-zinc-800 text-zinc-500 border-zinc-700 hover:border-zinc-600'}`}>{n}</button>
-          ))}
-        </div>
-      </FieldGroup>
-
-      <FieldGroup label="Unique Mechanism">
-        <TextArea value={bangBangData.unique_mechanism} onChange={v => updateBB('unique_mechanism', v)} placeholder="What's your unique method, framework, or approach that makes this different from everything else?" rows={4} />
-      </FieldGroup>
-
-      <FieldGroup label="Category">
-        <TextInput value={bangBangData.category} onChange={v => updateBB('category', v)} placeholder="e.g. Business coaching, Fitness transformation, Mindset mastery" />
-      </FieldGroup>
-
-      {/* Section B — Structure */}
-      <div className="mt-10">
-        <SectionHeading title="B — Structure" description="How the programme is delivered and experienced." />
-
-        <FieldGroup label="Total Duration">
-          <TextInput value={bangBangData.duration} onChange={v => updateBB('duration', v)} placeholder="e.g. 12 weeks, 6 months, 12 months" />
-        </FieldGroup>
-
-        <FieldGroup label="Phases">
-          <p className="text-zinc-600 text-xs mb-3">Break your programme into clear phases.</p>
-          <div className="space-y-4">
-            {(bangBangData.phases || []).map((phase, i) => (
-              <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-                <div className="flex justify-between items-center mb-3">
-                  <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Phase {i + 1}</span>
-                  {bangBangData.phases.length > 1 && (
-                    <button onClick={() => removeBBPhase(i)} className="text-zinc-700 hover:text-red-400 transition text-sm">&#10005;</button>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                  <div>
-                    <label className="block text-xs text-zinc-500 mb-1">Name</label>
-                    <input value={phase.name || ''} onChange={e => updateBBPhase(i, 'name', e.target.value)} placeholder="e.g. Foundation" className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm" />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-zinc-500 mb-1">Duration</label>
-                    <input value={phase.duration || ''} onChange={e => updateBBPhase(i, 'duration', e.target.value)} placeholder="e.g. 4 weeks" className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm" />
-                  </div>
-                </div>
-                <div className="mb-3">
-                  <label className="block text-xs text-zinc-500 mb-1">Description</label>
-                  <textarea value={phase.description || ''} onChange={e => updateBBPhase(i, 'description', e.target.value)} placeholder="What happens in this phase?" rows={2} className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition resize-none text-sm" />
-                </div>
-                <div>
-                  <label className="block text-xs text-zinc-500 mb-1">Outcome</label>
-                  <input value={phase.outcome || ''} onChange={e => updateBBPhase(i, 'outcome', e.target.value)} placeholder="What do they achieve by the end of this phase?" className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm" />
-                </div>
-              </div>
-            ))}
-          </div>
-          <button onClick={addBBPhase} className="text-xs text-gold hover:text-gold-light transition mt-3">+ Add Phase</button>
-        </FieldGroup>
-
-        <FieldGroup label="Touch Points">
-          <MultiSelectTags options={TOUCH_POINTS_OPTIONS} value={bangBangData.touch_points} onToggle={v => toggleBBMulti('touch_points', v)} />
-        </FieldGroup>
-
-        <FieldGroup label="Client Commitment">
-          <TextInput value={bangBangData.client_commitment} onChange={v => updateBB('client_commitment', v)} placeholder="e.g. 5 hours per week, daily check-ins" />
-        </FieldGroup>
-
-        <FieldGroup label="Milestones">
-          <div className="space-y-3">
-            <div>
-              <label className="block text-xs text-zinc-500 mb-1">At 30 Days</label>
-              <TextInput value={bangBangData.milestones?.at_30_days} onChange={v => updateBBMilestone('at_30_days', v)} placeholder="What will they have achieved?" />
-            </div>
-            <div>
-              <label className="block text-xs text-zinc-500 mb-1">At 90 Days</label>
-              <TextInput value={bangBangData.milestones?.at_90_days} onChange={v => updateBBMilestone('at_90_days', v)} placeholder="What will they have achieved?" />
-            </div>
-            <div>
-              <label className="block text-xs text-zinc-500 mb-1">At 6 Months</label>
-              <TextInput value={bangBangData.milestones?.at_6_months} onChange={v => updateBBMilestone('at_6_months', v)} placeholder="What will they have achieved?" />
-            </div>
-          </div>
-        </FieldGroup>
-      </div>
-
-      {/* Section C — Value & Pricing */}
-      <div className="mt-10">
-        <SectionHeading title="C — Value & Pricing" description="Build your value stack and set your price." />
-
-        <FieldGroup label="Value Stack">
-          <p className="text-zinc-600 text-xs mb-3">List everything included in the offer with its perceived value.</p>
-          <div className="space-y-3">
-            {(bangBangData.stack || []).map((item, i) => (
-              <div key={i} className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-                <div className="flex justify-between items-center mb-3">
-                  <span className="text-xs font-bold text-zinc-500 uppercase tracking-widest">Item {i + 1}</span>
-                  {bangBangData.stack.length > 1 && (
-                    <button onClick={() => removeBBStack(i)} className="text-zinc-700 hover:text-red-400 transition text-sm">&#10005;</button>
-                  )}
-                </div>
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                  <div>
-                    <label className="block text-xs text-zinc-500 mb-1">Component</label>
-                    <input value={item.component || ''} onChange={e => updateBBStack(i, 'component', e.target.value)} placeholder="e.g. 12x 1:1 Calls" className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm" />
-                  </div>
-                  <div>
-                    <label className="block text-xs text-zinc-500 mb-1">Value (GBP)</label>
-                    <input type="number" value={item.value || ''} onChange={e => updateBBStack(i, 'value', e.target.value)} placeholder="2000" className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm" />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs text-zinc-500 mb-1">Description</label>
-                  <input value={item.description || ''} onChange={e => updateBBStack(i, 'description', e.target.value)} placeholder="What does this include and why is it valuable?" className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm" />
-                </div>
-              </div>
-            ))}
-          </div>
-          <button onClick={addBBStack} className="text-xs text-gold hover:text-gold-light transition mt-3">+ Add Stack Item</button>
-        </FieldGroup>
-
-        <div className="grid grid-cols-2 gap-4 mb-5">
-          <FieldGroup label="Total Stack Value (GBP)" className="mb-0">
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-sm">£</span>
-              <input
-                type="number"
-                value={bangBangData.stack_value || computedStackValue || ''}
-                onChange={e => updateBB('stack_value', e.target.value)}
-                placeholder={String(computedStackValue)}
-                className="w-full pl-7 pr-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm"
-              />
-            </div>
-            <p className="text-zinc-600 text-xs mt-1">Auto-calculated: £{computedStackValue.toLocaleString()}</p>
-          </FieldGroup>
-          <FieldGroup label="Your Price (GBP)" className="mb-0">
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-sm">£</span>
-              <input
-                type="number"
-                value={bangBangData.price || ''}
-                onChange={e => updateBB('price', e.target.value)}
-                placeholder="3000"
-                className="w-full pl-7 pr-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm"
-              />
-            </div>
-          </FieldGroup>
-        </div>
-
-        <FieldGroup label="Payment Options">
-          <MultiSelectTags options={PAYMENT_OPTIONS} value={bangBangData.payment_options} onToggle={v => toggleBBMulti('payment_options', v)} />
-        </FieldGroup>
-
-        <FieldGroup label="Delivery Model">
-          <MultiSelectTags options={DELIVERY_MODEL_OPTIONS} value={bangBangData.delivery_model} onToggle={v => toggleBBMulti('delivery_model', v)} />
-        </FieldGroup>
-      </div>
-
-      {/* Section D — Risk & Positioning */}
-      <div className="mt-10">
-        <SectionHeading title="D — Risk & Positioning" description="Remove friction and build trust." />
-
-        <FieldGroup label="Guarantees">
-          <MultiSelectTags options={GUARANTEE_OPTIONS} value={bangBangData.guarantees} onToggle={v => toggleBBMulti('guarantees', v)} />
-        </FieldGroup>
-
-        <FieldGroup label="Guarantee Detail">
-          <TextInput value={bangBangData.guarantee_detail} onChange={v => updateBB('guarantee_detail', v)} placeholder="Describe the specifics of your guarantee" />
-        </FieldGroup>
-
-        <FieldGroup label="Scarcity / Urgency">
-          <TextInput value={bangBangData.scarcity} onChange={v => updateBB('scarcity', v)} placeholder="e.g. Limited to 10 spots per quarter, application only" />
-        </FieldGroup>
-
-        <FieldGroup label="Social Proof Available">
-          <MultiSelectTags options={SOCIAL_PROOF_OPTIONS} value={bangBangData.social_proof} onToggle={v => toggleBBMulti('social_proof', v)} />
-        </FieldGroup>
-      </div>
-
-      {/* Section E — Continuity */}
-      <div className="mt-10">
-        <SectionHeading title="E — Continuity" description="Keep clients beyond the initial programme." />
-
-        <FieldGroup label="Continuity Offer">
-          <TextInput value={bangBangData.continuity_offer} onChange={v => updateBB('continuity_offer', v)} placeholder="e.g. Monthly mastermind, ongoing 1:1 retainer" />
-        </FieldGroup>
-
-        <FieldGroup label="Continuity Format">
-          <SingleSelectTags options={CONTINUITY_FORMAT_OPTIONS} value={bangBangData.continuity_format} onChange={v => updateBB('continuity_format', v)} />
-        </FieldGroup>
-
-        <FieldGroup label="Continuity Price (GBP)">
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500 text-sm">£</span>
-            <input
-              type="number"
-              value={bangBangData.continuity_price || ''}
-              onChange={e => updateBB('continuity_price', e.target.value)}
-              placeholder="500"
-              className="w-full pl-7 pr-4 py-2.5 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm"
-            />
-          </div>
-        </FieldGroup>
-
-        <FieldGroup label="Downsell Option">
-          <TextInput value={bangBangData.downsell} onChange={v => updateBB('downsell', v)} placeholder="What do you offer if they can't commit to the full programme?" />
-        </FieldGroup>
-      </div>
-
-      {/* Section F — Alignment Checks */}
-      <div className="mt-10">
-        <SectionHeading title="F — Alignment Checks" description="Honest self-assessment before you launch." />
-
-        {ALIGNMENT_QUESTIONS.map((q, i) => {
-          const qKey = `q${i + 1}`
-          const check = bangBangData.alignment_checks?.[qKey] || { answer: '', detail: '' }
-          return (
-            <div key={qKey} className="mb-6 bg-zinc-900 border border-zinc-800 rounded-lg p-4">
-              <p className="text-sm text-white mb-3">{q}</p>
-              <div className="flex gap-2 mb-3">
-                {['yes', 'partially', 'not_yet'].map(opt => (
-                  <button
-                    key={opt}
-                    onClick={() => updateBBAlignment(qKey, 'answer', opt)}
-                    className={`px-3 py-2 rounded-lg text-xs font-semibold uppercase tracking-wider transition border ${
-                      check.answer === opt
-                        ? opt === 'yes' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
-                          : opt === 'partially' ? 'bg-yellow-500/10 text-yellow-400 border-yellow-500/30'
-                          : 'bg-red-500/10 text-red-400 border-red-500/30'
-                        : 'bg-zinc-800 text-zinc-500 border-zinc-700 hover:border-zinc-600'
-                    }`}
-                  >
-                    {opt === 'not_yet' ? 'Not Yet' : opt.charAt(0).toUpperCase() + opt.slice(1)}
-                  </button>
-                ))}
-              </div>
-              {check.answer && check.answer !== 'yes' && (
-                <TextInput value={check.detail} onChange={v => updateBBAlignment(qKey, 'detail', v)} placeholder="What needs to happen to get this to a yes?" />
-              )}
-            </div>
-          )
-        })}
+      {/* AI Draft */}
+      <div className="mt-6 pt-6 border-t border-zinc-800">
+        <p className="text-xs text-zinc-500 mb-3">Generate your micro offer document — a standalone sales page for The Dip.</p>
+        <AIButton loading={aiLoading['sold-out-dip-draft']} onClick={runDipDraft} hasOutput={!!dipData.ai_draft} label="Generate Micro Offer Doc" regenerateLabel="Regenerate Micro Offer" />
+        <AIOutput content={dipData.ai_draft} title="Your Micro Offer — The Dip" />
       </div>
 
       <div className="flex justify-between mt-8">
-        <button onClick={() => goToStage(2)} className="px-6 py-2.5 bg-zinc-800 text-zinc-400 border border-zinc-700 rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-zinc-700 transition">
-          &larr; The Dip
-        </button>
-        <button onClick={() => goToStage(4)} className="px-6 py-2.5 bg-gold text-zinc-950 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-gold-light transition">
-          Signature Framework™ &rarr;
-        </button>
-      </div>
-    </div>
-  )
-
-  // ── Stage 4: Blueprint Summary ────────────────────────────────────────────
-
-  // ── Stage 4: Signature Framework™ ────────────────────────────────────────
-
-  const renderStage4 = () => (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-xl font-bold text-white mb-1">Signature Framework™</h1>
-        <p className="text-zinc-500 text-sm">Define the three core pillars of your offer. Each pillar addresses a key area your clients need to transform — and within each, you deliver through specific modules or methods.</p>
-      </div>
-
-      {/* Framework Name */}
-      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-6">
-        <SectionHeading title="Your Framework" description="Give your signature methodology a name. This becomes your intellectual property — the thing only you deliver." />
-        <FieldGroup label="Framework Name">
-          <TextInput value={frameworkData.framework_name} onChange={v => updateFramework('framework_name', v)} placeholder="e.g. The Syndicate Method™, The Growth Engine™, The 90-Day Accelerator™" />
-        </FieldGroup>
-        <FieldGroup label="Framework Tagline">
-          <TextInput value={frameworkData.tagline} onChange={v => updateFramework('tagline', v)} placeholder="A single sentence that captures what your framework delivers" />
-        </FieldGroup>
-      </div>
-
-      {/* Three Pillars */}
-      <SectionHeading title="The Three Pillars" description="Your offer resolves three key areas for your client. Think of these as the transformation categories — not the deliverables. What are the three big shifts your clients go through?" />
-
-      <div className="space-y-6">
-        {frameworkData.pillars.map((pillar, pi) => (
-          <div key={pi} className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
-            <div className={`px-5 py-4 border-b border-zinc-800 ${pi === 0 ? 'bg-sky-500/5' : pi === 1 ? 'bg-violet-500/5' : 'bg-gold/5'}`}>
-              <div className="flex items-center gap-3">
-                <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black ${pi === 0 ? 'bg-sky-500/20 text-sky-400' : pi === 1 ? 'bg-violet-500/20 text-violet-400' : 'bg-gold/20 text-gold'}`}>{pi + 1}</span>
-                <div className="flex-1">
-                  <input
-                    value={pillar.name}
-                    onChange={e => updatePillar(pi, 'name', e.target.value)}
-                    placeholder={pi === 0 ? 'e.g. Build the Business' : pi === 1 ? 'e.g. Rewire the Mindset' : 'e.g. Design the Lifestyle'}
-                    className="w-full bg-transparent text-white font-bold text-sm placeholder-zinc-600 focus:outline-none"
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="p-5">
-              <FieldGroup label="What does this pillar address?">
-                <TextArea value={pillar.description} onChange={v => updatePillar(pi, 'description', v)} placeholder="Describe the key transformation area this pillar covers. What problem does it solve? What shift does it create?" rows={2} />
-              </FieldGroup>
-
-              <div className="mt-4">
-                <label className="block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-3">Modules / Methods within this pillar</label>
-                <div className="space-y-3">
-                  {pillar.modules.map((mod, mi) => (
-                    <div key={mi} className="bg-zinc-800/50 border border-zinc-700/50 rounded-lg p-3">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className={`text-[10px] font-bold uppercase tracking-widest ${pi === 0 ? 'text-sky-400' : pi === 1 ? 'text-violet-400' : 'text-gold'}`}>Module {mi + 1}</span>
-                        {pillar.modules.length > 1 && (
-                          <button onClick={() => removeModule(pi, mi)} className="text-zinc-700 hover:text-red-400 transition text-xs">Remove</button>
-                        )}
-                      </div>
-                      <input
-                        value={mod.name}
-                        onChange={e => updateModule(pi, mi, 'name', e.target.value)}
-                        placeholder={pi === 0 && mi === 0 ? 'e.g. Premium Positioning' : pi === 0 && mi === 1 ? 'e.g. Offer Architecture' : 'Module name'}
-                        className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm mb-2"
-                      />
-                      <input
-                        value={mod.description}
-                        onChange={e => updateModule(pi, mi, 'description', e.target.value)}
-                        placeholder="What does this module deliver or teach?"
-                        className="w-full px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition text-sm"
-                      />
-                    </div>
-                  ))}
-                  <button onClick={() => addModule(pi)} className="text-xs text-gold hover:text-gold-light transition font-semibold">+ Add module</button>
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Navigation */}
-      <div className="flex justify-between mt-8">
-        <button onClick={() => goToStage(3)} className="px-6 py-2.5 bg-zinc-800 text-zinc-300 font-semibold text-sm rounded-lg hover:bg-zinc-700 transition">
+        <button onClick={() => goToStage(3)} className="px-6 py-2.5 bg-zinc-800 text-zinc-400 border border-zinc-700 rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-zinc-700 transition">
           &larr; Bang Bang Offer
         </button>
-        <button onClick={() => goToStage(5)} className="px-6 py-2.5 bg-gold text-black font-semibold text-sm rounded-lg hover:bg-gold-light transition">
+        <button onClick={() => goToStage(5)} className="px-6 py-2.5 bg-gold text-zinc-950 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-gold-light transition">
+          Continue to Communication &rarr;
+        </button>
+      </div>
+    </div>
+  )
+
+  // ── Stage 5: Communication & Delivery ──────────────────────────────────────
+
+  const renderStage5 = () => (
+    <div>
+      <div className="mb-6">
+        <h1 className="text-xl font-bold text-white mb-1">Communication & Delivery</h1>
+        <p className="text-zinc-500 text-sm">Define what the client gets within the programme. How do you communicate, deliver, and support?</p>
+      </div>
+
+      <FieldGroup label="Daily Communication">
+        <MultiSelectTags options={DAILY_COMMS_OPTIONS} value={commsData.daily} onToggle={v => toggleCommsMulti('daily', v)} />
+      </FieldGroup>
+
+      <FieldGroup label="Async Feedback">
+        <MultiSelectTags options={ASYNC_FEEDBACK_OPTIONS} value={commsData.async_feedback} onToggle={v => toggleCommsMulti('async_feedback', v)} />
+      </FieldGroup>
+
+      <FieldGroup label="1:1 Calls">
+        <TextInput value={commsData.calls_1_1} onChange={v => updateComms('calls_1_1', v)} placeholder="e.g. Unlimited Zoom, Weekly 30-min, Fortnightly 1-hour" />
+      </FieldGroup>
+
+      <FieldGroup label="Group Calls">
+        <TextInput value={commsData.group_calls} onChange={v => updateComms('group_calls', v)} placeholder="e.g. Once per week, Bi-weekly masterminds" />
+      </FieldGroup>
+
+      <FieldGroup label="Events">
+        <TextInput value={commsData.events} onChange={v => updateComms('events', v)} placeholder="e.g. Once per quarter (1 in-person, 2 virtual)" />
+      </FieldGroup>
+
+      <FieldGroup label="Workshops">
+        <TextInput value={commsData.workshops} onChange={v => updateComms('workshops', v)} placeholder="e.g. Monthly skill session or hotseat" />
+      </FieldGroup>
+
+      <FieldGroup label="Education Platform">
+        <TextInput value={commsData.education_platform} onChange={v => updateComms('education_platform', v)} placeholder="e.g. Skool, Kajabi, Teachable, Custom portal" />
+      </FieldGroup>
+
+      {/* Custom Items */}
+      <div className="mt-6">
+        <SectionHeading title="Custom Delivery Items" description="Anything else specific to your programme." />
+        <div className="space-y-3">
+          {(commsData.custom_items || []).map((item, i) => (
+            <div key={i} className="flex gap-3">
+              <input value={item.name || ''} onChange={e => updateCommsItem(i, 'name', e.target.value)} placeholder="e.g. Content review" className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-1 focus:ring-gold" />
+              <input value={item.frequency || ''} onChange={e => updateCommsItem(i, 'frequency', e.target.value)} placeholder="e.g. Weekly" className="w-32 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-white placeholder-zinc-600 text-sm focus:outline-none focus:ring-1 focus:ring-gold" />
+              <button onClick={() => removeCommsItem(i)} className="text-zinc-700 hover:text-red-400 transition px-2">&#10005;</button>
+            </div>
+          ))}
+          <button onClick={addCommsItem} className="text-xs text-gold hover:text-gold-light transition">+ Add Item</button>
+        </div>
+      </div>
+
+      {/* AI Suggestions */}
+      <div className="mt-6 pt-6 border-t border-zinc-800">
+        <p className="text-xs text-zinc-500 mb-3">Let AI suggest a communication plan based on your offer type and delivery model.</p>
+        <AIButton loading={aiLoading['sold-out-comms-suggest']} onClick={runCommsSuggest} hasOutput={!!commsData.ai_suggestions} label="Suggest Comms Plan" regenerateLabel="Re-suggest" />
+        <AIOutput content={commsData.ai_suggestions} title="Communication Plan Suggestions" />
+      </div>
+
+      <div className="flex justify-between mt-8">
+        <button onClick={() => goToStage(4)} className="px-6 py-2.5 bg-zinc-800 text-zinc-400 border border-zinc-700 rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-zinc-700 transition">
+          &larr; The Dip
+        </button>
+        <button onClick={() => goToStage(6)} className="px-6 py-2.5 bg-gold text-zinc-950 rounded-lg text-xs font-bold uppercase tracking-wider hover:bg-gold-light transition">
           View Blueprint &rarr;
         </button>
       </div>
     </div>
   )
 
-  // ── Stage 5: Blueprint Summary ────────────────────────────────────────────
+  // ── Stage 6: Blueprint Summary ─────────────────────────────────────────────
 
-  const renderStage5 = () => {
+  const renderStage6 = () => {
     const SummaryField = ({ label, value }) => {
       if (!value || (Array.isArray(value) && value.length === 0)) return null
       const display = Array.isArray(value) ? value.filter(x => x).join(', ') : value
@@ -1584,15 +1894,13 @@ export default function PlaybookPage() {
       <div>
         <div className="mb-6">
           <h1 className="text-xl font-bold text-white mb-1">Blueprint Summary</h1>
-          <p className="text-zinc-500 text-sm">Your complete offer playbook at a glance with scoring.</p>
+          <p className="text-zinc-500 text-sm">Your complete Sold Out™ playbook with scoring, flags, and generated offer documents.</p>
         </div>
 
         {/* Score Overview */}
         <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 mb-8">
           <div className="flex flex-col md:flex-row items-center gap-8">
-            <div className="relative flex items-center justify-center">
-              <ScoreRing score={scores.overall.total} max={scores.overall.max} size={140} strokeWidth={10} />
-            </div>
+            <ScoreRing score={scores.overall.total} max={scores.overall.max} size={140} strokeWidth={10} />
             <div className="flex-1 w-full">
               <div className="mb-4">
                 <span className={`text-sm font-bold ${scores.overall.band === 'Offer-Ready' ? 'text-gold' : scores.overall.band === 'Strong Foundation' ? 'text-emerald-400' : scores.overall.band === 'Getting There' ? 'text-yellow-400' : 'text-red-400'}`}>{scores.overall.band}</span>
@@ -1600,40 +1908,15 @@ export default function PlaybookPage() {
                   {scores.overall.band === 'Offer-Ready' ? 'Your offer is ready to go live.' : scores.overall.band === 'Strong Foundation' ? 'Almost there. Refine the gaps below.' : scores.overall.band === 'Getting There' ? 'Good progress. Keep building.' : 'Focus on completing the core sections.'}
                 </span>
               </div>
-              <ProgressBar score={scores.icp.total} max={scores.icp.max} label="ICP" color="bg-sky-400" />
-              <ProgressBar score={scores.dip.total} max={scores.dip.max} label="The Dip" color="bg-violet-400" />
+              <ProgressBar score={scores.icp.total} max={scores.icp.max} label="ICP Sniper" color="bg-sky-400" />
+              <ProgressBar score={scores.path.total} max={scores.path.max} label="Path Planner" color="bg-violet-400" />
               <ProgressBar score={scores.bangBang.total} max={scores.bangBang.max} label="Bang Bang Offer" color="bg-gold" />
-              <ProgressBar score={scores.framework.total} max={scores.framework.max} label="Signature Framework™" color="bg-emerald-400" />
+              <ProgressBar score={scores.dip.total} max={scores.dip.max} label="The Dip" color="bg-emerald-400" />
+              <ProgressBar score={scores.comms.total} max={scores.comms.max} label="Communication" color="bg-pink-400" />
+              <ProgressBar score={scores.de.total} max={scores.de.max} label="Distinction Engine" color="bg-orange-400" />
             </div>
           </div>
         </div>
-
-        {/* Stage 4 — Signature Framework Summary */}
-        {frameworkData.framework_name && (
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-6">
-            <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-4">Stage 4 — Signature Framework™</h3>
-            <div className="mb-4">
-              <p className="text-white text-lg font-bold">{frameworkData.framework_name}</p>
-              {frameworkData.tagline && <p className="text-zinc-400 text-sm mt-1 italic">{frameworkData.tagline}</p>}
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {frameworkData.pillars.map((pillar, pi) => pillar.name && (
-                <div key={pi} className={`border rounded-lg p-4 ${pi === 0 ? 'border-sky-500/30 bg-sky-500/5' : pi === 1 ? 'border-violet-500/30 bg-violet-500/5' : 'border-gold/30 bg-gold/5'}`}>
-                  <p className={`text-sm font-bold mb-2 ${pi === 0 ? 'text-sky-400' : pi === 1 ? 'text-violet-400' : 'text-gold'}`}>{pillar.name}</p>
-                  {pillar.description && <p className="text-zinc-400 text-xs mb-3">{pillar.description}</p>}
-                  <div className="space-y-1">
-                    {pillar.modules.filter(m => m.name).map((mod, mi) => (
-                      <div key={mi} className="flex items-center gap-2">
-                        <span className="w-1 h-1 rounded-full bg-zinc-600 flex-shrink-0" />
-                        <p className="text-zinc-300 text-xs">{mod.name}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Flags */}
         {scores.flags.length > 0 && (
@@ -1658,302 +1941,152 @@ export default function PlaybookPage() {
           </div>
         )}
 
-        {/* ICP Summary */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 mb-6">
-          <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-4">Stage 1 — ICP Profile</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-            <SummaryField label="Client Type" value={icpData.client_type} />
-            <SummaryField label="Sector" value={icpData.sector} />
-            <SummaryField label="Age Range" value={icpData.age_from && icpData.age_to ? `${icpData.age_from} - ${icpData.age_to}` : ''} />
-            <SummaryField label="Gender Focus" value={icpData.gender_focus} />
-            <SummaryField label="Geography" value={icpData.geography} />
-            <SummaryField label="Life Stage" value={icpData.life_stage} />
-            <SummaryField label="Income Level" value={icpData.income_level} />
-            <SummaryField label="Prior Coaching" value={icpData.prior_coaching} />
-          </div>
-          <SummaryField label="Specific Description" value={icpData.specific_description} />
-          <SummaryField label="Current Self-Perception" value={icpData.current_self_perception} />
-          <SummaryField label="Desired Identity" value={icpData.desired_identity} />
-          <SummaryField label="Identity Label" value={icpData.identity_label} />
-          <SummaryField label="Core Values" value={icpData.values} />
-          <SummaryField label="Current Beliefs" value={icpData.current_beliefs} />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-            <SummaryField label="Investment Relationship" value={icpData.investment_relationship} />
-            <SummaryField label="Scepticism Level" value={icpData.scepticism_level} />
-          </div>
-          <SummaryField label="Buying Behaviour" value={icpData.buying_behaviour} />
-          <SummaryField label="Personality" value={icpData.personality} />
-          <SummaryField label="Emotional State" value={icpData.emotional_state} />
-          <SummaryField label="Trigger Moment" value={icpData.trigger_moment} />
-          <SummaryField label="Influences" value={icpData.influences} />
-          <SummaryField label="Buying Influencers" value={icpData.buying_influencers} />
-          <SummaryField label="Real Objections" value={icpData.real_objections} />
-          <SummaryField label="Cost of Inaction" value={icpData.cost_of_inaction} />
-          <SummaryField label="Dream Outcome" value={icpData.dream_outcome} />
-          <SummaryField label="Already Tried" value={(icpData.already_tried || []).filter(x => x)} />
-          <SummaryField label="Pains" value={(icpData.pains || []).filter(x => x)} />
-          <SummaryField label="Sophistication Level" value={icpData.sophistication_level} />
-          <SummaryField label="Channels" value={icpData.channels} />
-          <SummaryField label="Who NOT For" value={icpData.who_not_for} />
-        </div>
-
-        {/* Dip Summary */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 mb-6">
-          <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-4">Stage 2 — The Dip</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-            <SummaryField label="Problem" value={dipData.problem} />
-            <SummaryField label="Format" value={dipData.format} />
-            <SummaryField label="Outcome" value={dipData.outcome} />
-            <SummaryField label="Delivery" value={dipData.delivery} />
-            <SummaryField label="Duration" value={dipData.duration} />
-            <SummaryField label="Time to First Result" value={dipData.time_to_first_result} />
-            <SummaryField label="Price" value={dipData.price ? `£${dipData.price}` : ''} />
-            <SummaryField label="Client Effort" value={dipData.client_effort} />
-          </div>
-          <SummaryField label="Bridge to Core Offer" value={dipData.bridge} />
-          <SummaryField label="Belief to Create" value={dipData.belief_to_create} />
-          <SummaryField label="Psychographic Fit" value={dipData.psychographic_fit} />
-        </div>
-
-        {/* Bang Bang Summary */}
-        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 mb-6">
-          <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-4">Stage 3 — Bang Bang Offer</h3>
-
-          <div className="mb-4">
-            <span className="text-xs text-zinc-500 uppercase tracking-wider">Core</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-            <SummaryField label="Name" value={bangBangData.name} />
-            <SummaryField label="Category" value={bangBangData.category} />
-            <SummaryField label="Dream Score" value={bangBangData.dream_score ? `${bangBangData.dream_score} / 7` : ''} />
-          </div>
-          <SummaryField label="Promise" value={bangBangData.promise} />
-          <SummaryField label="Who NOT For" value={bangBangData.who_not_for} />
-          <SummaryField label="Unique Mechanism" value={bangBangData.unique_mechanism} />
-
-          <div className="mb-4 mt-6">
-            <span className="text-xs text-zinc-500 uppercase tracking-wider">Structure</span>
-          </div>
-          <SummaryField label="Duration" value={bangBangData.duration} />
-          {(bangBangData.phases || []).filter(p => p.name).length > 0 && (
-            <div className="mb-3">
-              <span className="text-xs text-zinc-500 uppercase tracking-wider">Phases</span>
-              <div className="mt-2 space-y-2">
-                {bangBangData.phases.filter(p => p.name).map((p, i) => (
-                  <div key={i} className="bg-zinc-800 rounded p-3">
-                    <p className="text-sm text-white font-semibold">{p.name} <span className="text-zinc-500 font-normal">({p.duration})</span></p>
-                    {p.description && <p className="text-xs text-zinc-400 mt-1">{p.description}</p>}
-                    {p.outcome && <p className="text-xs text-zinc-500 mt-1">Outcome: {p.outcome}</p>}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          <SummaryField label="Touch Points" value={bangBangData.touch_points} />
-          <SummaryField label="Client Commitment" value={bangBangData.client_commitment} />
-          {(bangBangData.milestones?.at_30_days || bangBangData.milestones?.at_90_days || bangBangData.milestones?.at_6_months) && (
-            <div className="mb-3">
-              <span className="text-xs text-zinc-500 uppercase tracking-wider">Milestones</span>
-              <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-3">
-                {bangBangData.milestones?.at_30_days && (
-                  <div className="bg-zinc-800 rounded p-3">
-                    <p className="text-xs text-zinc-500 mb-1">30 Days</p>
-                    <p className="text-sm text-white">{bangBangData.milestones.at_30_days}</p>
-                  </div>
-                )}
-                {bangBangData.milestones?.at_90_days && (
-                  <div className="bg-zinc-800 rounded p-3">
-                    <p className="text-xs text-zinc-500 mb-1">90 Days</p>
-                    <p className="text-sm text-white">{bangBangData.milestones.at_90_days}</p>
-                  </div>
-                )}
-                {bangBangData.milestones?.at_6_months && (
-                  <div className="bg-zinc-800 rounded p-3">
-                    <p className="text-xs text-zinc-500 mb-1">6 Months</p>
-                    <p className="text-sm text-white">{bangBangData.milestones.at_6_months}</p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          <div className="mb-4 mt-6">
-            <span className="text-xs text-zinc-500 uppercase tracking-wider">Value & Pricing</span>
-          </div>
-          {(bangBangData.stack || []).filter(s => s.component).length > 0 && (
-            <div className="mb-3">
-              <span className="text-xs text-zinc-500 uppercase tracking-wider">Value Stack</span>
-              <div className="mt-2 space-y-2">
-                {bangBangData.stack.filter(s => s.component).map((s, i) => (
-                  <div key={i} className="flex justify-between items-center bg-zinc-800 rounded p-3">
-                    <div>
-                      <p className="text-sm text-white">{s.component}</p>
-                      {s.description && <p className="text-xs text-zinc-500 mt-0.5">{s.description}</p>}
-                    </div>
-                    <span className="text-sm text-gold font-semibold">£{Number(s.value || 0).toLocaleString()}</span>
-                  </div>
-                ))}
-                <div className="flex justify-between items-center pt-2 border-t border-zinc-700">
-                  <span className="text-xs text-zinc-400 font-bold uppercase tracking-wider">Total Stack Value</span>
-                  <span className="text-sm text-white font-bold">£{(Number(bangBangData.stack_value) || computedStackValue).toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
-          )}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-            <SummaryField label="Price" value={bangBangData.price ? `£${Number(bangBangData.price).toLocaleString()}` : ''} />
-            <SummaryField label="Payment Options" value={bangBangData.payment_options} />
-          </div>
-          <SummaryField label="Delivery Model" value={bangBangData.delivery_model} />
-
-          <div className="mb-4 mt-6">
-            <span className="text-xs text-zinc-500 uppercase tracking-wider">Risk & Positioning</span>
-          </div>
-          <SummaryField label="Guarantees" value={bangBangData.guarantees} />
-          <SummaryField label="Guarantee Detail" value={bangBangData.guarantee_detail} />
-          <SummaryField label="Scarcity" value={bangBangData.scarcity} />
-          <SummaryField label="Social Proof" value={bangBangData.social_proof} />
-
-          <div className="mb-4 mt-6">
-            <span className="text-xs text-zinc-500 uppercase tracking-wider">Continuity</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
-            <SummaryField label="Continuity Offer" value={bangBangData.continuity_offer} />
-            <SummaryField label="Format" value={bangBangData.continuity_format} />
-            <SummaryField label="Price" value={bangBangData.continuity_price ? `£${bangBangData.continuity_price}` : ''} />
-            <SummaryField label="Downsell" value={bangBangData.downsell} />
-          </div>
-
-          {/* Alignment checks */}
-          {Object.values(bangBangData.alignment_checks || {}).some(a => a.answer) && (
-            <>
-              <div className="mb-4 mt-6">
-                <span className="text-xs text-zinc-500 uppercase tracking-wider">Alignment Checks</span>
-              </div>
-              {ALIGNMENT_QUESTIONS.map((q, i) => {
-                const qKey = `q${i + 1}`
-                const check = bangBangData.alignment_checks?.[qKey] || {}
-                if (!check.answer) return null
-                return (
-                  <div key={qKey} className="mb-3">
-                    <p className="text-xs text-zinc-500">{q}</p>
-                    <p className={`text-sm font-semibold mt-0.5 ${
-                      check.answer === 'yes' ? 'text-emerald-400' :
-                      check.answer === 'partially' ? 'text-yellow-400' :
-                      'text-red-400'
-                    }`}>
-                      {check.answer === 'not_yet' ? 'Not Yet' : check.answer.charAt(0).toUpperCase() + check.answer.slice(1)}
-                    </p>
-                    {check.detail && <p className="text-xs text-zinc-400 mt-0.5">{check.detail}</p>}
-                  </div>
-                )
-              })}
-            </>
-          )}
-        </div>
-
-        {/* Actions */}
-        <div className="flex flex-col sm:flex-row gap-3 mt-8">
-          <button onClick={() => goToStage(1)} className="px-6 py-2.5 bg-zinc-800 text-zinc-400 border border-zinc-700 rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-zinc-700 transition">
-            &larr; Edit Playbook
-          </button>
-        </div>
-
-        {/* Offer Launch Plan */}
-        <div className="mt-8 pt-6 border-t border-zinc-800">
-          {scores.overall.total >= 40 ? (
-            <>
-              <div className="text-center mb-6">
-                <button onClick={async () => {
-                  setPlaybook(prev => ({ ...prev, _planLoading: true }))
-                  try {
-                    const res = await fetch('/api/generate-plan', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({ type: 'sold-out', data: { icp: icpData, dip: dipData, bang_bang: bangBangData, framework: frameworkData } }),
-                    })
-                    const result = await res.json()
-                    if (result.error) { alert('Failed: ' + result.error); setPlaybook(prev => ({ ...prev, _planLoading: false })); return }
-                    const { error: planError } = await supabase.from('offer_playbooks').update({ generated_plan: result.plan, updated_at: new Date().toISOString() }).eq('id', playbook.id)
-                    if (planError) { console.error('offer_playbooks save error:', planError); alert('Failed to save plan: ' + planError.message); setPlaybook(prev => ({ ...prev, _planLoading: false })); return }
-                    setPlaybook(prev => ({ ...prev, generated_plan: result.plan, _planLoading: false }))
-                  } catch (e) { alert('Failed: ' + e.message); setPlaybook(prev => ({ ...prev, _planLoading: false })) }
-                }} disabled={playbook._planLoading} className={`px-8 py-4 ${playbook.generated_plan ? 'bg-zinc-800 hover:bg-zinc-700 text-gold border border-gold/30' : 'bg-gold hover:bg-gold-light text-zinc-950'} disabled:opacity-50 font-bold text-xs uppercase tracking-widest rounded-lg transition`}>
-                  {playbook._planLoading ? 'Generating your plan...' : playbook.generated_plan ? 'Regenerate My Offer Launch Plan' : 'Generate My Offer Launch Plan'}
-                </button>
-                {playbook.generated_plan && <p className="text-zinc-600 text-xs mt-2">Updated your answers? Hit regenerate to refresh your plan.</p>}
-              </div>
-              {playbook.generated_plan && (
-                <div className="bg-zinc-900 border border-gold/30 rounded-xl p-6">
-                  <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-4">Your Offer Launch Plan</h3>
-                  <div className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">{playbook.generated_plan}</div>
-                </div>
-              )}
-            </>
-          ) : (() => {
-            const improvements = []
-            const wc = (s) => (s || '').trim().split(/\s+/).filter(Boolean).length
-            // ICP
-            if (!icpData.specific_description || wc(icpData.specific_description) < 10) improvements.push({ stage: 1, label: 'ICP Builder', msg: 'Describe your ideal client in more detail (10+ words)' })
-            if (!icpData.dream_outcome || wc(icpData.dream_outcome) < 8) improvements.push({ stage: 1, label: 'ICP Builder', msg: 'Make your dream outcome more specific (8+ words)' })
-            if ((icpData.pains || []).filter(Boolean).length < 3) improvements.push({ stage: 1, label: 'ICP Builder', msg: 'Add at least 3 pain points' })
-            if (!(icpData.channels || []).length) improvements.push({ stage: 1, label: 'ICP Builder', msg: 'Select where your ICP hangs out' })
-            if (!icpData.trigger_moment || wc(icpData.trigger_moment) < 8) improvements.push({ stage: 1, label: 'ICP Builder', msg: 'Describe the trigger moment (8+ words)' })
-            // Dip
-            if (!dipData.format) improvements.push({ stage: 2, label: 'The Dip', msg: 'Choose a format for your entry offer' })
-            if (!dipData.problem || wc(dipData.problem) < 5) improvements.push({ stage: 2, label: 'The Dip', msg: 'Define the specific problem your Dip solves' })
-            if (!dipData.outcome || wc(dipData.outcome) < 5) improvements.push({ stage: 2, label: 'The Dip', msg: 'Define the outcome your Dip delivers' })
-            if (!dipData.bridge || wc(dipData.bridge) < 10) improvements.push({ stage: 2, label: 'The Dip', msg: 'Explain the bridge to your main offer (10+ words)' })
-            // Bang Bang
-            if (!bangBangData.name) improvements.push({ stage: 3, label: 'Bang Bang Offer', msg: 'Name your main offer' })
-            if (!bangBangData.promise || wc(bangBangData.promise) < 15) improvements.push({ stage: 3, label: 'Bang Bang Offer', msg: 'Write your core promise (15+ words)' })
-            if (!bangBangData.unique_mechanism) improvements.push({ stage: 3, label: 'Bang Bang Offer', msg: 'Define your unique mechanism' })
-            if ((bangBangData.phases || []).filter(p => p.name).length < 2) improvements.push({ stage: 3, label: 'Bang Bang Offer', msg: 'Add at least 2 programme phases' })
-            if (!bangBangData.price) improvements.push({ stage: 3, label: 'Bang Bang Offer', msg: 'Set your price' })
-            // Framework
-            if (!frameworkData.framework_name) improvements.push({ stage: 4, label: 'Signature Framework™', msg: 'Name your signature framework' })
-            const namedPillars = (frameworkData.pillars || []).filter(p => p.name).length
-            if (namedPillars < 3) improvements.push({ stage: 4, label: 'Signature Framework™', msg: `Name all 3 pillars (${namedPillars}/3 done)` })
-            return (
-            <div>
-              <div className="text-center mb-6">
-                <p className="text-zinc-400 text-sm font-medium mb-1">Score {scores.overall.total}/50 — you need 40 to unlock your launch plan</p>
-                <div className="w-full max-w-xs mx-auto h-3 bg-zinc-800 rounded-full overflow-hidden mt-3">
-                  <div className="h-full bg-gold rounded-full transition-all duration-500" style={{ width: `${(scores.overall.total / 40) * 100}%` }} />
-                </div>
-                <p className="text-zinc-600 text-xs mt-2">{40 - scores.overall.total} points to go</p>
-              </div>
-              {improvements.length > 0 && (
-                <div>
-                  <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3">Improve these to unlock your plan</h3>
-                  <div className="space-y-2">
-                    {improvements.slice(0, 8).map((imp, i) => (
-                      <button key={i} onClick={() => goToStage(imp.stage)}
-                        className="w-full flex items-center gap-3 bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 text-left hover:border-gold/30 active:border-gold/30 transition">
-                        <span className="text-amber-400 text-lg flex-shrink-0">⚠️</span>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-white">{imp.label}</p>
-                          <p className="text-xs text-zinc-500">{imp.msg}</p>
-                        </div>
-                        <svg className="w-4 h-4 text-zinc-600 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+        {/* Generated Offer Docs */}
+        <div className="space-y-6 mb-8">
+          <div>
+            <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-3">Bang Bang Offer Document</h3>
+            {scores.overall.total >= 35 ? (
+              <>
+                <AIButton loading={aiLoading['sold-out-bangbang-draft']} onClick={runBangBangDraft} hasOutput={!!bangBangData.ai_draft} label="Generate Bang Bang Offer" regenerateLabel="Regenerate Bang Bang Offer" />
+                {bangBangData.ai_draft && (
+                  <div className="bg-zinc-900 border border-gold/30 rounded-xl p-6 mt-4">
+                    <div className="flex justify-end mb-3">
+                      <button onClick={() => { navigator.clipboard.writeText(bangBangData.ai_draft); flash() }} className="text-xs text-gold hover:text-gold-light transition flex items-center gap-1">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                        Copy
                       </button>
-                    ))}
+                    </div>
+                    <div className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">{bangBangData.ai_draft}</div>
                   </div>
+                )}
+              </>
+            ) : (
+              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                <p className="text-zinc-400 text-sm">Score {scores.overall.total}/50 — you need 35 to generate your offer document.</p>
+                <div className="w-full max-w-xs h-2 bg-zinc-800 rounded-full overflow-hidden mt-2">
+                  <div className="h-full bg-gold rounded-full transition-all" style={{ width: `${(scores.overall.total / 35) * 100}%` }} />
                 </div>
-              )}
-            </div>
-            )
-          })()}
+              </div>
+            )}
+          </div>
+
+          <div>
+            <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-3">Micro Offer Document (The Dip)</h3>
+            {scores.overall.total >= 35 ? (
+              <>
+                <AIButton loading={aiLoading['sold-out-dip-draft']} onClick={runDipDraft} hasOutput={!!dipData.ai_draft} label="Generate Micro Offer" regenerateLabel="Regenerate Micro Offer" />
+                {dipData.ai_draft && (
+                  <div className="bg-zinc-900 border border-emerald-500/30 rounded-xl p-6 mt-4">
+                    <div className="flex justify-end mb-3">
+                      <button onClick={() => { navigator.clipboard.writeText(dipData.ai_draft); flash() }} className="text-xs text-emerald-400 hover:text-emerald-300 transition flex items-center gap-1">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                        Copy
+                      </button>
+                    </div>
+                    <div className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">{dipData.ai_draft}</div>
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-4">
+                <p className="text-zinc-400 text-sm">Complete more of your playbook to unlock micro offer generation.</p>
+              </div>
+            )}
+          </div>
         </div>
+
+        {/* Quick Summary */}
+        <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-6 mb-6">
+          <h3 className="text-xs font-bold text-gold uppercase tracking-widest mb-4">Quick Summary</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8">
+            <SummaryField label="Pyramid Level" value={icpData.pyramid_level ? PYRAMID_LEVELS.find(p => p.id === icpData.pyramid_level)?.label : ''} />
+            <SummaryField label="Target Level" value={icpData.target_level} />
+            <SummaryField label="Sector" value={icpData.sector} />
+            <SummaryField label="Promise" value={icpData.promise} />
+            <SummaryField label="Engine Name" value={icpData.engine_name} />
+            <SummaryField label="Programme Duration" value={pathData.total_duration} />
+            <SummaryField label="Offer Name" value={bangBangData.name} />
+            <SummaryField label="Price" value={bangBangData.price ? `£${Number(bangBangData.price).toLocaleString()}` : ''} />
+            <SummaryField label="Guarantee" value={bangBangData.guarantee_type} />
+            <SummaryField label="Dip Name" value={dipData.name} />
+            <SummaryField label="Dip Price" value={dipData.price ? `£${Number(dipData.price).toLocaleString()}` : ''} />
+          </div>
+        </div>
+
+        <button onClick={() => goToStage(1)} className="px-6 py-2.5 bg-zinc-800 text-zinc-400 border border-zinc-700 rounded-lg text-xs font-semibold uppercase tracking-wider hover:bg-zinc-700 transition">
+          &larr; Edit Playbook
+        </button>
       </div>
     )
   }
 
-  // ── Main Render ───────────────────────────────────────────────────────────
+  // ── Sidebar & Layout ───────────────────────────────────────────���───────────
+
+  const sidebarNav = (
+    <nav className="flex flex-col h-full">
+      <div className="p-5 pb-4 border-b border-zinc-800">
+        <img src="/logo.png" alt="The Syndicate" className="h-12 w-auto" />
+      </div>
+
+      <div className="px-5 py-4 border-b border-zinc-800">
+        <button onClick={() => router.push('/client')} className="flex items-center gap-2 text-zinc-400 hover:text-white transition text-sm">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+          <span className="tracking-wide">Back to App</span>
+        </button>
+      </div>
+
+      <div className="px-5 py-4 border-b border-zinc-800">
+        <p className="text-white text-sm font-semibold truncate">{clientData.name}</p>
+        <p className="text-zinc-600 text-xs truncate mt-0.5">{clientData.business}</p>
+      </div>
+
+      <div className="flex-1 py-4 overflow-y-auto">
+        <p className="px-5 pb-3 text-[10px] font-bold text-zinc-600 uppercase tracking-[0.2em]">Stages</p>
+        {stages.map(stage => (
+          <button
+            key={stage.num}
+            onClick={() => goToStage(stage.num)}
+            className={`w-full flex items-center gap-3 px-5 py-3 text-[13px] font-medium transition ${
+              currentStage === stage.num
+                ? 'text-gold bg-gold/[0.08] border-r-2 border-gold'
+                : 'text-zinc-400 hover:text-white hover:bg-zinc-900'
+            }`}
+          >
+            <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold border ${
+              stageComplete(stage.num)
+                ? 'bg-gold/20 text-gold border-gold/40'
+                : currentStage === stage.num
+                  ? 'border-gold/40 text-gold'
+                  : 'border-zinc-700 text-zinc-600'
+            }`}>
+              {stageComplete(stage.num) ? (
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>
+              ) : stage.icon}
+            </span>
+            <span className="tracking-wide">{stage.label}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="p-4 border-t border-zinc-800">
+        <div className="text-center">
+          <p className="text-xs text-zinc-600 mb-1">Overall Score</p>
+          <p className="text-lg font-bold text-white">{scores.overall.total}<span className="text-zinc-600 text-sm"> / {scores.overall.max}</span></p>
+          <p className={`text-xs font-semibold mt-0.5 ${scores.overall.band === 'Offer-Ready' ? 'text-gold' : scores.overall.band === 'Strong Foundation' ? 'text-emerald-400' : scores.overall.band === 'Getting There' ? 'text-yellow-400' : 'text-red-400'}`}>{scores.overall.band}</p>
+        </div>
+      </div>
+    </nav>
+  )
 
   return (
     <div className="min-h-screen bg-zinc-950 flex">
-      <SaveToast />
+      {/* Save Toast */}
+      <div className={`fixed bottom-6 right-6 z-50 transition-all duration-300 ${showToast ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4 pointer-events-none'}`}>
+        <div className="bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 flex items-center gap-2 shadow-xl">
+          <svg className="w-4 h-4 text-gold" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+          <span className="text-sm text-zinc-300">Saved</span>
+        </div>
+      </div>
 
       {/* Desktop sidebar */}
       <aside className="hidden md:flex md:flex-col md:w-60 md:fixed md:inset-y-0 bg-zinc-950 border-r border-zinc-800 z-20">
@@ -1982,19 +2115,12 @@ export default function PlaybookPage() {
       {/* Main content */}
       <div className="flex-1 md:ml-60 min-w-0 overflow-x-hidden">
         <div className="max-w-4xl mx-auto p-4 md:px-8 md:py-7 mt-14 md:mt-0" onBlur={saveAll}>
-          {/* Saving indicator */}
-          {saving && (
-            <div className="flex items-center gap-2 mb-4">
-              <div className="w-2 h-2 rounded-full bg-gold animate-pulse" />
-              <span className="text-xs text-zinc-500">Saving...</span>
-            </div>
-          )}
-
           {currentStage === 1 && renderStage1()}
           {currentStage === 2 && renderStage2()}
           {currentStage === 3 && renderStage3()}
           {currentStage === 4 && renderStage4()}
           {currentStage === 5 && renderStage5()}
+          {currentStage === 6 && renderStage6()}
         </div>
       </div>
     </div>

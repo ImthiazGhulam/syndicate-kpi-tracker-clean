@@ -517,11 +517,275 @@ Write a compelling narrative they can use in sales calls, bios, webinars, presen
 Use their engine name "${data.engine_name || 'Distinction Engine'}" throughout. This is THEIR framework — make it sound owned, structured, and hard to ignore.`
     }
 
+    // ── Sold Out v2 — Per-Stage AI ────────────────────────────────────────
+
+    else if (type === 'sold-out-niche-research') {
+      const sector = data.icp?.sector || 'coaching'
+      const desc = data.icp?.specific_description || ''
+      const pyramid = data.icp?.pyramid_level || ''
+      const target = data.icp?.target_level || ''
+      systemPrompt = 'You are a market research expert specialising in coaching, consulting, and service-based businesses. You provide specific, data-informed insights about niche markets — not generic advice. Reference real trends, buyer behaviours, and market dynamics. Be direct and commercially useful.'
+      userPrompt = `Research this niche and provide targeted insights for building a premium offer:
+
+NICHE/SECTOR: ${sector}
+DESCRIPTION: ${desc || 'Not provided'}
+CURRENT CLIENT LEVEL: ${data.icp?.current_clients_level || 'Not specified'}
+PYRAMID TARGET: ${target || 'Stalling/Thriving'}
+
+Provide specific, targeted research on:
+
+1. **TYPICAL DEMOGRAPHICS** — Age ranges, gender split, income levels, geography, and life stage of buyers in this niche who are at the ${target || 'stalling/thriving'} level. Be specific to this market.
+
+2. **PSYCHOGRAPHIC PROFILE** — What drives buyers in this space? Their values, beliefs, fears, desires, emotional state, and buying triggers. What's their internal narrative? What do they tell themselves at 2am?
+
+3. **TOP 5 PAIN POINTS** — The specific, non-generic problems people at the ${target || 'stalling/thriving'} level face in this niche. Not "they struggle with mindset" — be precise about what keeps them stuck.
+
+4. **BUYING BEHAVIOUR** — How do people in this niche typically make purchasing decisions? What objections do they have? What social proof do they need? Where do they hang out?
+
+5. **VERTICAL NICHE OPPORTUNITY** — If they're currently working with ${data.icp?.current_clients_level || 'lower-level'} clients, what does the next level up look like? What changes about the service, pricing, and positioning?
+
+6. **MARKET SOPHISTICATION** — How aware is this market of solutions like theirs? What language resonates? What's overused and what's underused?
+
+${pyramid === 'dying' || pyramid === 'surviving' ? '\n7. **LEVEL-UP RECOMMENDATION** — They selected ' + pyramid + ' clients. Explain specifically why targeting stalling/thriving clients would be more profitable and sustainable, and what would need to change about their positioning.\n' : ''}
+
+Be specific to the ${sector} space. No generic coaching advice. Every insight should be something they can act on.`
+
+    } else if (type === 'sold-out-promise-refine') {
+      const brand = data.brand?.brand_star || {}
+      const brandVoice = brand.personality ? `\nBRAND PERSONALITY: ${(brand.personality || []).join(', ')}\nVALUES: ${(brand.values || []).join(', ')}\nWHAT THEY DO: ${brand.what_you_do || ''}\nCONTRARIAN BELIEF: ${brand.contrarian_belief || ''}` : ''
+      systemPrompt = 'You are a premium offer positioning expert. You write promises that are crystal clear, tangible, and impossible to misunderstand. A 6-year-old should be able to understand the transformation. No fluffy mindset language — concrete, measurable outcomes.'
+      userPrompt = `Sharpen this promise so it's crystal clear and tangible:
+
+CURRENT PROMISE: ${data.icp?.promise || 'Not written yet'}
+SECTOR: ${data.icp?.sector || 'Not specified'}
+TARGET CLIENT: ${data.icp?.specific_description || 'Not specified'}
+PYRAMID LEVEL: ${data.icp?.target_level || data.icp?.pyramid_level || 'Not specified'}
+DREAM OUTCOME: ${data.icp?.dream_outcome || 'Not specified'}
+TOP PAINS: ${(data.icp?.pains || []).filter(Boolean).join(', ') || 'Not specified'}
+${brandVoice}
+
+Provide:
+
+1. **3 ALTERNATIVE PROMISES** — Each one crystal clear. "He used to be X, now he's Y." Make the before/after undeniable. Match their brand voice if provided.
+
+2. **WHY EACH WORKS** — Brief explanation of what makes each promise compelling for their specific market.
+
+3. **PROMISE FORMULA** — Show them the structure: "I help [specific person] go from [specific pain/before] to [specific result/after] in [timeframe] using [mechanism/method]."
+
+4. **RED FLAGS TO AVOID** — If their current promise uses vague language (mindset, identity, structure, alignment), explain why it doesn't land and what to replace it with.
+
+Be direct. Be specific. Match their energy.`
+
+    } else if (type === 'sold-out-path-suggest') {
+      systemPrompt = 'You are a programme design expert for coaches and consultants. You create structured client journeys with clear milestones that build momentum and create quick wins. Think like Taki Moore — tactical first, strategic second, scale third.'
+      userPrompt = `Suggest milestones and timelines for this programme:
+
+PROMISE: ${data.icp?.promise || 'Not specified'}
+SECTOR: ${data.icp?.sector || 'Not specified'}
+TARGET CLIENT: ${data.icp?.specific_description || 'Not specified'}
+PYRAMID LEVEL: ${data.icp?.target_level || 'Not specified'}
+CURRENT DURATION IDEA: ${data.path_planner?.total_duration || 'Not decided'}
+
+DISTINCTION ENGINE DATA:
+${data.distinction_engine ? `Problems: ${data.distinction_engine.problem_1 || ''}, ${data.distinction_engine.problem_2 || ''}, ${data.distinction_engine.problem_3 || ''}
+Pillars: ${data.distinction_engine.pillar_1 || ''}, ${data.distinction_engine.pillar_2 || ''}, ${data.distinction_engine.pillar_3 || ''}` : 'Not available'}
+
+Suggest:
+
+1. **RECOMMENDED TOTAL DURATION** — How long should this programme be and why?
+
+2. **ONBOARDING (Day 0-7)** — What should happen between payment and the first call? What boring-but-necessary work gets front-loaded here? Think mindset, setup, assessments.
+
+3. **MILESTONE 1 (First Outcome — becomes The Dip)** — What's the first tangible win? This is critical — it must be achievable in 4-6 weeks and impressive enough to sell as a standalone product. What specific deliverables should they have?
+
+4. **MILESTONE 2 (Mid-term)** — What's the next major checkpoint? What gets launched, tested, or proven here?
+
+5. **EXTENDED PROGRAMME** — What happens after the initial milestones? How do the remaining pillars get covered?
+
+6. **EDUCATION LEVERAGE** — Where can pre-built education (courses, templates, playbooks) do the heavy lifting so coaching time is used for personalisation?
+
+Base this on their specific niche and the problems their Distinction Engine identified. Not generic.`
+
+    } else if (type === 'sold-out-bangbang-draft') {
+      const brand = data.brand?.brand_star || {}
+      const hero = data.brand?.hero || {}
+      const de = data.distinction_engine || {}
+      systemPrompt = `You are an expert high-ticket offer copywriter who writes in the style of Taki Moore's Black Belt sales documents. You write compelling, personal, story-driven offer pages that feel like a conversation — not a sales pitch. The tone should be confident, direct, human, and warm. Use short paragraphs. Use bullet points for lists. Create urgency without being pushy.${brand.personality ? ` Match this brand personality: ${(brand.personality || []).join(', ')}.` : ''}`
+      userPrompt = `Write a complete Bang Bang Offer document for this coach/consultant. Model it on Taki Moore's Black Belt offer structure.
+
+THE OFFER:
+Name: ${data.bang_bang?.name || 'Not named'}
+Promise: ${data.bang_bang?.promise || data.icp?.promise || 'Not specified'}
+
+WHO IT'S FOR:
+${data.bang_bang?.who_for || 'Not specified'}
+
+WHO IT'S NOT FOR:
+${data.bang_bang?.who_not_for || data.icp?.who_not_for || 'Not specified'}
+
+THE PLAN/PHASES:
+${(data.bang_bang?.phases || []).filter(p => p.name).map((p, i) => `Phase ${i + 1}: ${p.name} (${p.duration}) — ${p.description}. Outcome: ${p.outcome}`).join('\n') || 'Not specified'}
+
+VALUE STACK:
+${(data.bang_bang?.stack || []).filter(s => s.component).map(s => `- ${s.component} (Value: £${s.value || '?'}) — ${s.description}`).join('\n') || 'Not specified'}
+
+PRICING:
+Total: £${data.bang_bang?.price || '?'}
+Staggered payments: ${(data.bang_bang?.staggered_payments || []).filter(p => p.amount).map(p => `${p.month}: £${p.amount}`).join(', ') || 'Not specified'}
+Pay-in-full discount: ${data.bang_bang?.pay_in_full_discount || 'Not specified'}
+
+BONUSES:
+${(data.bang_bang?.bonuses || []).filter(b => b.name).map(b => `- ${b.name} (Value: £${b.value || '?'}) — ${b.description}`).join('\n') || 'None'}
+
+GUARANTEE:
+Type: ${data.bang_bang?.guarantee_type || 'Not specified'}
+Detail: ${data.bang_bang?.guarantee_detail || 'Not specified'}
+Duration: ${data.bang_bang?.guarantee_duration || 'Not specified'}
+
+URGENCY & SCARCITY:
+Scarcity: ${data.bang_bang?.scarcity || 'Not specified'}
+Urgency: ${data.bang_bang?.urgency || 'Not specified'}
+Intake model: ${data.bang_bang?.intake_model ? 'Yes' : 'No'}
+
+SOCIAL PROOF:
+${data.bang_bang?.big_names || 'Not specified'}
+${data.bang_bang?.results_numbers || ''}
+Types: ${(data.bang_bang?.social_proof || []).join(', ') || 'None'}
+
+DELIVERY:
+Model: ${(data.bang_bang?.delivery_model || []).join(', ') || 'Not specified'}
+Touch points: ${(data.bang_bang?.touch_points || []).join(', ') || 'Not specified'}
+
+CONTINUITY:
+${data.bang_bang?.continuity_offer || 'Not specified'} — ${data.bang_bang?.continuity_format || ''} at £${data.bang_bang?.continuity_price || '?'}/month
+
+TIERS:
+${(data.bang_bang?.tiers || []).filter(t => t.name).map(t => `${t.name}: ${t.range} — ${t.description}`).join('\n') || 'Single tier'}
+
+CTA: ${data.bang_bang?.cta_action || 'Apply'}
+
+DISTINCTION ENGINE:
+Engine name: ${de.engine_name || 'Not set'}
+Pillars: ${de.pillar_1 || ''}, ${de.pillar_2 || ''}, ${de.pillar_3 || ''}
+
+BRAND VOICE:
+${brand.name ? `Brand: ${brand.name}` : ''}
+${brand.personality ? `Personality: ${(brand.personality || []).join(', ')}` : ''}
+${brand.contrarian_belief ? `Contrarian belief: ${brand.contrarian_belief}` : ''}
+${hero.origin ? `Origin story: ${hero.origin}` : ''}
+${hero.turning_point ? `Turning point: ${hero.turning_point}` : ''}
+${hero.gift ? `Gift to clients: ${hero.gift}` : ''}
+
+COMMUNICATION:
+Daily: ${(data.comms?.daily || []).join(', ') || 'Not set'}
+1:1 calls: ${data.comms?.calls_1_1 || 'Not set'}
+Group calls: ${data.comms?.group_calls || 'Not set'}
+Events: ${data.comms?.events || 'Not set'}
+Workshops: ${data.comms?.workshops || 'Not set'}
+
+Write the COMPLETE offer document. Structure it like Taki Moore's Black Belt:
+1. Personal hook — "I'm going to work with a handful of [their people] to [promise]"
+2. "Here's what we're doing..." — overview of the plan
+3. Credibility — their story, results, social proof
+4. "This won't work for you if..." / "But if you..." lists
+5. The plan broken into phases with clear outcomes
+6. "We make it easy to get started" — pricing, payment plan
+7. Guarantee — make it feel like zero risk
+8. QuickFacts™ — tiers if applicable
+9. Qualification criteria
+10. CTA — "Step 1: [action]. Step 2: We'll review..."
+11. P.S. — bonus teaser
+
+Write in first person. Keep it conversational. Use their brand voice. Make it feel like a letter from someone who genuinely wants to help.`
+
+    } else if (type === 'sold-out-dip-draft') {
+      const brand = data.brand?.brand_star || {}
+      systemPrompt = `You are an expert micro-offer copywriter. You write compelling, short-form sales pages for entry-level offers that bridge to a premium programme. Style: conversational, direct, warm. Like Taki Moore but for the first milestone only.${brand.personality ? ` Match this brand personality: ${(brand.personality || []).join(', ')}.` : ''}`
+      userPrompt = `Write a Micro Offer (The Dip) sales document:
+
+THE DIP:
+Name: ${data.dip?.name || 'Not named'}
+Promise: ${data.dip?.promise || data.path_planner?.milestone_1?.promise || 'Not specified'}
+Problem it solves: ${data.dip?.problem || 'Not specified'}
+Outcome: ${data.dip?.outcome || 'Not specified'}
+Format: ${data.dip?.format || 'Not specified'}
+Duration: ${data.dip?.duration || 'Not specified'}
+Price: £${data.dip?.price || '?'}
+
+BONUSES:
+${(data.dip?.bonuses || []).filter(b => b.name).map(b => `- ${b.name} (£${b.value || '?'}) — ${b.description}`).join('\n') || 'None'}
+
+GUARANTEE:
+${data.dip?.guarantee_type || 'Not specified'} — ${data.dip?.guarantee_detail || ''}
+
+BRIDGE TO MAIN OFFER:
+${data.dip?.bridge_to_main || 'Not specified'}
+
+BELIEF TO CREATE:
+${data.dip?.belief_to_create || 'Not specified'}
+
+MAIN OFFER CONTEXT:
+Main offer name: ${data.bang_bang?.name || 'Not named'}
+Main offer price: £${data.bang_bang?.price || '?'}
+Main offer promise: ${data.bang_bang?.promise || data.icp?.promise || ''}
+
+Write the complete micro offer document:
+1. Hook — what specific problem does this solve right now?
+2. "Here's the plan for the next [duration]..."
+3. What they'll achieve (be specific)
+4. What's included
+5. Bonuses
+6. Price (no payment plan — single price, low barrier)
+7. Guarantee
+8. Bridge tease — hint at what comes next (the main offer) without hard-selling it
+9. CTA
+
+Keep it shorter and punchier than the main offer. This should feel like an easy yes.`
+
+    } else if (type === 'sold-out-comms-suggest') {
+      systemPrompt = 'You are a programme delivery expert for coaches and consultants. You design communication plans that are sustainable for the coach and high-value for the client. Be practical and specific.'
+      userPrompt = `Suggest a communication and delivery plan for this programme:
+
+OFFER: ${data.bang_bang?.name || 'Not named'}
+DURATION: ${data.path_planner?.total_duration || 'Not specified'}
+DELIVERY MODEL: ${(data.bang_bang?.delivery_model || []).join(', ') || 'Not specified'}
+TOUCH POINTS SELECTED: ${(data.bang_bang?.touch_points || []).join(', ') || 'None'}
+SECTOR: ${data.icp?.sector || 'Not specified'}
+
+CURRENT SETUP:
+Daily comms: ${(data.comms?.daily || []).join(', ') || 'Not set'}
+Async feedback: ${(data.comms?.async_feedback || []).join(', ') || 'Not set'}
+1:1 calls: ${data.comms?.calls_1_1 || 'Not set'}
+Group calls: ${data.comms?.group_calls || 'Not set'}
+Events: ${data.comms?.events || 'Not set'}
+Workshops: ${data.comms?.workshops || 'Not set'}
+Education platform: ${data.comms?.education_platform || 'Not set'}
+
+Suggest:
+
+1. **DAILY COMMUNICATION** — What should daily touchpoints look like? WhatsApp/Slack? What's the right cadence?
+
+2. **ASYNC FEEDBACK** — When and how should they provide feedback? Loom? Voice notes?
+
+3. **CALL STRUCTURE** — 1:1 frequency and duration. Group call frequency. What format works best?
+
+4. **EVENTS & WORKSHOPS** — How often? Virtual vs in-person? What topics?
+
+5. **EDUCATION LEVERAGE** — Where should education do the heavy lifting? What platform? What content should be pre-built vs live?
+
+6. **SUSTAINABILITY CHECK** — Is this delivery model sustainable at 10, 20, 30+ clients? What breaks first?
+
+Be specific to their niche and offer type.`
+    }
+
     if (!systemPrompt) {
       return NextResponse.json({ error: 'Unknown plan type' }, { status: 400 })
     }
 
-    const maxTokens = type === 'unshakeable' && Number(data.duration) >= 14 ? 4500 : 2500
+    const maxTokens = type === 'unshakeable' && Number(data.duration) >= 14 ? 4500
+      : (type === 'sold-out-bangbang-draft' || type === 'sold-out-dip-draft') ? 4000
+      : (type === 'sold-out-niche-research') ? 3000
+      : 2500
 
     let message
     for (let attempt = 0; attempt < 3; attempt++) {

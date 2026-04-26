@@ -732,13 +732,10 @@ function AdminPageInner() {
     setPlaybookSaving(true)
     try {
       if (type === 'sold-out' && clientPlaybook?.id) {
-        const { error } = await supabase.from('offer_playbooks').update({
-          icp: clientPlaybook.icp,
-          dip: clientPlaybook.dip,
-          bang_bang: clientPlaybook.bang_bang,
-          framework: clientPlaybook.framework,
-          updated_at: new Date().toISOString(),
-        }).eq('id', clientPlaybook.id)
+        const updateFields = clientPlaybook.version === 2
+          ? { icp: clientPlaybook.icp, dip: clientPlaybook.dip, bang_bang: clientPlaybook.bang_bang, path_planner: clientPlaybook.path_planner, comms: clientPlaybook.comms, updated_at: new Date().toISOString() }
+          : { icp: clientPlaybook.icp, dip: clientPlaybook.dip, bang_bang: clientPlaybook.bang_bang, framework: clientPlaybook.framework, updated_at: new Date().toISOString() }
+        const { error } = await supabase.from('offer_playbooks').update(updateFields).eq('id', clientPlaybook.id)
         if (error) { alert('Save failed: ' + error.message); setPlaybookSaving(false); return }
         setEditingPlaybook(false)
       } else if (type === 'premium-position' && clientPremiumPos?.id) {
@@ -3422,12 +3419,17 @@ function AdminPageInner() {
                   </div>
                 )
 
+                const isV2 = clientPlaybook.version === 2
                 const icp = clientPlaybook.icp || {}
                 const dip = clientPlaybook.dip || {}
                 const bb = clientPlaybook.bang_bang || {}
                 const fw = clientPlaybook.framework || {}
+                const pathPl = clientPlaybook.path_planner || {}
+                const comms = clientPlaybook.comms || {}
                 const scores = clientPlaybook.scores || {}
-                const totalScore = (scores.icp_score || 0) + (scores.dip_score || 0) + (scores.bb_score || 0) + (scores.fw_score || 0)
+                const totalScore = isV2
+                  ? (scores.icp_score || 0) + (scores.path_score || 0) + (scores.bb_score || 0) + (scores.dip_score || 0) + (scores.comms_score || 0) + (scores.de_score || 0)
+                  : (scores.icp_score || 0) + (scores.dip_score || 0) + (scores.bb_score || 0) + (scores.fw_score || 0)
                 const maxScore = 50
                 const band = totalScore >= 35 ? 'Offer-Ready' : totalScore >= 29 ? 'Strong Foundation' : totalScore >= 21 ? 'Getting There' : 'Needs Work'
                 const ed = editingPlaybook
@@ -3459,7 +3461,7 @@ function AdminPageInner() {
                           totalScore >= 21 ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
                           'bg-red-500/20 text-red-400 border-red-500/30'
                         }`}>{band}</div>
-                        <p className="text-zinc-600 text-xs mt-2">Stage {clientPlaybook.current_stage || 1} of 4 · Updated {clientPlaybook.updated_at ? new Date(clientPlaybook.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'}</p>
+                        <p className="text-zinc-600 text-xs mt-2">Stage {clientPlaybook.current_stage || 1} of {isV2 ? 6 : 4} · {isV2 ? 'v2' : 'v1'} · Updated {clientPlaybook.updated_at ? new Date(clientPlaybook.updated_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : '—'}</p>
                       </div>
                       <button onClick={() => ed ? savePlaybookAdmin('sold-out') : setEditingPlaybook(true)} disabled={playbookSaving}
                         className={`px-5 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest transition ${ed ? 'bg-gold text-zinc-950 hover:bg-gold-light' : 'bg-zinc-800 text-gold border border-gold/30 hover:bg-zinc-700'}`}>
@@ -3468,13 +3470,20 @@ function AdminPageInner() {
                       {ed && <button onClick={() => setEditingPlaybook(false)} className="px-4 py-2.5 rounded-lg text-xs font-bold uppercase tracking-widest bg-zinc-800 text-zinc-400 hover:text-white transition">Cancel</button>}
                     </div>
                     {/* Section scores */}
-                    <div className="grid grid-cols-4 gap-3 mt-6">
-                      {[
+                    <div className={`grid ${isV2 ? 'grid-cols-3 sm:grid-cols-6' : 'grid-cols-4'} gap-3 mt-6`}>
+                      {(isV2 ? [
+                        { label: 'ICP', score: scores.icp_score || 0, max: 12, color: 'bg-sky-400' },
+                        { label: 'Path', score: scores.path_score || 0, max: 8, color: 'bg-violet-400' },
+                        { label: 'Bang Bang', score: scores.bb_score || 0, max: 12, color: 'bg-gold' },
+                        { label: 'The Dip', score: scores.dip_score || 0, max: 6, color: 'bg-emerald-400' },
+                        { label: 'Comms', score: scores.comms_score || 0, max: 4, color: 'bg-pink-400' },
+                        { label: 'Engine', score: scores.de_score || 0, max: 8, color: 'bg-orange-400' },
+                      ] : [
                         { label: 'ICP', score: scores.icp_score || 0, max: 15, color: 'bg-sky-400' },
                         { label: 'The Dip', score: scores.dip_score || 0, max: 10, color: 'bg-violet-400' },
                         { label: 'Bang Bang', score: scores.bb_score || 0, max: 15, color: 'bg-gold' },
                         { label: 'Framework', score: scores.fw_score || 0, max: 10, color: 'bg-emerald-400' },
-                      ].map(s => (
+                      ]).map(s => (
                         <div key={s.label}>
                           <div className="flex items-center justify-between mb-1">
                             <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">{s.label}</span>
@@ -3581,8 +3590,14 @@ function AdminPageInner() {
                     </div>
                     <div className="mt-3">
                       <p className="text-[10px] font-bold text-gold uppercase tracking-widest mb-1">Bridge to Main Offer</p>
-                      {ed ? <textarea className={textareaCls} value={dip.bridge || ''} onChange={e => ef('dip.bridge', e.target.value)} /> : <p className="text-zinc-300 text-sm">{dip.bridge || '—'}</p>}
+                      {ed ? <textarea className={textareaCls} value={dip.bridge_to_main || dip.bridge || ''} onChange={e => ef(isV2 ? 'dip.bridge_to_main' : 'dip.bridge', e.target.value)} /> : <p className="text-zinc-300 text-sm">{dip.bridge_to_main || dip.bridge || '—'}</p>}
                     </div>
+                    {isV2 && dip.name && (
+                      <div className="mt-3 pt-3 border-t border-zinc-800">
+                        <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Dip Name</p>
+                        <p className="text-white text-sm font-medium">{dip.name}</p>
+                      </div>
+                    )}
                   </div>
 
                   {/* Bang Bang Offer Summary */}
@@ -3627,10 +3642,14 @@ function AdminPageInner() {
                         </div>
                       </div>
                     )}
-                    {bb.guarantees?.length > 0 && (
+                    {(bb.guarantees?.length > 0 || bb.guarantee_type) && (
                       <div className="mt-3 pt-3 border-t border-zinc-800">
-                        <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1.5">Guarantees</p>
-                        <div className="flex flex-wrap gap-1">{bb.guarantees.map(g => <span key={g} className="px-2 py-0.5 bg-emerald-900/20 text-emerald-400 rounded text-[10px] font-semibold">{g}</span>)}</div>
+                        <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1.5">Guarantee</p>
+                        {bb.guarantee_type
+                          ? <span className="px-2 py-0.5 bg-emerald-900/20 text-emerald-400 rounded text-[10px] font-semibold">{bb.guarantee_type}{bb.guarantee_duration ? ` (${bb.guarantee_duration})` : ''}</span>
+                          : <div className="flex flex-wrap gap-1">{(bb.guarantees || []).map(g => <span key={g} className="px-2 py-0.5 bg-emerald-900/20 text-emerald-400 rounded text-[10px] font-semibold">{g}</span>)}</div>
+                        }
+                        {bb.guarantee_detail && <p className="text-zinc-400 text-xs mt-1">{bb.guarantee_detail}</p>}
                       </div>
                     )}
                     {!ed && bb.continuity_offer && (
@@ -3641,38 +3660,115 @@ function AdminPageInner() {
                     )}
                   </div>
 
-                  {/* Signature Framework Summary */}
-                  <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-4">
-                    <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
-                      <span className="text-base">🏗️</span> Signature Framework™ {fw.framework_name ? `— ${fw.framework_name}` : ''}
-                    </h3>
-                    {ed ? (
-                      <div className="space-y-4">
-                        <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Framework Name</p><input className={inputCls} value={fw.framework_name || ''} onChange={e => ef('framework.framework_name', e.target.value)} /></div>
-                        <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Tagline</p><input className={inputCls} value={fw.tagline || ''} onChange={e => ef('framework.tagline', e.target.value)} /></div>
-                      </div>
-                    ) : (
-                      <>
-                        {fw.tagline && <p className="text-zinc-400 text-sm italic mb-4">{fw.tagline}</p>}
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                          {(fw.pillars || []).map((pillar, pi) => pillar.name && (
-                            <div key={pi} className={`border rounded-lg p-4 ${pi === 0 ? 'border-sky-500/30 bg-sky-500/5' : pi === 1 ? 'border-violet-500/30 bg-violet-500/5' : 'border-gold/30 bg-gold/5'}`}>
-                              <p className={`text-sm font-bold mb-2 ${pi === 0 ? 'text-sky-400' : pi === 1 ? 'text-violet-400' : 'text-gold'}`}>{pillar.name}</p>
-                              {pillar.description && <p className="text-zinc-400 text-xs mb-3">{pillar.description}</p>}
-                              <div className="space-y-1">
-                                {(pillar.modules || []).filter(m => m.name).map((mod, mi) => (
-                                  <div key={mi} className="flex items-center gap-2">
-                                    <span className="w-1 h-1 rounded-full bg-zinc-600 flex-shrink-0" />
-                                    <p className="text-zinc-300 text-xs">{mod.name}</p>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          ))}
+                  {/* v2: Path Planner + Distinction Engine | v1: Signature Framework */}
+                  {isV2 ? (
+                    <>
+                      {/* Path Planner Summary */}
+                      <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-4">
+                        <h3 className="text-xs font-bold text-violet-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                          <span className="text-base">🗺️</span> Path Planner
+                        </h3>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                          <div>
+                            <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Duration</p>
+                            <p className="text-white text-sm">{pathPl.total_duration || '—'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Onboarding</p>
+                            <p className="text-white text-sm">{pathPl.onboarding?.duration || '—'}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">First Milestone</p>
+                            <p className="text-white text-sm">{pathPl.milestone_1?.timeframe || '—'}</p>
+                          </div>
                         </div>
-                      </>
-                    )}
-                  </div>
+                        {pathPl.milestone_1?.promise && (
+                          <div className="bg-zinc-800/50 rounded-lg p-3">
+                            <p className="text-[10px] font-bold text-gold uppercase tracking-widest mb-1">Milestone 1 Promise</p>
+                            <p className="text-zinc-300 text-sm">{pathPl.milestone_1.promise}</p>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Distinction Engine Data (from ICP) */}
+                      {icp.engine_name && (
+                        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-4">
+                          <h3 className="text-xs font-bold text-orange-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <span className="text-base">⚙️</span> Distinction Engine — {icp.engine_name}
+                          </h3>
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            {(icp.problems || []).map((prob, pi) => prob && (
+                              <div key={pi} className={`border rounded-lg p-4 ${pi === 0 ? 'border-sky-500/30 bg-sky-500/5' : pi === 1 ? 'border-violet-500/30 bg-violet-500/5' : 'border-gold/30 bg-gold/5'}`}>
+                                <p className={`text-[10px] font-bold uppercase tracking-widest mb-1 ${pi === 0 ? 'text-sky-400' : pi === 1 ? 'text-violet-400' : 'text-gold'}`}>{icp.pillar_names?.[pi] || `Pillar ${pi + 1}`}</p>
+                                <p className="text-zinc-300 text-xs mb-2">{prob}</p>
+                                {icp.solutions?.[pi]?.filter(Boolean).length > 0 && (
+                                  <div className="space-y-1 mt-2">
+                                    {icp.solutions[pi].filter(Boolean).map((sol, si) => (
+                                      <div key={si} className="flex items-start gap-2">
+                                        <span className="w-1 h-1 rounded-full bg-zinc-600 mt-1.5 flex-shrink-0" />
+                                        <div>
+                                          <p className="text-zinc-300 text-xs">{sol}</p>
+                                          {icp.mechanisms?.[pi]?.[si] && <p className="text-zinc-500 text-[10px]">{icp.mechanisms[pi][si]}</p>}
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Communication Summary */}
+                      {(comms.daily?.length > 0 || comms.calls_1_1 || comms.group_calls) && (
+                        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-4">
+                          <h3 className="text-xs font-bold text-pink-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <span className="text-base">💬</span> Communication & Delivery
+                          </h3>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {comms.daily?.length > 0 && <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Daily</p><p className="text-zinc-300 text-sm">{comms.daily.join(', ')}</p></div>}
+                            {comms.calls_1_1 && <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">1:1 Calls</p><p className="text-zinc-300 text-sm">{comms.calls_1_1}</p></div>}
+                            {comms.group_calls && <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Group Calls</p><p className="text-zinc-300 text-sm">{comms.group_calls}</p></div>}
+                            {comms.events && <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Events</p><p className="text-zinc-300 text-sm">{comms.events}</p></div>}
+                            {comms.workshops && <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Workshops</p><p className="text-zinc-300 text-sm">{comms.workshops}</p></div>}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5 mb-4">
+                      <h3 className="text-xs font-bold text-emerald-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <span className="text-base">🏗️</span> Signature Framework™ {fw.framework_name ? `— ${fw.framework_name}` : ''}
+                      </h3>
+                      {ed ? (
+                        <div className="space-y-4">
+                          <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Framework Name</p><input className={inputCls} value={fw.framework_name || ''} onChange={e => ef('framework.framework_name', e.target.value)} /></div>
+                          <div><p className="text-[10px] font-bold text-zinc-600 uppercase tracking-widest mb-1">Tagline</p><input className={inputCls} value={fw.tagline || ''} onChange={e => ef('framework.tagline', e.target.value)} /></div>
+                        </div>
+                      ) : (
+                        <>
+                          {fw.tagline && <p className="text-zinc-400 text-sm italic mb-4">{fw.tagline}</p>}
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                            {(fw.pillars || []).map((pillar, pi) => pillar.name && (
+                              <div key={pi} className={`border rounded-lg p-4 ${pi === 0 ? 'border-sky-500/30 bg-sky-500/5' : pi === 1 ? 'border-violet-500/30 bg-violet-500/5' : 'border-gold/30 bg-gold/5'}`}>
+                                <p className={`text-sm font-bold mb-2 ${pi === 0 ? 'text-sky-400' : pi === 1 ? 'text-violet-400' : 'text-gold'}`}>{pillar.name}</p>
+                                {pillar.description && <p className="text-zinc-400 text-xs mb-3">{pillar.description}</p>}
+                                <div className="space-y-1">
+                                  {(pillar.modules || []).filter(m => m.name).map((mod, mi) => (
+                                    <div key={mi} className="flex items-center gap-2">
+                                      <span className="w-1 h-1 rounded-full bg-zinc-600 flex-shrink-0" />
+                                      <p className="text-zinc-300 text-xs">{mod.name}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
                 </div>
                 )
               })()}
