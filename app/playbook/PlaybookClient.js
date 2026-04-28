@@ -927,13 +927,7 @@ export default function PlaybookPage() {
             <SingleSelectTags options={['Stalling', 'Thriving']} value={icpData.target_level} onChange={v => updateIcp('target_level', v)} />
           </FieldGroup>
 
-          <SectionHeading title="Vertical Niching" description="Instead of niching horizontally (changing markets), niche vertically (moving up in your current market). Think about the different levels of people you could serve." />
-
-          <FieldGroup label="Describe your vertical niche">
-            <TextArea value={icpData.vertical_niche} onChange={v => updateIcp('vertical_niche', v)} placeholder="e.g. At the bottom: PTs just starting out. At the top: successful business owners turning IP into mentorship programmes." rows={4} />
-          </FieldGroup>
-
-          <SectionHeading title="Niche Criteria" description="Three things must be true about the people you choose to work with." />
+<SectionHeading title="Niche Criteria" description="Three things must be true about the people you choose to work with." />
 
           <div className="space-y-3 mb-5">
             {[
