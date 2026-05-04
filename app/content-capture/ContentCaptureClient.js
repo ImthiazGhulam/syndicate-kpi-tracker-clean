@@ -117,20 +117,15 @@ export default function ContentCaptureClient() {
   // Capture data
   const [debriefData, setDebriefData] = useState([])
   const [hasDebriefs, setHasDebriefs] = useState(true)
-  const [manualCapture, setManualCapture] = useState({
-    client_wins: '',
-    calendar_events: '',
-    learnings: '',
-    photos: '',
-    wins: '',
-    losses: '',
-  })
-  const [selectedCaptures, setSelectedCaptures] = useState([])
+  const [manualCapture, setManualCapture] = useState('')
+  const [selectedCapture, setSelectedCapture] = useState('')
 
   // Hook
   const [selectedTemplate, setSelectedTemplate] = useState(null)
   const [hookText, setHookText] = useState('')
   const [hookSearch, setHookSearch] = useState('')
+  const [suggestedHooks, setSuggestedHooks] = useState([])
+  const [suggestingHooks, setSuggestingHooks] = useState(false)
 
   // Format
   const [selectedFormat, setSelectedFormat] = useState(null)
@@ -202,7 +197,7 @@ export default function ContentCaptureClient() {
 
       if (existing) {
         setRecord(existing)
-        if (existing.captures) setSelectedCaptures(existing.captures)
+        if (existing.selected_capture) setSelectedCapture(existing.selected_capture)
         if (existing.hook_template) setSelectedTemplate(existing.hook_template)
         if (existing.hook_text) setHookText(existing.hook_text)
         if (existing.output_format) setSelectedFormat(existing.output_format)
@@ -211,6 +206,7 @@ export default function ContentCaptureClient() {
         if (existing.generated_content) setGeneratedContent(existing.generated_content)
         if (existing.current_stage) setCurrentStage(existing.current_stage)
         if (existing.manual_capture) setManualCapture(existing.manual_capture)
+        if (existing.suggested_hooks) setSuggestedHooks(existing.suggested_hooks)
       }
 
       setLoading(false)
@@ -224,7 +220,7 @@ export default function ContentCaptureClient() {
     if (!clientData) return
     const payload = {
       client_id: clientData.id,
-      captures: selectedCaptures,
+      selected_capture: selectedCapture,
       hook_template: selectedTemplate,
       hook_text: hookText,
       output_format: selectedFormat,
@@ -233,6 +229,7 @@ export default function ContentCaptureClient() {
       generated_content: generatedContent,
       current_stage: currentStage,
       manual_capture: manualCapture,
+      suggested_hooks: suggestedHooks,
       updated_at: new Date().toISOString(),
       ...fields,
     }
@@ -244,21 +241,47 @@ export default function ContentCaptureClient() {
       if (newRec) setRecord(newRec)
     }
     flash()
-  }, [clientData, record, selectedCaptures, selectedTemplate, hookText, selectedFormat, selectedCta, customCta, generatedContent, currentStage, manualCapture])
+  }, [clientData, record, selectedCapture, selectedTemplate, hookText, selectedFormat, selectedCta, customCta, generatedContent, currentStage, manualCapture, suggestedHooks])
 
   const debouncedSave = useCallback((fields = {}) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
     saveTimerRef.current = setTimeout(() => saveToSupabase(fields), 500)
   }, [saveToSupabase])
 
+  // ── Suggest Hooks from Captures ──────────────────────────────────────────────
+
+  const suggestHooks = async () => {
+    setSuggestingHooks(true)
+    try {
+      const captureText = selectedCapture || manualCapture
+
+      const templateList = HOOK_TEMPLATES.map(h => h.template).join('\n')
+
+      const res = await fetch('/api/generate-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'content-capture-hooks',
+          data: { captures: captureText, templates: templateList },
+        }),
+      })
+      const result = await res.json()
+      if (result.plan) {
+        const hooks = result.plan.split('\n').filter(l => l.trim()).map(l => l.replace(/^\d+[\.\)]\s*/, '').trim())
+        setSuggestedHooks(hooks)
+      }
+    } catch (err) {
+      console.error('Hook suggestion error:', err)
+    }
+    setSuggestingHooks(false)
+  }
+
   // ── Generate Content ────────────────────────────────────────────────────────────
 
   const generateContent = async () => {
     setGenerating(true)
     try {
-      const captureText = selectedCaptures.length > 0
-        ? selectedCaptures.map(c => `- ${c}`).join('\n')
-        : Object.entries(manualCapture).filter(([,v]) => v).map(([k,v]) => `${k.replace(/_/g, ' ')}: ${v}`).join('\n')
+      const captureText = selectedCapture || manualCapture
 
       const ctaText = selectedCta === 'custom' ? customCta : CTA_OPTIONS.find(c => c.id === selectedCta)?.label || ''
 
@@ -291,14 +314,15 @@ export default function ContentCaptureClient() {
 
   const startNew = async () => {
     setRecord(null)
-    setSelectedCaptures([])
+    setSelectedCapture('')
     setSelectedTemplate(null)
     setHookText('')
     setSelectedFormat(null)
     setSelectedCta('youtube')
     setCustomCta('')
     setGeneratedContent('')
-    setManualCapture({ client_wins: '', calendar_events: '', learnings: '', photos: '', wins: '', losses: '' })
+    setManualCapture('')
+    setSuggestedHooks([])
     setCurrentStage(1)
   }
 
@@ -318,12 +342,6 @@ export default function ContentCaptureClient() {
     return captures
   }
 
-  const toggleCapture = (capture) => {
-    setSelectedCaptures(prev =>
-      prev.includes(capture) ? prev.filter(c => c !== capture) : [...prev, capture]
-    )
-  }
-
   // ── Render Stages ──────────────────────────────────────────────────────────────
 
   const renderStage1 = () => {
@@ -332,16 +350,16 @@ export default function ContentCaptureClient() {
       return (
         <div className="space-y-6">
           <div>
-            <GoldLabel>Your last 7 days</GoldLabel>
-            <p className="text-zinc-400 text-sm mb-4">Select the stories, wins, and insights you want to turn into content:</p>
+            <GoldLabel>Pick One Story</GoldLabel>
+            <p className="text-zinc-400 text-sm mb-4">Each capture is its own piece of content. Select the one you want to turn into something:</p>
           </div>
           <div className="space-y-2 max-h-[50vh] overflow-y-auto pr-2">
             {captures.map((capture, i) => (
               <button
                 key={i}
-                onClick={() => toggleCapture(capture)}
+                onClick={() => { setSelectedCapture(capture); setSuggestedHooks([]) }}
                 className={`w-full text-left px-4 py-3 rounded border transition text-sm ${
-                  selectedCaptures.includes(capture)
+                  selectedCapture === capture
                     ? 'bg-gold/10 border-gold/40 text-white'
                     : 'bg-zinc-800 border-zinc-700 text-zinc-300 hover:border-zinc-600'
                 }`}
@@ -353,13 +371,18 @@ export default function ContentCaptureClient() {
           {captures.length === 0 && (
             <p className="text-zinc-500 text-sm italic">No content found in your debriefs. Use manual input below.</p>
           )}
-          <div className="border-t border-zinc-800 pt-4">
-            <Label>Or add more context manually</Label>
+          <div className="flex items-center gap-3 pt-2">
+            <div className="flex-1 h-px bg-zinc-800" />
+            <span className="text-zinc-600 text-xs uppercase tracking-widest">or write your own</span>
+            <div className="flex-1 h-px bg-zinc-800" />
+          </div>
+          <div>
+            <Label>Manual capture</Label>
             <TextArea
-              value={manualCapture.client_wins}
-              onChange={v => setManualCapture(prev => ({ ...prev, client_wins: v }))}
+              value={manualCapture}
+              onChange={v => { setManualCapture(v); setSelectedCapture(''); setSuggestedHooks([]) }}
               onBlur={() => debouncedSave()}
-              placeholder="Any additional wins, stories, or insights..."
+              placeholder="A client win, something you learned, a story from your week..."
               rows={3}
             />
           </div>
@@ -371,36 +394,22 @@ export default function ContentCaptureClient() {
     return (
       <div className="space-y-6">
         <div>
-          <GoldLabel>Capture Your Raw Material</GoldLabel>
-          <p className="text-zinc-400 text-sm mb-4">No debriefs found from the past week. Tell us what's been happening:</p>
+          <GoldLabel>Capture Your Story</GoldLabel>
+          <p className="text-zinc-400 text-sm mb-4">No debriefs found from the past week. Write one story, win, learning, or insight to turn into content:</p>
         </div>
-        <div className="space-y-4">
-          <div>
-            <Label>Client Wins</Label>
-            <TextArea value={manualCapture.client_wins} onChange={v => setManualCapture(prev => ({ ...prev, client_wins: v }))} onBlur={() => debouncedSave()} placeholder="What results have your clients achieved recently?" rows={2} />
-          </div>
-          <div>
-            <Label>Calendar / Events</Label>
-            <TextArea value={manualCapture.calendar_events} onChange={v => setManualCapture(prev => ({ ...prev, calendar_events: v }))} onBlur={() => debouncedSave()} placeholder="Any calls, meetings, or events worth sharing?" rows={2} />
-          </div>
-          <div>
-            <Label>Learnings</Label>
-            <TextArea value={manualCapture.learnings} onChange={v => setManualCapture(prev => ({ ...prev, learnings: v }))} onBlur={() => debouncedSave()} placeholder="What did you learn or realise this week?" rows={2} />
-          </div>
-          <div>
-            <Label>Wins</Label>
-            <TextArea value={manualCapture.wins} onChange={v => setManualCapture(prev => ({ ...prev, wins: v }))} onBlur={() => debouncedSave()} placeholder="Personal or business wins..." rows={2} />
-          </div>
-          <div>
-            <Label>Losses / Challenges</Label>
-            <TextArea value={manualCapture.losses} onChange={v => setManualCapture(prev => ({ ...prev, losses: v }))} onBlur={() => debouncedSave()} placeholder="What didn't go to plan? (Great content comes from vulnerability)" rows={2} />
-          </div>
-        </div>
+        <TextArea
+          value={manualCapture}
+          onChange={v => setManualCapture(v)}
+          onBlur={() => debouncedSave()}
+          placeholder="e.g. A client just hit their first £10k month after implementing the pricing framework I taught them last week..."
+          rows={5}
+        />
       </div>
     )
   }
 
   const renderStage2 = () => {
+    const hasCaptures = selectedCapture || manualCapture
     const filtered = hookSearch
       ? HOOK_TEMPLATES.filter(h => h.template.toLowerCase().includes(hookSearch.toLowerCase()) || h.example.toLowerCase().includes(hookSearch.toLowerCase()))
       : HOOK_TEMPLATES
@@ -408,15 +417,74 @@ export default function ContentCaptureClient() {
     return (
       <div className="space-y-6">
         <div>
-          <GoldLabel>Choose Your Hook</GoldLabel>
-          <p className="text-zinc-400 text-sm mb-4">Pick a viral hook template, then customise it:</p>
+          <GoldLabel>Your Hook</GoldLabel>
+          <p className="text-zinc-400 text-sm mb-4">We'll suggest hooks based on your captures, or browse templates below.</p>
         </div>
-        <TextInput
-          value={hookSearch}
-          onChange={setHookSearch}
-          placeholder="Search hooks..."
-        />
-        <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-2">
+
+        {/* AI-Suggested Hooks */}
+        {hasCaptures && (
+          <div className="space-y-3">
+            {suggestedHooks.length === 0 ? (
+              <button
+                onClick={suggestHooks}
+                disabled={suggestingHooks}
+                className="w-full py-3 rounded border border-gold/30 text-gold font-semibold text-sm hover:bg-gold/10 transition disabled:opacity-50"
+              >
+                {suggestingHooks ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="w-4 h-4 border-2 border-gold border-t-transparent rounded-full animate-spin" />
+                    Analysing your week...
+                  </span>
+                ) : '⚡ Suggest Hooks From My Captures'}
+              </button>
+            ) : (
+              <>
+                <Label>Suggested for you</Label>
+                <div className="space-y-2">
+                  {suggestedHooks.map((hook, i) => (
+                    <button
+                      key={i}
+                      onClick={() => { setSelectedTemplate('suggested'); setHookText(hook) }}
+                      className={`w-full text-left px-4 py-3 rounded border transition text-sm ${
+                        hookText === hook && selectedTemplate === 'suggested'
+                          ? 'bg-gold/10 border-gold/40 text-white'
+                          : 'bg-zinc-800/80 border-gold/20 text-zinc-200 hover:border-gold/40'
+                      }`}
+                    >
+                      {hook}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={suggestHooks}
+                  disabled={suggestingHooks}
+                  className="text-xs text-zinc-500 hover:text-gold transition"
+                >
+                  {suggestingHooks ? 'Regenerating...' : '↻ Regenerate suggestions'}
+                </button>
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Divider */}
+        {hasCaptures && suggestedHooks.length > 0 && (
+          <div className="flex items-center gap-3 pt-2">
+            <div className="flex-1 h-px bg-zinc-800" />
+            <span className="text-zinc-600 text-xs uppercase tracking-widest">or browse templates</span>
+            <div className="flex-1 h-px bg-zinc-800" />
+          </div>
+        )}
+
+        {/* Template Browser */}
+        <div>
+          <TextInput
+            value={hookSearch}
+            onChange={setHookSearch}
+            placeholder="Search hook templates..."
+          />
+        </div>
+        <div className="space-y-2 max-h-[35vh] overflow-y-auto pr-2">
           {filtered.map((hook, i) => (
             <button
               key={i}
@@ -432,9 +500,11 @@ export default function ContentCaptureClient() {
             </button>
           ))}
         </div>
-        {selectedTemplate && (
+
+        {/* Editable hook */}
+        {hookText && (
           <div className="border-t border-zinc-800 pt-4">
-            <Label>Your Hook (edit below)</Label>
+            <GoldLabel>Your Hook (edit below)</GoldLabel>
             <TextInput
               value={hookText}
               onChange={setHookText}
@@ -502,7 +572,7 @@ export default function ContentCaptureClient() {
   )
 
   const renderStage4 = () => {
-    const ready = hookText && selectedFormat && (selectedCaptures.length > 0 || Object.values(manualCapture).some(v => v))
+    const ready = hookText && selectedFormat && (selectedCapture || manualCapture)
     return (
       <div className="space-y-6">
         <div>
@@ -523,13 +593,8 @@ export default function ContentCaptureClient() {
             <p className="text-white text-sm">{selectedCta === 'custom' ? customCta : CTA_OPTIONS.find(c => c.id === selectedCta)?.label}</p>
           </div>
           <div className="bg-zinc-800 rounded p-4 border border-zinc-700">
-            <Label>Source Material ({selectedCaptures.length > 0 ? selectedCaptures.length + ' items' : 'manual input'})</Label>
-            <div className="text-zinc-400 text-xs mt-1 max-h-32 overflow-y-auto">
-              {selectedCaptures.length > 0
-                ? selectedCaptures.map((c, i) => <p key={i} className="mb-1">• {c}</p>)
-                : Object.entries(manualCapture).filter(([,v]) => v).map(([k,v]) => <p key={k} className="mb-1"><span className="text-zinc-500">{k.replace(/_/g, ' ')}:</span> {v}</p>)
-              }
-            </div>
+            <Label>Story / Capture</Label>
+            <p className="text-zinc-300 text-sm">{selectedCapture || manualCapture || <span className="text-zinc-500 italic">Not set</span>}</p>
           </div>
         </div>
         <button

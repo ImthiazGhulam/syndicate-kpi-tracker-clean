@@ -776,6 +776,22 @@ Suggest:
 6. **SUSTAINABILITY CHECK** — Is this delivery model sustainable at 10, 20, 30+ clients? What breaks first?
 
 Be specific to their niche and offer type.`
+    } else if (type === 'content-capture-hooks') {
+      systemPrompt = 'You are a content strategist for coaches, consultants, and service providers. You write scroll-stopping hooks. No fluff. Every hook must be specific to what the person actually experienced — never generic.'
+      userPrompt = `Based on this person's real story/capture, suggest 5 completed hooks they can use as content openers.
+
+THE CAPTURE (one specific story, win, learning, or insight):
+${data.captures}
+
+HOOK TEMPLATES TO DRAW FROM:
+${data.templates}
+
+Rules:
+- Each hook must be a COMPLETE, ready-to-use sentence (not a template with blanks)
+- Each hook must be directly tied to the specific capture above
+- Pick the 5 best-fitting templates and fill them in using the person's actual story
+- Make them punchy, curiosity-driven, and scroll-stopping
+- Return ONLY the 5 hooks, one per line, numbered 1-5. No explanation.`
     } else if (type === 'content-capture') {
       const formatGuides = {
         'yap': 'SHORT-FORM VIDEO SCRIPT (60 seconds max). Write a punchy script with: opening hook (first 3 seconds grab attention), story/context (15-20 seconds), key steps or list (20-25 seconds), payoff/insight (5-10 seconds), CTA (5 seconds). Use short sentences. Conversational tone. Written to be spoken aloud.',

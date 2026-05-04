@@ -1,9 +1,13 @@
 -- Content Capture System table
+-- Drop and recreate if already exists
+DROP TABLE IF EXISTS content_captures;
+
 CREATE TABLE content_captures (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   client_id UUID REFERENCES clients(id) ON DELETE CASCADE,
-  captures JSONB DEFAULT '[]',
-  manual_capture JSONB DEFAULT '{}',
+  selected_capture TEXT,
+  manual_capture TEXT,
+  suggested_hooks JSONB DEFAULT '[]',
   hook_template TEXT,
   hook_text TEXT,
   output_format TEXT,
