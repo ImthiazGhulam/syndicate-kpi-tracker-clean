@@ -1830,6 +1830,7 @@ export default function ClientPage() {
       { id: 'playbook',    label: 'Sold Out™ Playbook',   icon: '📖', href: '/playbook' },
       { id: 'distinction', label: 'Distinction Engine™',  icon: '⚙️', href: '/distinction-engine' },
       { id: 'ai-accel',    label: 'AI Accelerator™',      icon: '⚡', href: '/ai-accelerator' },
+      { id: 'content-cap', label: 'Content Capture™',     icon: '🎬', href: '/content-capture' },
     ]},
     { heading: 'Rewire™', items: [
       { id: 'wealth-wired', label: 'Wealth Wired™',       icon: '🧠', href: '/wealth-wired' },

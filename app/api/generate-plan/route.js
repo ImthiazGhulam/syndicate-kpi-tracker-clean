@@ -776,6 +776,37 @@ Suggest:
 6. **SUSTAINABILITY CHECK** — Is this delivery model sustainable at 10, 20, 30+ clients? What breaks first?
 
 Be specific to their niche and offer type.`
+    } else if (type === 'content-capture') {
+      const formatGuides = {
+        'yap': 'SHORT-FORM VIDEO SCRIPT (60 seconds max). Write a punchy script with: opening hook (first 3 seconds grab attention), story/context (15-20 seconds), key steps or list (20-25 seconds), payoff/insight (5-10 seconds), CTA (5 seconds). Use short sentences. Conversational tone. Written to be spoken aloud.',
+        'carousel': 'CAROUSEL POST (7-10 slides). Structure: Slide 1 = Hook (bold, provocative statement). Slides 2-3 = Story/context. Slides 4-7 = Steps or list (one per slide, concise). Slide 8-9 = Payoff/key insight. Final slide = CTA. Each slide should be 1-2 short sentences max. Use line breaks for readability.',
+        'email': 'EMAIL. Structure: Subject line (curiosity-driven, under 50 chars). Opening line hooks the reader personally. Story section (2-3 short paragraphs, conversational). List/steps section (bullet points). Payoff paragraph (the key takeaway). CTA with clear next step. PS line for urgency or personal touch. Keep total length 300-500 words.',
+        'youtube': 'YOUTUBE VIDEO INTRO + OUTLINE. The intro is CRITICAL (first 30 seconds). Write: Hook line (pattern interrupt). Problem agitation (why viewer should care). Credibility/proof (why you can help). Promise (what they will learn). Then outline the rest: Story section, Key points/steps, Payoff, CTA for subscribe + link in description.',
+        'talking-head': 'TALKING HEAD VIDEO SCRIPT (60-90 seconds, professionally shot). Similar to YAP but slightly more polished tone. Write: Hook (direct to camera, bold statement). Story (brief, personal). Steps/insights (deliver value). Payoff (land the key message). CTA (subtle, professional). Sentences should be short and punchy for delivery.',
+        'photo-caption': 'PHOTO CAPTION. Write a compelling caption that works with a photo. Structure: Hook (first line must stop the scroll — use line break after). Story (2-3 short paragraphs, personal and raw). Key insight or steps (use line breaks or bullet points). Payoff (the lesson). CTA (question to drive comments or link direction). Keep under 300 words.',
+      }
+
+      systemPrompt = 'You are a content strategist for coaches, consultants, and service providers. You write direct, engaging, scroll-stopping content. No fluff. No corporate speak. Write like a real person who gives genuine value. Match the energy of someone who has been in the trenches and is sharing what actually works.'
+      userPrompt = `Create content using this structure:
+
+HOOK: ${data.hook}
+
+SOURCE MATERIAL (from their real week):
+${data.captures}
+
+CTA DIRECTION: ${data.cta}
+
+FORMAT: ${formatGuides[data.format] || formatGuides['yap']}
+
+Rules:
+- Use the hook provided as the opening
+- Weave in the source material as the story/context (make it feel natural, not listed)
+- Extract 3-5 actionable steps or insights from the material
+- End with a clear payoff (the one thing the reader should take away)
+- Include the CTA naturally
+- Write in first person
+- Be specific — use details from the source material, not generic advice
+- Match the tone: confident, direct, slightly raw, real`
     }
 
     if (!systemPrompt) {
@@ -784,7 +815,7 @@ Be specific to their niche and offer type.`
 
     const maxTokens = type === 'unshakeable' && Number(data.duration) >= 14 ? 4500
       : (type === 'sold-out-bangbang-draft' || type === 'sold-out-dip-draft') ? 4000
-      : (type === 'sold-out-niche-research') ? 3000
+      : (type === 'sold-out-niche-research' || type === 'content-capture') ? 3000
       : 2500
 
     let message
