@@ -887,8 +887,12 @@ export default function ClientPage() {
     if (clientData) fetchMonthlyReview(reviewMonth, reviewYear)
   }, [reviewMonth, reviewYear, clientData?.id])
 
+  const monthTransitioning = useRef(false)
   const saveMonthly = async (overrides = {}) => {
     if (!clientData) return
+    if (monthTransitioning.current) return
+    // Don't create a new record if the form is empty (prevents accidental blank saves)
+    if (!monthlyReview.id && !overrides.revenue && !monthlyReview.revenue && !monthlyReview.biggest_win && !monthlyReview.revenue_target && !overrides.target_hit && !overrides.month_rating) return
     const payload = {
       client_id: clientData.id, month: reviewMonth, year: reviewYear,
       revenue: monthlyReview.revenue || 0, target_hit: monthlyReview.target_hit,
@@ -4435,12 +4439,12 @@ export default function ClientPage() {
             <div className="flex items-center justify-between mb-2">
               <p className="text-zinc-500 text-xs">Reflect on the month. Recalibrate for the next.</p>
               <div className="flex items-center gap-1">
-                <button onClick={() => { setMonthlyReview({}); setLastMonthReview(null); if (reviewMonth === 0) { setReviewMonth(11); setReviewYear(y => y - 1) } else setReviewMonth(m => m - 1) }}
+                <button onClick={() => { monthTransitioning.current = true; setMonthlyReview({}); setLastMonthReview(null); if (reviewMonth === 0) { setReviewMonth(11); setReviewYear(y => y - 1) } else setReviewMonth(m => m - 1); setTimeout(() => { monthTransitioning.current = false }, 300) }}
                   className="p-2 text-zinc-500 hover:text-white active:text-white transition rounded hover:bg-zinc-800">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
                 </button>
                 <span className="text-sm font-semibold text-white min-w-[140px] text-center">{MONTH_NAMES[reviewMonth]} {reviewYear}</span>
-                <button onClick={() => { setMonthlyReview({}); setLastMonthReview(null); if (reviewMonth === 11) { setReviewMonth(0); setReviewYear(y => y + 1) } else setReviewMonth(m => m + 1) }}
+                <button onClick={() => { monthTransitioning.current = true; setMonthlyReview({}); setLastMonthReview(null); if (reviewMonth === 11) { setReviewMonth(0); setReviewYear(y => y + 1) } else setReviewMonth(m => m + 1); setTimeout(() => { monthTransitioning.current = false }, 300) }}
                   className="p-2 text-zinc-500 hover:text-white active:text-white transition rounded hover:bg-zinc-800">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
                 </button>
