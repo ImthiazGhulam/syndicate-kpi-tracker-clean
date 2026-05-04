@@ -424,20 +424,19 @@ export default function ContentCaptureClient() {
         {/* AI-Suggested Hooks */}
         {hasCaptures && (
           <div className="space-y-3">
-            {suggestedHooks.length === 0 ? (
-              <button
-                onClick={suggestHooks}
-                disabled={suggestingHooks}
-                className="w-full py-3 rounded border border-gold/30 text-gold font-semibold text-sm hover:bg-gold/10 transition disabled:opacity-50"
-              >
-                {suggestingHooks ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <span className="w-4 h-4 border-2 border-gold border-t-transparent rounded-full animate-spin" />
-                    Analysing your week...
-                  </span>
-                ) : '⚡ Suggest Hooks From My Captures'}
-              </button>
-            ) : (
+            <button
+              onClick={suggestHooks}
+              disabled={suggestingHooks}
+              className="w-full py-3 rounded border border-gold/30 text-gold font-semibold text-sm hover:bg-gold/10 transition disabled:opacity-50"
+            >
+              {suggestingHooks ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="w-4 h-4 border-2 border-gold border-t-transparent rounded-full animate-spin" />
+                  Analysing your story...
+                </span>
+              ) : suggestedHooks.length > 0 ? '⚡ Regenerate Hook Suggestions' : '⚡ Suggest Hooks From My Capture'}
+            </button>
+            {suggestedHooks.length > 0 && (
               <>
                 <Label>Suggested for you</Label>
                 <div className="space-y-2">
@@ -455,13 +454,6 @@ export default function ContentCaptureClient() {
                     </button>
                   ))}
                 </div>
-                <button
-                  onClick={suggestHooks}
-                  disabled={suggestingHooks}
-                  className="text-xs text-zinc-500 hover:text-gold transition"
-                >
-                  {suggestingHooks ? 'Regenerating...' : '↻ Regenerate suggestions'}
-                </button>
               </>
             )}
           </div>
