@@ -201,8 +201,16 @@ function AdminPageInner() {
   const [adminWarMapWeek, setAdminWarMapWeek] = useState(() => getMonday())
   const [adminViewDate, setAdminViewDate] = useState(() => localDateStr())
   // Default monthly view to previous month
-  const [adminMonthlyMonth, setAdminMonthlyMonth] = useState(() => new Date().getMonth() === 0 ? 11 : new Date().getMonth() - 1)
-  const [adminMonthlyYear, setAdminMonthlyYear] = useState(() => new Date().getMonth() === 0 ? new Date().getFullYear() - 1 : new Date().getFullYear())
+  const [adminMonthlyMonth, setAdminMonthlyMonth] = useState(() => {
+    const d = new Date()
+    if (d.getDate() <= 7) return d.getMonth() === 0 ? 11 : d.getMonth() - 1
+    return d.getMonth()
+  })
+  const [adminMonthlyYear, setAdminMonthlyYear] = useState(() => {
+    const d = new Date()
+    if (d.getDate() <= 7 && d.getMonth() === 0) return d.getFullYear() - 1
+    return d.getFullYear()
+  })
   const [monthlyReview, setMonthlyReview] = useState(null)
   const [allMonthlyReviews, setAllMonthlyReviews] = useState([])
   const [clientPlaybook, setClientPlaybook] = useState(null)
@@ -419,7 +427,7 @@ function AdminPageInner() {
       safe(supabase.from('evening_pulse').select('*').eq('client_id', client.id).gte('date', monday).lte('date', sunday)),                  // 3
       safe(supabase.from('war_map_weekly').select('*').eq('client_id', client.id).eq('week_of', monday).maybeSingle()),                     // 4
       safe(supabase.from('weekly_review').select('*').eq('client_id', client.id).eq('week_of', monday).maybeSingle()),                      // 5
-      safe(supabase.from('monthly_review').select('*').eq('client_id', client.id).order('year', { ascending: false }).order('month', { ascending: false }).limit(1).maybeSingle()), // 6 — most recent review
+      safe(supabase.from('monthly_review').select('*').eq('client_id', client.id).eq('month', new Date().getDate() <= 7 ? (new Date().getMonth() === 0 ? 11 : new Date().getMonth() - 1) : new Date().getMonth()).eq('year', new Date().getDate() <= 7 && new Date().getMonth() === 0 ? new Date().getFullYear() - 1 : new Date().getFullYear()).maybeSingle()), // 6 — current context month review
       safe(supabase.from('monthly_review').select('*').eq('client_id', client.id).order('year').order('month')),                            // 7
       safe(supabase.from('identity_change').select('*').eq('client_id', client.id).maybeSingle()),                                          // 8
       safe(supabase.from('life_design').select('*').eq('client_id', client.id).eq('year', year).maybeSingle()),                             // 9
@@ -461,9 +469,10 @@ function AdminPageInner() {
     setAllClientWarMaps(Array.isArray(allWarMapsRes.data) ? allWarMapsRes.data : [])
     setAdminReviewWeek(monday)
     setAdminWarMapWeek(monday)
-    const fetchedMonthly = monthlyRes.data && !Array.isArray(monthlyRes.data) ? monthlyRes.data : null
-    setAdminMonthlyMonth(fetchedMonthly ? fetchedMonthly.month : new Date().getMonth() === 0 ? 11 : new Date().getMonth() - 1)
-    setAdminMonthlyYear(fetchedMonthly ? fetchedMonthly.year : new Date().getMonth() === 0 ? new Date().getFullYear() - 1 : new Date().getFullYear())
+    const initM = new Date().getDate() <= 7 ? (new Date().getMonth() === 0 ? 11 : new Date().getMonth() - 1) : new Date().getMonth()
+    const initY = new Date().getDate() <= 7 && new Date().getMonth() === 0 ? new Date().getFullYear() - 1 : new Date().getFullYear()
+    setAdminMonthlyMonth(initM)
+    setAdminMonthlyYear(initY)
 
     if (adventuresRes.data?.length > 0) {
       const merged = defaultAdventures().map(def =>
