@@ -59,11 +59,20 @@ const CTA_OPTIONS = [
   { id: 'custom', label: 'Custom' },
 ]
 
+const HOOK_FORMAT_LABELS = {
+  'yap': 'First 3-5 seconds (spoken opening)',
+  'carousel': 'Slide 1-2 (scroll-stopping text)',
+  'email': 'Subject line + opening line',
+  'youtube': 'Title + first 30 seconds',
+  'talking-head': 'Opening statement (direct to camera)',
+  'photo-caption': 'First line of caption (before the fold)',
+}
+
 const STAGES = [
   { num: 1, label: 'Capture', icon: '📥' },
-  { num: 2, label: 'Hook', icon: '🪝' },
-  { num: 3, label: 'Format', icon: '🎯' },
-  { num: 4, label: 'Generate', icon: '⚡' },
+  { num: 2, label: 'Format', icon: '🎯' },
+  { num: 3, label: 'Structure', icon: '📝' },
+  { num: 4, label: 'Hook', icon: '🪝' },
   { num: 5, label: 'Edit & Export', icon: '✏️' },
 ]
 
@@ -124,6 +133,15 @@ export default function ContentCaptureClient() {
   const [manualCapture, setManualCapture] = useState('')
   const [selectedCapture, setSelectedCapture] = useState('')
 
+  // Format
+  const [selectedFormat, setSelectedFormat] = useState(null)
+  const [selectedCta, setSelectedCta] = useState('youtube')
+  const [customCta, setCustomCta] = useState('')
+
+  // Structure (body without hook)
+  const [generatedStructure, setGeneratedStructure] = useState('')
+  const [generatingStructure, setGeneratingStructure] = useState(false)
+
   // Hook
   const [selectedTemplate, setSelectedTemplate] = useState(null)
   const [hookText, setHookText] = useState('')
@@ -131,12 +149,7 @@ export default function ContentCaptureClient() {
   const [suggestedHooks, setSuggestedHooks] = useState([])
   const [suggestingHooks, setSuggestingHooks] = useState(false)
 
-  // Format
-  const [selectedFormat, setSelectedFormat] = useState(null)
-  const [selectedCta, setSelectedCta] = useState('youtube')
-  const [customCta, setCustomCta] = useState('')
-
-  // Generated content
+  // Generated content (final)
   const [generatedContent, setGeneratedContent] = useState('')
   const [generating, setGenerating] = useState(false)
   const [record, setRecord] = useState(null)
@@ -214,6 +227,7 @@ export default function ContentCaptureClient() {
         if (existing.cta_type) setSelectedCta(existing.cta_type)
         if (existing.custom_cta) setCustomCta(existing.custom_cta)
         if (existing.generated_content) setGeneratedContent(existing.generated_content)
+        if (existing.generated_structure) setGeneratedStructure(existing.generated_structure)
         if (existing.current_stage) setCurrentStage(existing.current_stage)
         if (existing.manual_capture) setManualCapture(existing.manual_capture)
         if (existing.suggested_hooks) setSuggestedHooks(existing.suggested_hooks)
@@ -237,6 +251,7 @@ export default function ContentCaptureClient() {
       cta_type: selectedCta,
       custom_cta: customCta,
       generated_content: generatedContent,
+      generated_structure: generatedStructure,
       current_stage: currentStage,
       manual_capture: manualCapture,
       suggested_hooks: suggestedHooks,
@@ -251,7 +266,7 @@ export default function ContentCaptureClient() {
       if (newRec) setRecord(newRec)
     }
     flash()
-  }, [clientData, record, selectedCapture, selectedTemplate, hookText, selectedFormat, selectedCta, customCta, generatedContent, currentStage, manualCapture, suggestedHooks])
+  }, [clientData, record, selectedCapture, selectedTemplate, hookText, selectedFormat, selectedCta, customCta, generatedContent, generatedStructure, currentStage, manualCapture, suggestedHooks])
 
   const debouncedSave = useCallback((fields = {}) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
@@ -292,13 +307,45 @@ export default function ContentCaptureClient() {
     return parts.length > 0 ? parts.join('\n') : ''
   }
 
-  // ── Suggest Hooks from Captures ──────────────────────────────────────────────
+  // ── Generate Structure (body without hook) ──────────────────────────────────
+
+  const generateStructure = async () => {
+    setGeneratingStructure(true)
+    try {
+      const captureText = selectedCapture || manualCapture
+      const ctaText = selectedCta === 'custom' ? customCta : CTA_OPTIONS.find(c => c.id === selectedCta)?.label || ''
+
+      const res = await fetch('/api/generate-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          type: 'content-capture-structure',
+          data: {
+            captures: captureText,
+            format: selectedFormat,
+            cta: ctaText,
+            business_context: getBusinessContext(),
+          },
+        }),
+      })
+      const result = await res.json()
+      if (result.plan) {
+        setGeneratedStructure(result.plan)
+        setCurrentStage(4)
+        await saveToSupabase({ generated_structure: result.plan, current_stage: 4 })
+      }
+    } catch (err) {
+      console.error('Structure generation error:', err)
+    }
+    setGeneratingStructure(false)
+  }
+
+  // ── Suggest Hooks (format-aware) ────────────────────────────────────────────
 
   const suggestHooks = async () => {
     setSuggestingHooks(true)
     try {
       const captureText = selectedCapture || manualCapture
-
       const templateList = HOOK_TEMPLATES.map(h => h.template).join('\n')
 
       const res = await fetch('/api/generate-plan', {
@@ -306,7 +353,13 @@ export default function ContentCaptureClient() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           type: 'content-capture-hooks',
-          data: { captures: captureText, templates: templateList, business_context: getBusinessContext() },
+          data: {
+            captures: captureText,
+            templates: templateList,
+            business_context: getBusinessContext(),
+            format: selectedFormat,
+            structure: generatedStructure,
+          },
         }),
       })
       const result = await res.json()
@@ -320,13 +373,12 @@ export default function ContentCaptureClient() {
     setSuggestingHooks(false)
   }
 
-  // ── Generate Content ────────────────────────────────────────────────────────────
+  // ── Generate Final Content (hook + structure combined) ──────────────────────
 
   const generateContent = async () => {
     setGenerating(true)
     try {
       const captureText = selectedCapture || manualCapture
-
       const ctaText = selectedCta === 'custom' ? customCta : CTA_OPTIONS.find(c => c.id === selectedCta)?.label || ''
 
       const res = await fetch('/api/generate-plan', {
@@ -340,6 +392,7 @@ export default function ContentCaptureClient() {
             format: selectedFormat,
             cta: ctaText,
             business_context: getBusinessContext(),
+            structure: generatedStructure,
           },
         }),
       })
@@ -366,6 +419,7 @@ export default function ContentCaptureClient() {
     setSelectedCta('youtube')
     setCustomCta('')
     setGeneratedContent('')
+    setGeneratedStructure('')
     setManualCapture('')
     setSuggestedHooks([])
     setCurrentStage(1)
@@ -389,6 +443,7 @@ export default function ContentCaptureClient() {
 
   // ── Render Stages ──────────────────────────────────────────────────────────────
 
+  // Stage 1: Capture
   const renderStage1 = () => {
     if (hasDebriefs && debriefData.length > 0) {
       const captures = extractCaptures()
@@ -402,7 +457,7 @@ export default function ContentCaptureClient() {
             {captures.map((capture, i) => (
               <button
                 key={i}
-                onClick={() => { setSelectedCapture(capture); setSuggestedHooks([]) }}
+                onClick={() => { setSelectedCapture(capture); setSuggestedHooks([]); setGeneratedStructure('') }}
                 className={`w-full text-left px-4 py-3 rounded border transition text-sm ${
                   selectedCapture === capture
                     ? 'bg-gold/10 border-gold/40 text-white'
@@ -425,7 +480,7 @@ export default function ContentCaptureClient() {
             <Label>Manual capture</Label>
             <TextArea
               value={manualCapture}
-              onChange={v => { setManualCapture(v); setSelectedCapture(''); setSuggestedHooks([]) }}
+              onChange={v => { setManualCapture(v); setSelectedCapture(''); setSuggestedHooks([]); setGeneratedStructure('') }}
               onBlur={() => debouncedSave()}
               placeholder="A client win, something you learned, a story from your week..."
               rows={3}
@@ -435,7 +490,6 @@ export default function ContentCaptureClient() {
       )
     }
 
-    // No debriefs — manual capture
     return (
       <div className="space-y-6">
         <div>
@@ -453,108 +507,8 @@ export default function ContentCaptureClient() {
     )
   }
 
-  const renderStage2 = () => {
-    const hasCaptures = selectedCapture || manualCapture
-    const filtered = hookSearch
-      ? HOOK_TEMPLATES.filter(h => h.template.toLowerCase().includes(hookSearch.toLowerCase()) || h.example.toLowerCase().includes(hookSearch.toLowerCase()))
-      : HOOK_TEMPLATES
-
-    return (
-      <div className="space-y-6">
-        <div>
-          <GoldLabel>Your Hook</GoldLabel>
-          <p className="text-zinc-400 text-sm mb-4">We'll suggest hooks based on your captures, or browse templates below.</p>
-        </div>
-
-        {/* AI-Suggested Hooks */}
-        {hasCaptures && (
-          <div className="space-y-3">
-            <button
-              onClick={suggestHooks}
-              disabled={suggestingHooks}
-              className="w-full py-3 rounded border border-gold/30 text-gold font-semibold text-sm hover:bg-gold/10 transition disabled:opacity-50"
-            >
-              {suggestingHooks ? (
-                <span className="flex items-center justify-center gap-2">
-                  <span className="w-4 h-4 border-2 border-gold border-t-transparent rounded-full animate-spin" />
-                  Analysing your story...
-                </span>
-              ) : suggestedHooks.length > 0 ? '⚡ Regenerate Hook Suggestions' : '⚡ Suggest Hooks From My Capture'}
-            </button>
-            {suggestedHooks.length > 0 && (
-              <>
-                <Label>Suggested for you</Label>
-                <div className="space-y-2">
-                  {suggestedHooks.map((hook, i) => (
-                    <button
-                      key={i}
-                      onClick={() => { setSelectedTemplate('suggested'); setHookText(hook) }}
-                      className={`w-full text-left px-4 py-3 rounded border transition text-sm ${
-                        hookText === hook && selectedTemplate === 'suggested'
-                          ? 'bg-gold/10 border-gold/40 text-white'
-                          : 'bg-zinc-800/80 border-gold/20 text-zinc-200 hover:border-gold/40'
-                      }`}
-                    >
-                      {hook}
-                    </button>
-                  ))}
-                </div>
-              </>
-            )}
-          </div>
-        )}
-
-        {/* Divider */}
-        {hasCaptures && suggestedHooks.length > 0 && (
-          <div className="flex items-center gap-3 pt-2">
-            <div className="flex-1 h-px bg-zinc-800" />
-            <span className="text-zinc-600 text-xs uppercase tracking-widest">or browse templates</span>
-            <div className="flex-1 h-px bg-zinc-800" />
-          </div>
-        )}
-
-        {/* Template Browser */}
-        <div>
-          <TextInput
-            value={hookSearch}
-            onChange={setHookSearch}
-            placeholder="Search hook templates..."
-          />
-        </div>
-        <div className="space-y-2 max-h-[35vh] overflow-y-auto pr-2">
-          {filtered.map((hook, i) => (
-            <button
-              key={i}
-              onClick={() => { setSelectedTemplate(hook.template); setHookText(hook.example) }}
-              className={`w-full text-left px-4 py-3 rounded border transition ${
-                selectedTemplate === hook.template
-                  ? 'bg-gold/10 border-gold/40'
-                  : 'bg-zinc-800 border-zinc-700 hover:border-zinc-600'
-              }`}
-            >
-              <p className="text-white text-sm font-medium">{hook.template}</p>
-              <p className="text-zinc-500 text-xs mt-1">{hook.example}</p>
-            </button>
-          ))}
-        </div>
-
-        {/* Editable hook */}
-        {hookText && (
-          <div className="border-t border-zinc-800 pt-4">
-            <GoldLabel>Your Hook (edit below)</GoldLabel>
-            <TextInput
-              value={hookText}
-              onChange={setHookText}
-              onBlur={() => debouncedSave()}
-              placeholder="Write your hook..."
-            />
-          </div>
-        )}
-      </div>
-    )
-  }
-
-  const renderStage3 = () => (
+  // Stage 2: Format
+  const renderStage2 = () => (
     <div className="space-y-6">
       <div>
         <GoldLabel>Choose Output Format</GoldLabel>
@@ -564,7 +518,7 @@ export default function ContentCaptureClient() {
         {OUTPUT_FORMATS.map(fmt => (
           <button
             key={fmt.id}
-            onClick={() => { setSelectedFormat(fmt.id); debouncedSave() }}
+            onClick={() => { setSelectedFormat(fmt.id); setSuggestedHooks([]); setGeneratedStructure(''); debouncedSave() }}
             className={`p-4 rounded border text-left transition ${
               selectedFormat === fmt.id
                 ? 'bg-gold/10 border-gold/40'
@@ -608,48 +562,184 @@ export default function ContentCaptureClient() {
     </div>
   )
 
-  const renderStage4 = () => {
-    const ready = hookText && selectedFormat && (selectedCapture || manualCapture)
+  // Stage 3: Structure (generate body without hook)
+  const renderStage3 = () => {
+    const ready = selectedFormat && (selectedCapture || manualCapture)
     return (
       <div className="space-y-6">
         <div>
-          <GoldLabel>Generate Your Content</GoldLabel>
-          <p className="text-zinc-400 text-sm mb-4">Review your selections and generate:</p>
+          <GoldLabel>Build Your Structure</GoldLabel>
+          <p className="text-zinc-400 text-sm mb-4">We'll generate the story, steps, payoff and CTA for your {OUTPUT_FORMATS.find(f => f.id === selectedFormat)?.label || 'content'}. The hook comes next.</p>
         </div>
+
+        {/* Summary */}
         <div className="space-y-3">
           <div className="bg-zinc-800 rounded p-4 border border-zinc-700">
-            <Label>Hook</Label>
-            <p className="text-white text-sm">{hookText || <span className="text-zinc-500 italic">Not set</span>}</p>
+            <Label>Story / Capture</Label>
+            <p className="text-zinc-300 text-sm">{selectedCapture || manualCapture || <span className="text-zinc-500 italic">Not set</span>}</p>
           </div>
           <div className="bg-zinc-800 rounded p-4 border border-zinc-700">
             <Label>Format</Label>
             <p className="text-white text-sm">{OUTPUT_FORMATS.find(f => f.id === selectedFormat)?.label || <span className="text-zinc-500 italic">Not selected</span>}</p>
           </div>
-          <div className="bg-zinc-800 rounded p-4 border border-zinc-700">
-            <Label>CTA</Label>
-            <p className="text-white text-sm">{selectedCta === 'custom' ? customCta : CTA_OPTIONS.find(c => c.id === selectedCta)?.label}</p>
-          </div>
-          <div className="bg-zinc-800 rounded p-4 border border-zinc-700">
-            <Label>Story / Capture</Label>
-            <p className="text-zinc-300 text-sm">{selectedCapture || manualCapture || <span className="text-zinc-500 italic">Not set</span>}</p>
-          </div>
         </div>
-        <button
-          onClick={generateContent}
-          disabled={!ready || generating}
-          className={`w-full py-4 rounded font-bold text-sm uppercase tracking-widest transition ${
-            ready && !generating
-              ? 'bg-gold text-black hover:bg-gold/90'
-              : 'bg-zinc-700 text-zinc-500 cursor-not-allowed'
-          }`}
-        >
-          {generating ? 'Generating...' : '⚡ Generate Content'}
-        </button>
-        {!ready && <p className="text-zinc-500 text-xs text-center">Complete all previous stages first</p>}
+
+        {!generatedStructure ? (
+          <button
+            onClick={generateStructure}
+            disabled={!ready || generatingStructure}
+            className={`w-full py-4 rounded font-bold text-sm uppercase tracking-widest transition ${
+              ready && !generatingStructure
+                ? 'bg-gold text-black hover:bg-gold/90'
+                : 'bg-zinc-700 text-zinc-500 cursor-not-allowed'
+            }`}
+          >
+            {generatingStructure ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                Building structure...
+              </span>
+            ) : '📝 Generate Structure'}
+          </button>
+        ) : (
+          <>
+            <div className="bg-zinc-800 rounded border border-zinc-700 p-1">
+              <textarea
+                value={generatedStructure}
+                onChange={e => setGeneratedStructure(e.target.value)}
+                onBlur={() => debouncedSave({ generated_structure: generatedStructure })}
+                rows={14}
+                className="w-full px-4 py-3 bg-transparent text-white text-sm focus:outline-none resize-none leading-relaxed"
+              />
+            </div>
+            <button
+              onClick={generateStructure}
+              disabled={generatingStructure}
+              className="w-full py-3 rounded border border-gold/30 text-gold font-semibold text-sm hover:bg-gold/10 transition disabled:opacity-50"
+            >
+              {generatingStructure ? 'Regenerating...' : '🔄 Regenerate Structure'}
+            </button>
+          </>
+        )}
       </div>
     )
   }
 
+  // Stage 4: Hook (format-aware, done last)
+  const renderStage4 = () => {
+    const formatLabel = HOOK_FORMAT_LABELS[selectedFormat] || 'Opening hook'
+    const filtered = hookSearch
+      ? HOOK_TEMPLATES.filter(h => h.template.toLowerCase().includes(hookSearch.toLowerCase()) || h.example.toLowerCase().includes(hookSearch.toLowerCase()))
+      : HOOK_TEMPLATES
+
+    return (
+      <div className="space-y-6">
+        <div>
+          <GoldLabel>The Hook</GoldLabel>
+          <p className="text-zinc-400 text-sm mb-2">The most important part. Based on your structure, pick or generate the perfect hook.</p>
+          <div className="bg-zinc-800/50 border border-zinc-700/50 rounded px-3 py-2 mt-2">
+            <p className="text-gold text-xs font-semibold uppercase tracking-widest">For {OUTPUT_FORMATS.find(f => f.id === selectedFormat)?.label}:</p>
+            <p className="text-zinc-300 text-sm mt-1">{formatLabel}</p>
+          </div>
+        </div>
+
+        {/* AI-Suggested Hooks */}
+        <div className="space-y-3">
+          <button
+            onClick={suggestHooks}
+            disabled={suggestingHooks}
+            className="w-full py-3 rounded border border-gold/30 text-gold font-semibold text-sm hover:bg-gold/10 transition disabled:opacity-50"
+          >
+            {suggestingHooks ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="w-4 h-4 border-2 border-gold border-t-transparent rounded-full animate-spin" />
+                Crafting hooks for {OUTPUT_FORMATS.find(f => f.id === selectedFormat)?.label}...
+              </span>
+            ) : suggestedHooks.length > 0 ? '⚡ Regenerate Hook Suggestions' : '⚡ Suggest Hooks From My Content'}
+          </button>
+          {suggestedHooks.length > 0 && (
+            <>
+              <Label>Suggested for your {OUTPUT_FORMATS.find(f => f.id === selectedFormat)?.label}</Label>
+              <div className="space-y-2">
+                {suggestedHooks.map((hook, i) => (
+                  <button
+                    key={i}
+                    onClick={() => { setSelectedTemplate('suggested'); setHookText(hook) }}
+                    className={`w-full text-left px-4 py-3 rounded border transition text-sm ${
+                      hookText === hook && selectedTemplate === 'suggested'
+                        ? 'bg-gold/10 border-gold/40 text-white'
+                        : 'bg-zinc-800/80 border-gold/20 text-zinc-200 hover:border-gold/40'
+                    }`}
+                  >
+                    {hook}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Divider */}
+        <div className="flex items-center gap-3 pt-2">
+          <div className="flex-1 h-px bg-zinc-800" />
+          <span className="text-zinc-600 text-xs uppercase tracking-widest">or browse templates</span>
+          <div className="flex-1 h-px bg-zinc-800" />
+        </div>
+
+        {/* Template Browser */}
+        <TextInput value={hookSearch} onChange={setHookSearch} placeholder="Search hook templates..." />
+        <div className="space-y-2 max-h-[30vh] overflow-y-auto pr-2">
+          {filtered.map((hook, i) => (
+            <button
+              key={i}
+              onClick={() => { setSelectedTemplate(hook.template); setHookText(hook.example) }}
+              className={`w-full text-left px-4 py-3 rounded border transition ${
+                selectedTemplate === hook.template
+                  ? 'bg-gold/10 border-gold/40'
+                  : 'bg-zinc-800 border-zinc-700 hover:border-zinc-600'
+              }`}
+            >
+              <p className="text-white text-sm font-medium">{hook.template}</p>
+              <p className="text-zinc-500 text-xs mt-1">{hook.example}</p>
+            </button>
+          ))}
+        </div>
+
+        {/* Editable hook */}
+        {hookText && (
+          <div className="border-t border-zinc-800 pt-4">
+            <GoldLabel>Your Hook (edit below)</GoldLabel>
+            <TextInput
+              value={hookText}
+              onChange={setHookText}
+              onBlur={() => debouncedSave()}
+              placeholder="Write your hook..."
+            />
+          </div>
+        )}
+
+        {/* Generate final */}
+        {hookText && (
+          <button
+            onClick={generateContent}
+            disabled={generating}
+            className={`w-full py-4 rounded font-bold text-sm uppercase tracking-widest transition ${
+              !generating ? 'bg-gold text-black hover:bg-gold/90' : 'bg-zinc-700 text-zinc-500 cursor-not-allowed'
+            }`}
+          >
+            {generating ? (
+              <span className="flex items-center justify-center gap-2">
+                <span className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                Assembling final content...
+              </span>
+            ) : '⚡ Generate Final Content'}
+          </button>
+        )}
+      </div>
+    )
+  }
+
+  // Stage 5: Edit & Export
   const renderStage5 = () => (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -678,10 +768,10 @@ export default function ContentCaptureClient() {
           📋 Copy
         </button>
         <button
-          onClick={() => { setCurrentStage(4); generateContent() }}
+          onClick={() => { setCurrentStage(4); }}
           className="flex-1 py-3 rounded font-bold text-sm uppercase tracking-widest bg-zinc-700 text-white hover:bg-zinc-600 transition"
         >
-          🔄 Regenerate
+          🪝 Change Hook
         </button>
       </div>
     </div>
@@ -754,13 +844,11 @@ export default function ContentCaptureClient() {
       {/* Main content */}
       <main className="flex-1 lg:ml-0 pt-16 lg:pt-0">
         <div className="max-w-2xl mx-auto p-6 lg:p-10">
-          {/* Stage header */}
           <div className="mb-8">
             <div className="flex items-center gap-3 mb-2">
               <span className="text-2xl">{STAGES[currentStage - 1]?.icon}</span>
               <h1 className="text-2xl font-bold text-white">{STAGES[currentStage - 1]?.label}</h1>
             </div>
-            {/* Progress */}
             <div className="flex gap-1 mt-4">
               {STAGES.map(s => (
                 <div key={s.num} className={`h-1 flex-1 rounded-full ${s.num <= currentStage ? 'bg-gold' : 'bg-zinc-800'}`} />
@@ -768,11 +856,9 @@ export default function ContentCaptureClient() {
             </div>
           </div>
 
-          {/* Stage content */}
           {renderCurrentStage()}
 
-          {/* Navigation */}
-          {currentStage < 5 && (
+          {currentStage < 5 && currentStage !== 3 && currentStage !== 4 && (
             <div className="flex justify-between mt-8 pt-6 border-t border-zinc-800">
               <button
                 onClick={() => setCurrentStage(Math.max(1, currentStage - 1))}
@@ -786,6 +872,17 @@ export default function ContentCaptureClient() {
                 className="px-6 py-2.5 rounded text-sm font-semibold bg-gold text-black hover:bg-gold/90 transition"
               >
                 Next →
+              </button>
+            </div>
+          )}
+
+          {(currentStage === 3 || currentStage === 4) && (
+            <div className="flex justify-start mt-8 pt-6 border-t border-zinc-800">
+              <button
+                onClick={() => setCurrentStage(currentStage - 1)}
+                className="px-6 py-2.5 rounded text-sm font-semibold text-zinc-400 hover:text-white transition"
+              >
+                ← Back
               </button>
             </div>
           )}

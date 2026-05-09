@@ -776,25 +776,72 @@ Suggest:
 6. **SUSTAINABILITY CHECK** — Is this delivery model sustainable at 10, 20, 30+ clients? What breaks first?
 
 Be specific to their niche and offer type.`
-    } else if (type === 'content-capture-hooks') {
-      systemPrompt = 'You are a content strategist for coaches, consultants, and service providers. You write scroll-stopping hooks. No fluff. Every hook must be specific to what the person actually experienced — never generic. You understand their brand, their audience, and their offer.'
-      userPrompt = `Based on this person's real story/capture, suggest 5 completed hooks they can use as content openers.
+    } else if (type === 'content-capture-structure') {
+      const structureGuides = {
+        'yap': 'SHORT-FORM VIDEO (60 seconds max). Write the body ONLY — no hook/opening. Include: story/context (15-20 seconds), key steps or list (20-25 seconds), payoff/insight (5-10 seconds), CTA (5 seconds). Short sentences. Conversational. Written to be spoken aloud.',
+        'carousel': 'CAROUSEL POST (7-10 slides). Write slides 2 onwards ONLY — no first slide hook. Include: Slides 2-3 = Story/context. Slides 4-7 = Steps or list (one per slide, concise). Slide 8-9 = Payoff/key insight. Final slide = CTA. Each slide 1-2 short sentences max.',
+        'email': 'EMAIL BODY ONLY — no subject line or opening hook line. Include: Story section (2-3 short paragraphs, conversational). List/steps section (bullet points). Payoff paragraph (the key takeaway). CTA with clear next step. PS line for urgency or personal touch. 300-500 words.',
+        'youtube': 'YOUTUBE VIDEO BODY ONLY — no title or intro hook. Include: LOOSE STRUCTURE as bullet-point talking points. Cover: the story/context, 3-5 key talking points derived from the capture, the payoff/main insight, and the CTA. Each bullet 1 sentence max. Keep it loose so they speak naturally.',
+        'talking-head': 'TALKING HEAD VIDEO BODY (60-90 seconds). No opening hook. Include: story/context (1-2 bullets), 2-3 key insights or steps, the payoff (one clear takeaway), and a subtle CTA. Bullet-point talking points, not scripted. Slightly polished but conversational.',
+        'photo-caption': 'PHOTO CAPTION BODY ONLY — no first line hook. Include: Story (2-3 short paragraphs, personal and raw). Key insight or steps (use line breaks or bullet points). Payoff (the lesson). CTA (question to drive comments or link direction). Under 250 words.',
+      }
 
-THE CAPTURE (one specific story, win, learning, or insight):
+      systemPrompt = 'You are a content strategist for coaches, consultants, and service providers. You write direct, engaging content. No fluff. No corporate speak. Write like a real person who gives genuine value. You know their brand voice, their audience, and their offer.'
+      userPrompt = `Write the BODY/STRUCTURE of this content piece. Do NOT write the hook — that will be added separately.
+
+SOURCE MATERIAL (from their real week):
 ${data.captures}
 
-${data.business_context ? `THEIR BUSINESS CONTEXT (who they are, who they serve, what they sell):
+${data.business_context ? `THEIR BUSINESS CONTEXT:
 ${data.business_context}` : ''}
+
+CTA DIRECTION: ${data.cta}
+
+FORMAT: ${structureGuides[data.format] || structureGuides['yap']}
+
+Rules:
+- Do NOT include a hook, opening line, subject line, or title — start with the story/body
+- Weave in the source material naturally
+- Extract 3-5 actionable steps or insights
+- End with a clear payoff and CTA
+- Write in first person
+- Be specific — use details from the source material
+- If business context is provided, write as THEM`
+    } else if (type === 'content-capture-hooks') {
+      const hookFormatGuides = {
+        'yap': 'These hooks will be the FIRST 3-5 SECONDS of a short-form video. They must be spoken aloud, punchy, and immediately grab attention. Write them as something someone would say direct to camera.',
+        'carousel': 'These hooks will be SLIDE 1-2 of a carousel post. They must be bold, visual text that stops the scroll. Short. Provocative. Works as standalone text on an image.',
+        'email': 'Each hook should be TWO parts: a SUBJECT LINE (under 50 chars, curiosity-driven) and an OPENING LINE (the first sentence of the email that makes them keep reading). Format as: Subject: [subject] | Opening: [first line]',
+        'youtube': 'Each hook should be TWO parts: a THUMBNAIL TITLE (under 8 words, uppercase-friendly, curiosity-driven) and a SPOKEN INTRO (first 15-30 seconds as a spoken script that hooks the viewer). Format as: Title: [title] | Intro: [spoken opening]',
+        'talking-head': 'These hooks will be the OPENING STATEMENT delivered direct to camera. Bold, confident, slightly provocative. One sentence that makes someone stop scrolling.',
+        'photo-caption': 'These hooks will be the FIRST LINE of a caption (before the "see more" fold). Must stop the scroll. Short, punchy, creates curiosity. One line only.',
+      }
+
+      systemPrompt = 'You are a content strategist for coaches, consultants, and service providers. You write scroll-stopping hooks tailored to specific content formats. No fluff. Every hook must be specific to what the person actually experienced — never generic.'
+      userPrompt = `Based on this person's content structure and story, suggest 5 hooks tailored to their specific format.
+
+THE STORY/CAPTURE:
+${data.captures}
+
+THE CONTENT STRUCTURE (already written — the hook needs to lead into this):
+${data.structure || 'Not yet generated'}
+
+${data.business_context ? `THEIR BUSINESS CONTEXT:
+${data.business_context}` : ''}
+
+FORMAT-SPECIFIC HOOK REQUIREMENTS:
+${hookFormatGuides[data.format] || hookFormatGuides['yap']}
 
 HOOK TEMPLATES TO DRAW FROM:
 ${data.templates}
 
 Rules:
-- Each hook must be a COMPLETE, ready-to-use sentence (not a template with blanks)
-- Each hook must be directly tied to the specific capture above
-- The hooks must sound like THEM — aligned with their brand, sector, and audience
+- Each hook must be COMPLETE and ready to use
+- Each hook must be tailored to the ${data.format || 'short-form'} format as described above
+- The hooks must lead naturally into the content structure above
+- Sound like THEM — aligned with their brand, sector, and audience
 - Pick the 5 best-fitting templates and fill them in using the person's actual story
-- Make them punchy, curiosity-driven, and scroll-stopping
+- Make them punchy, curiosity-driven, and format-appropriate
 - Return ONLY the 5 hooks, one per line, numbered 1-5. No explanation.`
     } else if (type === 'content-capture') {
       const formatGuides = {
@@ -806,15 +853,18 @@ Rules:
         'photo-caption': 'PHOTO CAPTION. Write a compelling caption that works with a photo. Structure: Hook (first line must stop the scroll — use line break after). Story (2-3 short paragraphs, personal and raw). Key insight or steps (use line breaks or bullet points). Payoff (the lesson). CTA (question to drive comments or link direction). Keep under 300 words.',
       }
 
-      systemPrompt = 'You are a content strategist for coaches, consultants, and service providers. You write direct, engaging, scroll-stopping content. No fluff. No corporate speak. Write like a real person who gives genuine value. Match the energy of someone who has been in the trenches and is sharing what actually works. You know their brand voice, their audience, and their offer inside out.'
-      userPrompt = `Create content using this structure:
+      systemPrompt = 'You are a content strategist for coaches, consultants, and service providers. You assemble final content pieces by combining a hook with an existing body structure. Write like a real person. No fluff. No corporate speak.'
+      userPrompt = `Combine this hook with the existing content structure into one polished, final piece of content.
 
 HOOK: ${data.hook}
 
-SOURCE MATERIAL (from their real week):
+EXISTING CONTENT STRUCTURE (body already written):
+${data.structure || ''}
+
+SOURCE MATERIAL (for reference):
 ${data.captures}
 
-${data.business_context ? `THEIR BUSINESS CONTEXT (who they are, who they serve, what they sell):
+${data.business_context ? `THEIR BUSINESS CONTEXT:
 ${data.business_context}` : ''}
 
 CTA DIRECTION: ${data.cta}
@@ -822,16 +872,16 @@ CTA DIRECTION: ${data.cta}
 FORMAT: ${formatGuides[data.format] || formatGuides['yap']}
 
 Rules:
-- Use the hook provided as the opening
-- Weave in the source material as the story/context (make it feel natural, not listed)
-- Extract 3-5 actionable steps or insights from the material
-- End with a clear payoff (the one thing the reader should take away)
-- Include the CTA naturally
-- Write in first person
-- Be specific — use details from the source material, not generic advice
-- Match the tone: confident, direct, slightly raw, real
-- If business context is provided, write as THEM — use their language, speak to their audience, and position content around their offer/expertise
-- The content should subtly position them as the expert in their space without being salesy`
+- START with the hook — integrate it as the opening in the format-appropriate way
+- For EMAIL: hook becomes the subject line + first line, then the body follows
+- For YAP/TALKING HEAD: hook becomes the spoken opening, then the structure follows
+- For YOUTUBE: hook becomes the title + spoken intro, then the loose structure follows
+- For CAROUSEL: hook becomes slide 1 (and optionally slide 2), then the rest follows
+- For PHOTO CAPTION: hook becomes the first line before the fold, then the body follows
+- Blend the hook and structure seamlessly — don't just paste them together
+- Keep the structure's content but refine the transitions so it flows naturally from the hook
+- Write in first person, confident, direct tone
+- The content should subtly position them as the expert without being salesy`
     }
 
     if (!systemPrompt) {
@@ -840,7 +890,7 @@ Rules:
 
     const maxTokens = type === 'unshakeable' && Number(data.duration) >= 14 ? 4500
       : (type === 'sold-out-bangbang-draft' || type === 'sold-out-dip-draft') ? 4000
-      : (type === 'sold-out-niche-research' || type === 'content-capture') ? 3000
+      : (type === 'sold-out-niche-research' || type === 'content-capture' || type === 'content-capture-structure') ? 3000
       : 2500
 
     let message
