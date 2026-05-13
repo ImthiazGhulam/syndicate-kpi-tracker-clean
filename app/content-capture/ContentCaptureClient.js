@@ -59,6 +59,18 @@ const CTA_OPTIONS = [
   { id: 'custom', label: 'Custom' },
 ]
 
+const EMAIL_TYPES = [
+  { id: 'social-proof', label: 'Social Proof', icon: '📈', desc: 'Show your list you\'re great at what you do — testimonials, screenshots, results' },
+  { id: 'value', label: 'Value', icon: '🚀', desc: 'Share your latest content or insights with context — the bulk of your email strategy' },
+  { id: 'offer', label: 'Offer', icon: '💰', desc: 'Direct CTA inviting people to work with you — use sparingly (1-2 per month)' },
+]
+
+const EMAIL_FRAMEWORKS = [
+  { id: '4ps', label: '4 Ps', desc: 'Promise → Picture → Proof → Push', detail: 'State the desired outcome, get them to visualise it, prove it with evidence, then push to CTA' },
+  { id: 'nesb', label: 'NESB', desc: 'New → Easy → Safe → Big', detail: 'Position as a new method, show it\'s easy, minimise risk, make it feel like a massive opportunity' },
+  { id: 'aida', label: 'AIDA', desc: 'Attention → Interest → Desire → Action', detail: 'Grab attention with a bold statement, build interest, create desire, prompt action' },
+]
+
 const HOOK_FORMAT_LABELS = {
   'yap': 'First 3-5 seconds (spoken opening)',
   'carousel': 'Slide 1-2 (scroll-stopping text)',
@@ -137,6 +149,8 @@ export default function ContentCaptureClient() {
   const [selectedFormat, setSelectedFormat] = useState(null)
   const [selectedCta, setSelectedCta] = useState('youtube')
   const [customCta, setCustomCta] = useState('')
+  const [emailType, setEmailType] = useState(null)
+  const [emailFramework, setEmailFramework] = useState(null)
 
   // Structure (body without hook)
   const [generatedStructure, setGeneratedStructure] = useState('')
@@ -228,6 +242,8 @@ export default function ContentCaptureClient() {
         if (existing.custom_cta) setCustomCta(existing.custom_cta)
         if (existing.generated_content) setGeneratedContent(existing.generated_content)
         if (existing.generated_structure) setGeneratedStructure(existing.generated_structure)
+        if (existing.email_type) setEmailType(existing.email_type)
+        if (existing.email_framework) setEmailFramework(existing.email_framework)
         if (existing.current_stage) setCurrentStage(existing.current_stage)
         if (existing.manual_capture) setManualCapture(existing.manual_capture)
         if (existing.suggested_hooks) setSuggestedHooks(existing.suggested_hooks)
@@ -252,6 +268,8 @@ export default function ContentCaptureClient() {
       custom_cta: customCta,
       generated_content: generatedContent,
       generated_structure: generatedStructure,
+      email_type: emailType,
+      email_framework: emailFramework,
       current_stage: currentStage,
       manual_capture: manualCapture,
       suggested_hooks: suggestedHooks,
@@ -266,7 +284,7 @@ export default function ContentCaptureClient() {
       if (newRec) setRecord(newRec)
     }
     flash()
-  }, [clientData, record, selectedCapture, selectedTemplate, hookText, selectedFormat, selectedCta, customCta, generatedContent, generatedStructure, currentStage, manualCapture, suggestedHooks])
+  }, [clientData, record, selectedCapture, selectedTemplate, hookText, selectedFormat, selectedCta, customCta, generatedContent, generatedStructure, emailType, emailFramework, currentStage, manualCapture, suggestedHooks])
 
   const debouncedSave = useCallback((fields = {}) => {
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
@@ -325,6 +343,8 @@ export default function ContentCaptureClient() {
             format: selectedFormat,
             cta: ctaText,
             business_context: getBusinessContext(),
+            email_type: emailType,
+            email_framework: emailFramework,
           },
         }),
       })
@@ -359,6 +379,8 @@ export default function ContentCaptureClient() {
             business_context: getBusinessContext(),
             format: selectedFormat,
             structure: generatedStructure,
+            email_type: emailType,
+            email_framework: emailFramework,
           },
         }),
       })
@@ -393,6 +415,8 @@ export default function ContentCaptureClient() {
             cta: ctaText,
             business_context: getBusinessContext(),
             structure: generatedStructure,
+            email_type: emailType,
+            email_framework: emailFramework,
           },
         }),
       })
@@ -418,6 +442,8 @@ export default function ContentCaptureClient() {
     setSelectedFormat(null)
     setSelectedCta('youtube')
     setCustomCta('')
+    setEmailType(null)
+    setEmailFramework(null)
     setGeneratedContent('')
     setGeneratedStructure('')
     setManualCapture('')
@@ -518,7 +544,7 @@ export default function ContentCaptureClient() {
         {OUTPUT_FORMATS.map(fmt => (
           <button
             key={fmt.id}
-            onClick={() => { setSelectedFormat(fmt.id); setSuggestedHooks([]); setGeneratedStructure(''); debouncedSave() }}
+            onClick={() => { setSelectedFormat(fmt.id); setSuggestedHooks([]); setGeneratedStructure(''); if (fmt.id !== 'email') { setEmailType(null); setEmailFramework(null) }; debouncedSave() }}
             className={`p-4 rounded border text-left transition ${
               selectedFormat === fmt.id
                 ? 'bg-gold/10 border-gold/40'
@@ -531,6 +557,60 @@ export default function ContentCaptureClient() {
           </button>
         ))}
       </div>
+
+      {/* Email-specific options */}
+      {selectedFormat === 'email' && (
+        <>
+          <div className="border-t border-zinc-800 pt-4">
+            <GoldLabel>Email Type</GoldLabel>
+            <p className="text-zinc-400 text-sm mb-3">What kind of email are you sending?</p>
+            <div className="space-y-2">
+              {EMAIL_TYPES.map(et => (
+                <button
+                  key={et.id}
+                  onClick={() => { setEmailType(et.id); debouncedSave() }}
+                  className={`w-full text-left p-4 rounded border transition ${
+                    emailType === et.id
+                      ? 'bg-gold/10 border-gold/40'
+                      : 'bg-zinc-800 border-zinc-700 hover:border-zinc-600'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">{et.icon}</span>
+                    <span className="text-white text-sm font-medium">{et.label}</span>
+                  </div>
+                  <p className="text-zinc-500 text-xs mt-1 ml-7">{et.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="border-t border-zinc-800 pt-4">
+            <GoldLabel>Copywriting Framework</GoldLabel>
+            <p className="text-zinc-400 text-sm mb-3">How should the email be structured?</p>
+            <div className="space-y-2">
+              {EMAIL_FRAMEWORKS.map(fw => (
+                <button
+                  key={fw.id}
+                  onClick={() => { setEmailFramework(fw.id); debouncedSave() }}
+                  className={`w-full text-left p-4 rounded border transition ${
+                    emailFramework === fw.id
+                      ? 'bg-gold/10 border-gold/40'
+                      : 'bg-zinc-800 border-zinc-700 hover:border-zinc-600'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-white text-sm font-medium">{fw.label}</span>
+                    <span className="text-gold text-xs font-semibold">{fw.desc}</span>
+                  </div>
+                  <p className="text-zinc-500 text-xs mt-1">{fw.detail}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+
       <div className="border-t border-zinc-800 pt-4">
         <Label>Call to Action</Label>
         <div className="flex flex-wrap gap-2">

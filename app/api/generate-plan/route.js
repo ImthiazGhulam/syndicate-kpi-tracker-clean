@@ -777,16 +777,38 @@ Suggest:
 
 Be specific to their niche and offer type.`
     } else if (type === 'content-capture-structure') {
+      const emailFrameworkGuides = {
+        '4ps': '4 Ps FRAMEWORK (Promise → Picture → Proof → Push):\n- PROMISE: State a clear, compelling desired outcome for the reader\n- PICTURE: Get the reader to visualise themselves in the desired state — use concrete, visual language (not abstract). Make them SEE and FEEL the result\n- PROOF: Provide evidence — a client result, a testimonial, a specific number. Social proof that this works\n- PUSH: Clear call to action — tell them the exact next step',
+        'nesb': 'NESB FRAMEWORK (New → Easy → Safe → Big):\n- NEW: Position this as a new method or approach — if the reader feels they\'ve already tried this, they\'ll disregard it\n- EASY: Show it\'s simple and achievable — people are put off by complexity (unless your brand is about hard work, in which case lean into that)\n- SAFE: Minimise risk — guarantees, foolproof language, evidence that this is low-risk\n- BIG: Make it feel like a massive opportunity they won\'t want to miss',
+        'aida': 'AIDA FRAMEWORK (Attention → Interest → Desire → Action):\n- ATTENTION: (This will be the hook/subject line — skip it here, start from Interest)\n- INTEREST: Build on the initial attention with more detail, benefits, and intrigue\n- DESIRE: Create desire by showcasing value and how it solves their specific problems. Shift their beliefs — make them think "he\'s right, I do make that excuse"\n- ACTION: Clearly prompt the next step',
+      }
+
+      const emailTypeGuides = {
+        'social-proof': 'SOCIAL PROOF EMAIL: Show your list you\'re great at what you do. Include client results, testimonials, screenshots, before/after stories. Sign off with a subtle CTA (not a hard sell). The goal is to build trust and authority.',
+        'value': 'VALUE EMAIL: Share genuine value — insights, tips, a breakdown of your latest content. The bulk of your email strategy. Can reference your latest video/post with context. The goal is to give so much value they want to learn more.',
+        'offer': 'OFFER EMAIL: Direct CTA inviting people to work with you. Be clear and compelling about what you\'re offering and why now. Use sparingly (1-2 per month). The goal is conversion.',
+      }
+
       const structureGuides = {
         'yap': 'SHORT-FORM VIDEO (60 seconds max). Write the body ONLY — no hook/opening. Include: story/context (15-20 seconds), key steps or list (20-25 seconds), payoff/insight (5-10 seconds), CTA (5 seconds). Short sentences. Conversational. Written to be spoken aloud.',
         'carousel': 'CAROUSEL POST (7-10 slides). Write slides 2 onwards ONLY — no first slide hook. Include: Slides 2-3 = Story/context. Slides 4-7 = Steps or list (one per slide, concise). Slide 8-9 = Payoff/key insight. Final slide = CTA. Each slide 1-2 short sentences max.',
-        'email': 'EMAIL BODY ONLY — no subject line or opening hook line. Include: Story section (2-3 short paragraphs, conversational). List/steps section (bullet points). Payoff paragraph (the key takeaway). CTA with clear next step. PS line for urgency or personal touch. 300-500 words.',
+        'email': 'EMAIL BODY ONLY — no subject line or opening hook line.',
         'youtube': 'YOUTUBE VIDEO BODY ONLY — no title or intro hook. Include: LOOSE STRUCTURE as bullet-point talking points. Cover: the story/context, 3-5 key talking points derived from the capture, the payoff/main insight, and the CTA. Each bullet 1 sentence max. Keep it loose so they speak naturally.',
         'talking-head': 'TALKING HEAD VIDEO BODY (60-90 seconds). No opening hook. Include: story/context (1-2 bullets), 2-3 key insights or steps, the payoff (one clear takeaway), and a subtle CTA. Bullet-point talking points, not scripted. Slightly polished but conversational.',
         'photo-caption': 'PHOTO CAPTION BODY ONLY — no first line hook. Include: Story (2-3 short paragraphs, personal and raw). Key insight or steps (use line breaks or bullet points). Payoff (the lesson). CTA (question to drive comments or link direction). Under 250 words.',
       }
 
-      systemPrompt = 'You are a content strategist for coaches, consultants, and service providers. You write direct, engaging content. No fluff. No corporate speak. Write like a real person who gives genuine value. You know their brand voice, their audience, and their offer.'
+      let emailContext = ''
+      if (data.format === 'email') {
+        const fwGuide = emailFrameworkGuides[data.email_framework] || ''
+        const typeGuide = emailTypeGuides[data.email_type] || ''
+        emailContext = `\n\nEMAIL TYPE: ${typeGuide}\n\nCOPYWRITING FRAMEWORK TO FOLLOW:\n${fwGuide}`
+      }
+
+      systemPrompt = data.format === 'email'
+        ? 'You are an expert email copywriter for coaches, consultants, and service providers. You write like a real person — short sentences, line breaks after every 1-2 sentences, conversational tone. You speak to ONE person, not a crowd. You use concrete, visual language that the reader can picture. You never write chunky paragraphs. You never use spam trigger words (free, guarantee, act now, limited time, etc.). You never sound like AI. Every line is written to get the reader to read the next line.'
+        : 'You are a content strategist for coaches, consultants, and service providers. You write direct, engaging content. No fluff. No corporate speak. Write like a real person who gives genuine value. You know their brand voice, their audience, and their offer.'
+
       userPrompt = `Write the BODY/STRUCTURE of this content piece. Do NOT write the hook — that will be added separately.
 
 SOURCE MATERIAL (from their real week):
@@ -797,7 +819,7 @@ ${data.business_context}` : ''}
 
 CTA DIRECTION: ${data.cta}
 
-FORMAT: ${structureGuides[data.format] || structureGuides['yap']}
+FORMAT: ${structureGuides[data.format] || structureGuides['yap']}${emailContext}
 
 Rules:
 - Do NOT include a hook, opening line, subject line, or title — start with the story/body
@@ -806,12 +828,20 @@ Rules:
 - End with a clear payoff and CTA
 - Write in first person
 - Be specific — use details from the source material
-- If business context is provided, write as THEM`
+- If business context is provided, write as THEM
+${data.format === 'email' ? `- CRITICAL EMAIL RULES:
+  - Every sentence gets its own line. No chunky paragraphs.
+  - Write as if you're talking to ONE friend, not a list
+  - Use concrete, visual language — if you can't drop it on your foot, rewrite it
+  - Keep it 300-500 words max
+  - Include a PS line for urgency or personal touch
+  - NEVER use these words: free, guarantee, act now, limited time, click here, congratulations, special promotion, risk-free, winner, no cost, best price
+  - Follow the copywriting framework selected above — structure the body accordingly` : ''}`
     } else if (type === 'content-capture-hooks') {
       const hookFormatGuides = {
         'yap': 'These hooks will be the FIRST 3-5 SECONDS of a short-form video. They must be spoken aloud, punchy, and immediately grab attention. Write them as something someone would say direct to camera.',
         'carousel': 'These hooks will be SLIDE 1-2 of a carousel post. They must be bold, visual text that stops the scroll. Short. Provocative. Works as standalone text on an image.',
-        'email': 'Each hook should be TWO parts: a SUBJECT LINE (under 50 chars, curiosity-driven) and an OPENING LINE (the first sentence of the email that makes them keep reading). Format as: Subject: [subject] | Opening: [first line]',
+        'email': `Each hook should be TWO parts: a SUBJECT LINE (under 50 chars, curiosity-driven, NEVER use spam trigger words like free/guarantee/act now/limited time/click here/congratulations) and an OPENING LINE (the first sentence of the email that makes them keep reading — short, punchy, speaks to one person). Format as: Subject: [subject] | Opening: [first line].${data.email_type === 'social-proof' ? ' This is a social proof email — the hook should hint at a result or transformation.' : data.email_type === 'value' ? ' This is a value email — the hook should create curiosity about an insight or lesson.' : data.email_type === 'offer' ? ' This is an offer email — the hook should create urgency or desire without being spammy.' : ''}`,
         'youtube': 'Each hook should be TWO parts: a THUMBNAIL TITLE (under 8 words, uppercase-friendly, curiosity-driven) and a SPOKEN INTRO (first 15-30 seconds as a spoken script that hooks the viewer). Format as: Title: [title] | Intro: [spoken opening]',
         'talking-head': 'These hooks will be the OPENING STATEMENT delivered direct to camera. Bold, confident, slightly provocative. One sentence that makes someone stop scrolling.',
         'photo-caption': 'These hooks will be the FIRST LINE of a caption (before the "see more" fold). Must stop the scroll. Short, punchy, creates curiosity. One line only.',
