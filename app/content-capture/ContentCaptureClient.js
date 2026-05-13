@@ -138,6 +138,7 @@ export default function ContentCaptureClient() {
   // Business context
   const [brandData, setBrandData] = useState(null)
   const [offerData, setOfferData] = useState(null)
+  const [distinctionData, setDistinctionData] = useState(null)
 
   // Capture data
   const [debriefData, setDebriefData] = useState([])
@@ -198,11 +199,15 @@ export default function ContentCaptureClient() {
       if (!client) { router.push('/client'); return }
       setClientData(client)
 
-      // Fetch Premium Position + Sold Out for business context
-      const { data: ppData } = await supabase.from('premium_position').select('brand_star, hero').eq('client_id', client.id).maybeSingle()
-      if (ppData) setBrandData(ppData)
-      const { data: opData } = await supabase.from('offer_playbooks').select('icp, bang_bang').eq('client_id', client.id).maybeSingle()
-      if (opData) setOfferData(opData)
+      // Fetch all business context playbooks
+      const [ppRes, opRes, deRes] = await Promise.all([
+        supabase.from('premium_position').select('brand_star, hero, remarkable').eq('client_id', client.id).maybeSingle(),
+        supabase.from('offer_playbooks').select('icp, bang_bang, dip, path_planner').eq('client_id', client.id).maybeSingle(),
+        supabase.from('distinction_engine').select('engine_data').eq('client_id', client.id).maybeSingle(),
+      ])
+      if (ppRes.data) setBrandData(ppRes.data)
+      if (opRes.data) setOfferData(opRes.data)
+      if (deRes.data) setDistinctionData(deRes.data?.engine_data || deRes.data)
 
       // Fetch last 7 days of debriefs
       const sevenDaysAgo = new Date()
@@ -295,6 +300,8 @@ export default function ContentCaptureClient() {
 
   const getBusinessContext = () => {
     const parts = []
+
+    // Premium Position — Brand Star
     if (brandData?.brand_star) {
       const s = brandData.brand_star
       if (s.what_you_do) parts.push(`What they do: ${s.what_you_do}`)
@@ -303,25 +310,81 @@ export default function ContentCaptureClient() {
       if (s.specific_description) parts.push(`Specifically: ${s.specific_description}`)
       if (s.contrarian_belief) parts.push(`Contrarian belief: ${s.contrarian_belief}`)
       if (s.personality?.length) parts.push(`Brand personality: ${s.personality.join(', ')}`)
+      if (s.values?.length) parts.push(`Brand values: ${s.values.join(', ')}`)
+      if (s.not_for) parts.push(`Not for: ${s.not_for}`)
+      if (s.refuse) parts.push(`Will never compromise on: ${s.refuse}`)
     }
+
+    // Premium Position — Hero Story
     if (brandData?.hero) {
       const h = brandData.hero
       if (h.gift) parts.push(`Their gift/expertise: ${h.gift}`)
       if (h.identity_label) parts.push(`Identity: ${h.identity_label}`)
+      if (h.origin) parts.push(`Origin story: ${h.origin}`)
+      if (h.turning_point) parts.push(`Turning point: ${h.turning_point}`)
+      if (h.why) parts.push(`Why they do this: ${h.why}`)
+      if (h.traits) parts.push(`Key traits: ${h.traits}`)
     }
+
+    // Premium Position — Remarkable
+    if (brandData?.remarkable) {
+      const r = brandData.remarkable
+      if (r.mechanism) parts.push(`Unique mechanism: ${r.mechanism}`)
+      if (r.differentiator) parts.push(`Key differentiator: ${r.differentiator}`)
+      if (r.provocation) parts.push(`Provocative stance: ${r.provocation}`)
+      if (r.category) parts.push(`Category: ${r.category}`)
+    }
+
+    // Distinction Engine
+    if (distinctionData) {
+      const d = distinctionData
+      if (d.engine_name) parts.push(`Branded system: ${d.engine_name}`)
+      const problems = [d.problem_1, d.problem_2, d.problem_3].filter(Boolean)
+      if (problems.length) parts.push(`3 core problems they solve: ${problems.join(' | ')}`)
+      const pillars = [d.pillar_1, d.pillar_2, d.pillar_3].filter(Boolean)
+      if (pillars.length) parts.push(`3 branded pillars: ${pillars.join(' | ')}`)
+      if (d.promise) parts.push(`Distinction promise: ${d.promise}`)
+    }
+
+    // Sold Out — ICP
     if (offerData?.icp) {
       const i = offerData.icp
       if (i.sector) parts.push(`Client sector: ${i.sector}`)
       if (i.specific_description) parts.push(`Ideal client: ${i.specific_description}`)
       if (i.desired_identity) parts.push(`Client wants to become: ${i.desired_identity}`)
       if (i.trigger_moment) parts.push(`Client trigger moment: ${i.trigger_moment}`)
+      if (i.dream_outcome) parts.push(`Client dream outcome: ${i.dream_outcome}`)
+      if (i.cost_of_inaction) parts.push(`Cost of inaction: ${i.cost_of_inaction}`)
+      if (i.pains?.filter(Boolean).length) parts.push(`Client pains: ${i.pains.filter(Boolean).join(', ')}`)
+      if (i.promise) parts.push(`ICP promise: ${i.promise}`)
+      if (i.who_not_for) parts.push(`Not for: ${i.who_not_for}`)
     }
+
+    // Sold Out — Main Offer
     if (offerData?.bang_bang) {
       const b = offerData.bang_bang
       if (b.name) parts.push(`Main offer: ${b.name}`)
-      if (b.promise) parts.push(`Promise: ${b.promise}`)
+      if (b.promise) parts.push(`Offer promise: ${b.promise}`)
       if (b.who_for) parts.push(`Offer is for: ${b.who_for}`)
+      if (b.who_not_for) parts.push(`Offer not for: ${b.who_not_for}`)
+      if (b.guarantee_type) parts.push(`Guarantee: ${b.guarantee_type}${b.guarantee_detail ? ' — ' + b.guarantee_detail : ''}`)
+      if (b.delivery_model?.length) parts.push(`Delivery: ${b.delivery_model.join(', ')}`)
     }
+
+    // Sold Out — Entry Offer (DIP)
+    if (offerData?.dip) {
+      const d = offerData.dip
+      if (d.name) parts.push(`Entry offer: ${d.name}`)
+      if (d.promise) parts.push(`Entry offer promise: ${d.promise}`)
+      if (d.bridge_to_main) parts.push(`Bridge to main offer: ${d.bridge_to_main}`)
+    }
+
+    // Sold Out — Path Planner
+    if (offerData?.path_planner) {
+      const p = offerData.path_planner
+      if (p.total_duration) parts.push(`Programme duration: ${p.total_duration}`)
+    }
+
     return parts.length > 0 ? parts.join('\n') : ''
   }
 
