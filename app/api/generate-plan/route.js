@@ -883,6 +883,16 @@ Rules:
         'photo-caption': 'PHOTO CAPTION. Write a compelling caption that works with a photo. Structure: Hook (first line must stop the scroll — use line break after). Story (2-3 short paragraphs, personal and raw). Key insight or steps (use line breaks or bullet points). Payoff (the lesson). CTA (question to drive comments or link direction). Keep under 300 words.',
       }
 
+      const needsCaption = ['yap', 'carousel', 'talking-head', 'youtube'].includes(data.format)
+      const captionInstruction = needsCaption ? `\n\nAFTER the main content, add a section titled "--- CAPTION ---" and write a social media caption to accompany this post. The caption should:
+- Open with a scroll-stopping first line (can reuse or rework the hook)
+- Expand on the key insight or lesson in 3-5 short lines
+- End with a CTA (question to drive comments, or direction to link in bio / DM)
+- Use line breaks between every sentence — no chunky paragraphs
+- Include 3-5 relevant hashtags at the end
+- Keep it under 200 words
+- Write in first person, same tone as the main content` : ''
+
       systemPrompt = 'You are a content strategist for coaches, consultants, and service providers. You assemble final content pieces by combining a hook with an existing body structure. Write like a real person. No fluff. No corporate speak.'
       userPrompt = `Combine this hook with the existing content structure into one polished, final piece of content.
 
@@ -911,7 +921,7 @@ Rules:
 - Blend the hook and structure seamlessly — don't just paste them together
 - Keep the structure's content but refine the transitions so it flows naturally from the hook
 - Write in first person, confident, direct tone
-- The content should subtly position them as the expert without being salesy`
+- The content should subtly position them as the expert without being salesy${captionInstruction}`
     }
 
     if (!systemPrompt) {
