@@ -1696,7 +1696,7 @@ export default function ClientPage() {
   const getDesignCalendarItems = (startStr, endStr) => {
     const result = []
     // Mini adventures with planned dates
-    adventuresForm.filter(a => a.planned_date && a.planned_date >= startStr && a.planned_date <= endStr && a.title?.trim()).forEach(a => {
+    adventuresForm.filter(a => a.planned_date && !a.completed && a.planned_date >= startStr && a.planned_date <= endStr && a.title?.trim()).forEach(a => {
       result.push({ id: `adv-${a.id || a.order_index}`, title: `Adventure: ${a.title}`, _displayDate: a.planned_date, status: 'schedule', completed: a.completed || false, _isDesignItem: true })
     })
     // Days off — weekly recurring
