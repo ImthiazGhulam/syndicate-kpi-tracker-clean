@@ -1251,14 +1251,18 @@ export default function ClientPage() {
       const projectId = Object.keys(projectTasks).find(pid =>
         (projectTasks[pid] || []).some(t => t.id === taskId)
       )
-      await supabase.from('project_tasks').delete().eq('id', taskId)
-      if (projectId) setProjectTasks(prev => ({
+      const { error } = await supabase.from('project_tasks').delete().eq('id', taskId)
+      if (!error && projectId) setProjectTasks(prev => ({
         ...prev,
         [projectId]: (prev[projectId] || []).filter(t => t.id !== taskId),
       }))
     } else {
-      await supabase.from('war_map_tasks').delete().eq('id', taskId)
-      setWarMapTasks(prev => prev.filter(t => t.id !== taskId))
+      const { error } = await supabase.from('war_map_tasks').delete().eq('id', taskId)
+      if (!error) {
+        setWarMapTasks(prev => prev.filter(t => t.id !== taskId))
+        setWarMapTaskCompletions(prev => prev.filter(c => c.task_id !== taskId))
+        setWarMapTaskExclusions(prev => prev.filter(e => e.task_id !== taskId))
+      }
     }
   }
 
@@ -1639,7 +1643,7 @@ export default function ClientPage() {
     Object.entries(projectTasks).forEach(([projectId, tasks]) => {
       const project = projects.find(p => p.id === projectId)
       tasks.forEach(task => {
-        if (task.scheduled_date && task.scheduled_date >= startStr && task.scheduled_date <= endStr) {
+        if (task.scheduled_date && !task.completed && task.scheduled_date >= startStr && task.scheduled_date <= endStr) {
           result.push({
             ...task,
             _displayDate: task.scheduled_date,
@@ -3567,7 +3571,7 @@ export default function ClientPage() {
                           {task.delegated_to && <p className="text-xs text-violet-400 mt-0.5">→ {task.delegated_to}</p>}
                         </div>
                         {!task.completed && <button onClick={() => completeTask(task.id, task._displayDate, task._isRecurring, task._isProjectTask)} className="text-xs text-zinc-500 hover:text-emerald-400 uppercase tracking-wider transition flex-shrink-0">Done</button>}
-                        <button onClick={() => setConfirmAction({ message: 'This task will be permanently deleted.', onConfirm: () => deleteTask(task.id) })} className="text-zinc-700 hover:text-red-400 transition"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+                        <button onClick={() => setConfirmAction({ message: 'This task will be permanently deleted.', onConfirm: () => deleteTask(task.id, task._isProjectTask) })} className="text-zinc-700 hover:text-red-400 transition"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
                       </div>
                     ))}
                   </div>
@@ -3584,7 +3588,7 @@ export default function ClientPage() {
                       <div key={task.id} className={`bg-zinc-900 border border-zinc-800 rounded-lg px-4 py-3 flex items-center gap-3 ${task.completed ? 'opacity-40' : ''}`}>
                         <p className={`text-sm font-medium flex-1 truncate ${task.completed ? 'line-through text-zinc-500' : 'text-white'}`}>{task.title}</p>
                         {!task.completed && <button onClick={() => completeTask(task.id, task._displayDate, task._isRecurring, task._isProjectTask)} className="text-xs text-zinc-500 hover:text-emerald-400 uppercase tracking-wider transition flex-shrink-0">Done</button>}
-                        <button onClick={() => setConfirmAction({ message: 'This task will be permanently deleted.', onConfirm: () => deleteTask(task.id) })} className="text-zinc-700 hover:text-red-400 transition"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
+                        <button onClick={() => setConfirmAction({ message: 'This task will be permanently deleted.', onConfirm: () => deleteTask(task.id, task._isProjectTask) })} className="text-zinc-700 hover:text-red-400 transition"><svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
                       </div>
                     ))}
                   </div>
