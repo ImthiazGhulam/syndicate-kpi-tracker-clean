@@ -68,10 +68,22 @@ export async function POST(req) {
       await supabase.from(table).delete().eq('client_id', clientId)
     }
 
-    // Delete the client
+    // Get client email before deleting
+    const { data: clientRecord } = await supabase.from('clients').select('email').eq('id', clientId).single()
+
+    // Delete the client record
     const { error } = await supabase.from('clients').delete().eq('id', clientId)
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+
+    // Delete the auth user so they can no longer log in
+    if (clientRecord?.email) {
+      const { data: { users } } = await supabase.auth.admin.listUsers()
+      const authUser = users?.find(u => u.email === clientRecord.email)
+      if (authUser) {
+        await supabase.auth.admin.deleteUser(authUser.id)
+      }
     }
 
     return NextResponse.json({ success: true })
