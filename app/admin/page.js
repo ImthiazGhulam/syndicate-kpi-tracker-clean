@@ -849,6 +849,25 @@ function AdminPageInner() {
     }))
   }
 
+  const deleteClient = async (clientId) => {
+    try {
+      const res = await fetch('/api/delete-client', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clientId, adminEmail: user.email }),
+      })
+      const result = await res.json()
+      if (result.success) {
+        setClients(prev => prev.filter(c => c.id !== clientId))
+        setSelectedClient(null)
+      } else {
+        alert('Delete failed: ' + (result.error || 'Unknown error'))
+      }
+    } catch (err) {
+      alert('Delete failed: ' + err.message)
+    }
+  }
+
   // ── Tab Config ─────────────────────────────────────────────────────────────
 
   const navSections = [
@@ -1906,6 +1925,12 @@ function AdminPageInner() {
                     })()}
                   </div>
                   {selectedClient.notes && <p className="text-zinc-500 text-xs mt-4 italic border-t border-zinc-800 pt-3">{selectedClient.notes}</p>}
+                  <div className="flex justify-end mt-4 pt-3 border-t border-zinc-800">
+                    <button onClick={() => setConfirmAction({ message: `This will permanently delete ${selectedClient.name} and ALL their data — KPIs, projects, playbooks, everything. This cannot be undone.`, onConfirm: () => deleteClient(selectedClient.id) })}
+                      className="text-[10px] text-zinc-600 hover:text-red-400 uppercase tracking-widest font-semibold transition">
+                      Delete Client
+                    </button>
+                  </div>
                 </div>
               </div>
 
