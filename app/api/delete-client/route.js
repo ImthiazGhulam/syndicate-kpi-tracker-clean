@@ -76,13 +76,19 @@ export async function POST(req) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    // Verify the client was actually deleted (RLS may silently block with anon key)
+    const { data: stillExists } = await supabase.from('clients').select('id').eq('id', clientId).maybeSingle()
+    if (stillExists) {
+      return NextResponse.json({ error: 'Delete blocked by database permissions. Add SUPABASE_SERVICE_ROLE_KEY to Vercel environment variables and redeploy.' }, { status: 500 })
+    }
+
     // Delete the auth user so they can no longer log in
     if (clientRecord?.email) {
-      const { data: { users } } = await supabase.auth.admin.listUsers()
-      const authUser = users?.find(u => u.email === clientRecord.email)
-      if (authUser) {
-        await supabase.auth.admin.deleteUser(authUser.id)
-      }
+      try {
+        const { data: { users } } = await supabase.auth.admin.listUsers()
+        const authUser = users?.find(u => u.email === clientRecord.email)
+        if (authUser) await supabase.auth.admin.deleteUser(authUser.id)
+      } catch (_) { /* needs service role key */ }
     }
 
     return NextResponse.json({ success: true })
