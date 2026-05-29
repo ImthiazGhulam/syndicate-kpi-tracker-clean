@@ -721,10 +721,11 @@ export default function ClientPage() {
 
   const addLead = async (status) => {
     if (!newLeadName.trim()) return
-    const duplicate = leads.find(l => l.name.toLowerCase().trim() === newLeadName.trim().toLowerCase())
+    const igTrimmed = newLeadIG.trim().replace('@', '').toLowerCase()
+    const duplicate = igTrimmed ? leads.find(l => l.instagram && l.instagram.replace('@', '').toLowerCase() === igTrimmed) : null
     if (duplicate) {
       const stage = LEAD_STAGES.find(s => s.id === duplicate.status)?.label || duplicate.status
-      setConfirmAction({ message: `"${duplicate.name}" already exists in "${stage}". Add anyway?`, onConfirm: async () => {
+      setConfirmAction({ message: `@${igTrimmed} already exists as "${duplicate.name}" in "${stage}". Add anyway?`, onConfirm: async () => {
         const { data } = await supabase.from('leads').insert([{ client_id: clientData.id, name: newLeadName.trim(), status, instagram: newLeadIG.trim() || null }]).select().single()
         if (data) setLeads(prev => [...prev, data])
         setNewLeadName(''); setNewLeadIG(''); setAddingLeadCol(null)
@@ -3876,7 +3877,9 @@ export default function ClientPage() {
                                   <p className="text-xs text-violet-400 mt-0.5 truncate">@{lead.instagram.replace('@', '')}</p>
                                 )}
                                 {(() => {
-                                  const dupes = leads.filter(l => l.id !== lead.id && l.name.toLowerCase().trim() === lead.name.toLowerCase().trim())
+                                  if (!lead.instagram) return null
+                                  const ig = lead.instagram.replace('@', '').toLowerCase()
+                                  const dupes = leads.filter(l => l.id !== lead.id && l.instagram && l.instagram.replace('@', '').toLowerCase() === ig)
                                   if (dupes.length === 0) return null
                                   const stages = dupes.map(d => LEAD_STAGES.find(s => s.id === d.status)?.label || d.status).join(', ')
                                   return <p className="text-[10px] text-amber-400 mt-0.5">Duplicate — also in {stages}</p>
