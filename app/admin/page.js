@@ -35,6 +35,7 @@ const MONTH_NAMES = ['January','February','March','April','May','June','July','A
 const LEAD_STAGES = [
   { id: 'new_lead', label: 'New Lead', color: 'text-sky-400', bg: 'bg-sky-500/10', border: 'border-sky-500/30' },
   { id: 'dm_sent', label: 'Initial DM Sent', color: 'text-violet-400', bg: 'bg-violet-500/10', border: 'border-violet-500/30' },
+  { id: 'lead_magnet_sent', label: 'Lead Magnet Sent', color: 'text-pink-400', bg: 'bg-pink-500/10', border: 'border-pink-500/30' },
   { id: 'follow_up', label: 'Follow-up Friday DM', color: 'text-amber-400', bg: 'bg-amber-500/10', border: 'border-amber-500/30' },
   { id: 'call_booked', label: 'Call Booked', color: 'text-gold', bg: 'bg-gold/10', border: 'border-gold/30' },
   { id: 'client_won', label: 'Client Won', color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/30' },

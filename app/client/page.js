@@ -712,6 +712,7 @@ export default function ClientPage() {
   const LEAD_STAGES = [
     { id: 'new_lead', label: 'New Lead', color: 'border-sky-500/40 bg-sky-500/5' },
     { id: 'dm_sent', label: 'Initial DM Sent', color: 'border-violet-500/40 bg-violet-500/5' },
+    { id: 'lead_magnet_sent', label: 'Lead Magnet Sent', color: 'border-pink-500/40 bg-pink-500/5' },
     { id: 'follow_up', label: 'Follow-up Friday DM', color: 'border-amber-500/40 bg-amber-500/5' },
     { id: 'call_booked', label: 'Call Booked', color: 'border-gold/40 bg-gold/5' },
     { id: 'client_won', label: 'Client Won', color: 'border-emerald-500/40 bg-emerald-500/5' },
@@ -3877,15 +3878,9 @@ export default function ClientPage() {
                               </div>
                             </div>
                             {lead.notes && <p className="text-[10px] text-zinc-500 mt-1 line-clamp-2">{lead.notes}</p>}
-                            <div className="flex items-center justify-between mt-1.5">
-                              <button onClick={(e) => { e.stopPropagation(); toggleLeadMagnet(lead) }}
-                                className={`text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5 rounded transition ${lead.lead_magnet_sent ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'text-zinc-600 hover:text-zinc-400 border border-zinc-700/50'}`}>
-                                {lead.lead_magnet_sent ? '✓ Magnet Sent' : 'Magnet'}
-                              </button>
-                              <p className="text-[10px] text-zinc-600">
-                                {new Date(lead.updated_at || lead.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
-                              </p>
-                            </div>
+                            <p className="text-[10px] text-zinc-600 mt-1.5">
+                            Moved: {new Date(lead.updated_at || lead.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                            </p>
                             {/* Mobile move buttons */}
                             <div className="flex items-center gap-1.5 mt-2 sm:hidden">
                               {prevStageId && (
