@@ -12,7 +12,7 @@ export async function POST(req) {
     }
 
     const message = await client.messages.create({
-      model: 'claude-3-haiku-20240307',
+      model: 'claude-sonnet-4-6',
       max_tokens: 2000,
       system: `You generate coaching questions for The Performance Flywheel™ playbook. Each framework has 3 questions: Reflection (self-awareness), Audit (diagnostic), Go Deeper (commitment/action). Questions must be specific to the client's problem. Write in second person. Be direct, psychologically sharp, no fluff. Respond ONLY with valid JSON — no markdown, no code fences.`,
       messages: [{

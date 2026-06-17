@@ -8,7 +8,7 @@ async function callClaude(system, user, maxTokens = 2500) {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       message = await client.messages.create({
-        model: 'claude-3-haiku-20240307',
+        model: 'claude-sonnet-4-6',
         max_tokens: maxTokens,
         system,
         messages: [{ role: 'user', content: user }],
@@ -937,7 +937,7 @@ Rules:
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         message = await client.messages.create({
-          model: 'claude-3-haiku-20240307',
+          model: 'claude-sonnet-4-6',
           max_tokens: maxTokens,
           system: systemPrompt,
           messages: [{ role: 'user', content: userPrompt }],
