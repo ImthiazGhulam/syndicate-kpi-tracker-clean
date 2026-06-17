@@ -8,7 +8,7 @@ async function callClaude(system, user, maxTokens = 2500) {
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       message = await client.messages.create({
-        model: 'claude-3-5-sonnet-20241022',
+        model: 'claude-sonnet-4-20250514',
         max_tokens: maxTokens,
         system,
         messages: [{ role: 'user', content: user }],
@@ -937,7 +937,7 @@ Rules:
     for (let attempt = 0; attempt < 3; attempt++) {
       try {
         message = await client.messages.create({
-          model: 'claude-3-5-sonnet-20241022',
+          model: 'claude-sonnet-4-20250514',
           max_tokens: maxTokens,
           system: systemPrompt,
           messages: [{ role: 'user', content: userPrompt }],
@@ -982,8 +982,8 @@ Rules:
 
     return NextResponse.json({ plan: text })
   } catch (err) {
-    console.error('Generate plan error:', err)
+    console.error('Generate plan error:', err?.status, err?.message, JSON.stringify(err?.error))
     const msg = err.status === 529 ? 'AI is temporarily busy — please try again in a minute' : (err.message || 'Failed to generate plan')
-    return NextResponse.json({ error: msg }, { status: 500 })
+    return NextResponse.json({ error: msg, detail: `${err?.status} ${err?.error?.message || err?.message}` }, { status: 500 })
   }
 }
