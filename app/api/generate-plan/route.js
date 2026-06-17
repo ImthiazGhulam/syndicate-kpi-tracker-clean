@@ -1,29 +1,28 @@
-import Anthropic from '@anthropic-ai/sdk'
 import { NextResponse } from 'next/server'
 
-function getClient() {
-  return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-}
-
-async function callClaude(system, user, maxTokens = 2500) {
-  let message
-  const client = getClient()
+async function callAnthropicAPI(system, user, maxTokens = 2500) {
   for (let attempt = 0; attempt < 3; attempt++) {
-    try {
-      message = await client.messages.create({
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
         model: 'claude-sonnet-4-6',
         max_tokens: maxTokens,
         system,
         messages: [{ role: 'user', content: user }],
-      })
-      return message
-    } catch (apiErr) {
-      if (apiErr.status === 529 && attempt < 2) {
-        await new Promise(r => setTimeout(r, (attempt + 1) * 2000))
-        continue
-      }
-      throw apiErr
+      }),
+    })
+    if (res.status === 529 && attempt < 2) {
+      await new Promise(r => setTimeout(r, (attempt + 1) * 2000))
+      continue
     }
+    const data = await res.json()
+    if (!res.ok) throw { status: res.status, message: data?.error?.message, error: data?.error }
+    return data
   }
 }
 
@@ -390,7 +389,7 @@ Respond with ONLY this JSON:
   "pillar_3": ["Name A", "Name B", "Name C"]
 }`
 
-      const msg = await callClaude(systemPrompt, userPrompt, 500)
+      const msg = await callAnthropicAPI(systemPrompt, userPrompt, 500)
       const text = msg.content[0].type === 'text' ? msg.content[0].text : ''
       try {
         const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
@@ -432,7 +431,7 @@ Respond with ONLY this JSON where keys are "pillar_slot" format:
   "3_3": ["Name A", "Name B", "Name C"]
 }`
 
-      const msg = await callClaude(systemPrompt, userPrompt, 1000)
+      const msg = await callAnthropicAPI(systemPrompt, userPrompt, 1000)
       const text = msg.content[0].type === 'text' ? msg.content[0].text : ''
       try {
         const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
@@ -462,7 +461,7 @@ Suggest 5 creative names for this system. These should:
 Respond with ONLY this JSON:
 ["Name One", "Name Two", "Name Three", "Name Four", "Name Five"]`
 
-      const msg = await callClaude(systemPrompt, userPrompt, 300)
+      const msg = await callAnthropicAPI(systemPrompt, userPrompt, 300)
       const text = msg.content[0].type === 'text' ? msg.content[0].text : ''
       try {
         const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
@@ -936,25 +935,7 @@ Rules:
       : (type === 'sold-out-niche-research' || type === 'content-capture' || type === 'content-capture-structure') ? 3000
       : 2500
 
-    let message
-    const client = getClient()
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        message = await client.messages.create({
-          model: 'claude-sonnet-4-6',
-          max_tokens: maxTokens,
-          system: systemPrompt,
-          messages: [{ role: 'user', content: userPrompt }],
-        })
-        break
-      } catch (apiErr) {
-        if (apiErr.status === 529 && attempt < 2) {
-          await new Promise(r => setTimeout(r, (attempt + 1) * 2000))
-          continue
-        }
-        throw apiErr
-      }
-    }
+    const message = await callAnthropicAPI(systemPrompt, userPrompt, maxTokens)
 
     const text = message.content[0].type === 'text' ? message.content[0].text : ''
 

@@ -1,9 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk'
 import { NextResponse } from 'next/server'
-
-function getClient() {
-  return new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-}
 
 export async function POST(req) {
   try {
@@ -13,14 +8,9 @@ export async function POST(req) {
       return NextResponse.json({ error: 'Problem statement required' }, { status: 400 })
     }
 
-    const client = getClient()
-    const message = await client.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 2000,
-      system: `You generate coaching questions for The Performance Flywheel™ playbook. Each framework has 3 questions: Reflection (self-awareness), Audit (diagnostic), Go Deeper (commitment/action). Questions must be specific to the client's problem. Write in second person. Be direct, psychologically sharp, no fluff. Respond ONLY with valid JSON — no markdown, no code fences.`,
-      messages: [{
-        role: 'user',
-        content: `Generate tailored questions for each of these 5 frameworks, applied to this specific problem:
+    const systemPrompt = `You generate coaching questions for The Performance Flywheel™ playbook. Each framework has 3 questions: Reflection (self-awareness), Audit (diagnostic), Go Deeper (commitment/action). Questions must be specific to the client's problem. Write in second person. Be direct, psychologically sharp, no fluff. Respond ONLY with valid JSON — no markdown, no code fences.`
+
+    const userPrompt = `Generate tailored questions for each of these 5 frameworks, applied to this specific problem:
 
 PROBLEM: "${problem_statement}"
 
@@ -71,10 +61,26 @@ Return this exact JSON structure:
 }
 
 Every question must reference their specific problem. No generic questions. Make them feel seen.`
-      }],
+
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-6',
+        max_tokens: 2000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }],
+      }),
     })
 
-    const text = message.content[0].type === 'text' ? message.content[0].text : ''
+    const data = await res.json()
+    if (!res.ok) throw new Error(data?.error?.message || 'API call failed')
+
+    const text = data.content[0].type === 'text' ? data.content[0].text : ''
     try {
       const cleaned = text.replace(/```json\s*/g, '').replace(/```\s*/g, '').trim()
       const parsed = JSON.parse(cleaned)
