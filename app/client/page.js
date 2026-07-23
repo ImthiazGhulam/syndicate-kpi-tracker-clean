@@ -289,6 +289,15 @@ export default function ClientPage() {
   const [editingLead, setEditingLead] = useState(null)
   const [leadForm, setLeadForm] = useState({ name: '', instagram: '', notes: '' })
 
+  // DM Sales Coach (embedded in Hot List)
+  const [coachOpen, setCoachOpen] = useState(false)
+  const [coachMessages, setCoachMessages] = useState([])
+  const [coachInput, setCoachInput] = useState('')
+  const [coachSending, setCoachSending] = useState(false)
+  const coachEndRef = useRef(null)
+  const coachInputRef = useRef(null)
+  const [coachStatusIdx, setCoachStatusIdx] = useState(0)
+
   // Check-in form
   const [checkinForm, setCheckinForm] = useState({
     checkin_date: localDateStr(),
@@ -832,6 +841,47 @@ export default function ClientPage() {
       }
     }
     touchDragRef.current = null
+  }
+
+  // DM Sales Coach
+  const COACH_STATUS = ['Reading your Hot List...', 'Checking voice profile...', 'Locating the move...', 'Drafting next message...']
+
+  useEffect(() => {
+    if (!coachSending) return
+    const t = setInterval(() => setCoachStatusIdx(p => (p + 1) % COACH_STATUS.length), 2500)
+    return () => clearInterval(t)
+  }, [coachSending])
+
+  useEffect(() => { coachEndRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [coachMessages, coachSending])
+
+  const sendCoachMessage = async (text) => {
+    const msg = text || coachInput.trim()
+    if (!msg || coachSending) return
+    const userMsg = { role: 'user', content: msg }
+    const all = [...coachMessages, userMsg]
+    setCoachMessages(all)
+    setCoachInput('')
+    setCoachSending(true)
+    setCoachStatusIdx(0)
+    try {
+      const res = await fetch('/api/dm-coach', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: all.map(m => ({ role: m.role, content: m.content })), clientId: clientData.id }),
+      })
+      const result = await res.json()
+      setCoachMessages([...all, { role: 'assistant', content: result.error ? `Error: ${result.error}` : result.reply }])
+    } catch (err) {
+      setCoachMessages([...all, { role: 'assistant', content: 'Failed to connect. Try again.' }])
+    }
+    setCoachSending(false)
+    setTimeout(() => coachInputRef.current?.focus(), 100)
+  }
+
+  const askCoachAboutLead = (lead) => {
+    setCoachOpen(true)
+    const text = `What do I send ${lead.name}${lead.instagram ? ` (@${lead.instagram.replace('@', '')})` : ''}?`
+    sendCoachMessage(text)
   }
 
   // Evening Ops
@@ -3887,6 +3937,10 @@ export default function ClientPage() {
                                 })()}
                               </div>
                               <div className="flex items-center gap-0.5 flex-shrink-0">
+                                <button onClick={(e) => { e.stopPropagation(); askCoachAboutLead(lead) }}
+                                  className="text-zinc-700 hover:text-gold active:text-gold transition p-0.5" title="Ask DM Coach">
+                                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
+                                </button>
                                 <button onClick={(e) => { e.stopPropagation(); openLeadModal(lead) }}
                                   className="text-zinc-700 hover:text-gold active:text-gold transition p-0.5">
                                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
@@ -3953,6 +4007,103 @@ export default function ClientPage() {
                 })}
               </div>
             </div>
+
+            {/* ── DM Sales Coach — Collapsible Chat Bar ────────────────────── */}
+            <div className={`fixed bottom-0 left-0 right-0 md:left-60 z-40 transition-all duration-300 ${coachOpen ? 'h-[420px] sm:h-[480px]' : 'h-auto'}`}>
+              {/* Toggle bar */}
+              <button onClick={() => { setCoachOpen(!coachOpen); if (!coachOpen) setTimeout(() => coachInputRef.current?.focus(), 300) }}
+                className={`w-full flex items-center justify-between px-4 sm:px-6 py-3 transition-all ${coachOpen ? 'glass-sidebar border-b border-white/[0.06]' : 'bg-zinc-900/95 backdrop-blur-xl border-t border-white/[0.08] hover:border-gold/20'}`}>
+                <div className="flex items-center gap-3">
+                  <div className="w-7 h-7 rounded-full bg-gold/20 border border-gold/30 flex items-center justify-center">
+                    <span className="text-xs">🎯</span>
+                  </div>
+                  <span className="text-xs font-display font-bold text-gold uppercase tracking-widest">DM Sales Coach</span>
+                  {coachMessages.length > 0 && !coachOpen && (
+                    <span className="w-2 h-2 rounded-full bg-gold animate-pulse" />
+                  )}
+                </div>
+                <svg className={`w-4 h-4 text-zinc-500 transition-transform ${coachOpen ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                </svg>
+              </button>
+
+              {/* Chat panel */}
+              {coachOpen && (
+                <div className="flex flex-col glass-sidebar" style={{ height: 'calc(100% - 48px)' }}>
+                  {/* Messages */}
+                  <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-3 scrollbar-thin">
+                    {coachMessages.length === 0 && !coachSending && (
+                      <div className="text-center py-6">
+                        <p className="text-zinc-500 text-xs mb-3">Click the chat icon on any lead card, or type below.</p>
+                        <div className="flex flex-wrap gap-1.5 justify-center">
+                          {['Who needs a message today?', 'Who has gone stale?'].map((p, i) => (
+                            <button key={i} onClick={() => sendCoachMessage(p)}
+                              className="px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider bg-zinc-800 text-zinc-400 border border-zinc-700 hover:text-gold hover:border-gold/30 transition">
+                              {p}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {coachMessages.map((msg, i) => (
+                      <div key={i} className={`mb-3 ${msg.role === 'user' ? 'text-right' : ''}`}>
+                        {msg.role === 'user' ? (
+                          <div className="inline-block bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2 max-w-[85%] text-left">
+                            <p className="text-sm text-zinc-200 whitespace-pre-wrap">{msg.content}</p>
+                          </div>
+                        ) : (
+                          <div className="inline-block glass-card px-3 py-2 max-w-[85%] text-left">
+                            <div className="text-sm text-zinc-200 whitespace-pre-wrap leading-relaxed">
+                              {msg.content.split('\n').map((line, j) => {
+                                if (line.match(/^\*\*[^*]+\*\*/)) {
+                                  const parts = line.split(/(\*\*[^*]+\*\*)/)
+                                  return <p key={j} className="mb-0.5">{parts.map((part, k) => part.startsWith('**') && part.endsWith('**') ? <span key={k} className="text-gold font-bold">{part.replace(/\*\*/g, '')}</span> : <span key={k}>{part}</span>)}</p>
+                                }
+                                if (line.trim() === '') return <br key={j} />
+                                return <p key={j} className="mb-0.5">{line}</p>
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+
+                    {coachSending && (
+                      <div className="mb-3">
+                        <div className="inline-block glass-card px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <div className="w-4 h-4 border-2 border-gold/30 border-t-gold rounded-full animate-spin" />
+                            <span className="text-gold text-xs font-bold uppercase tracking-widest animate-pulse">{COACH_STATUS[coachStatusIdx]}</span>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                    <div ref={coachEndRef} />
+                  </div>
+
+                  {/* Input */}
+                  <div className="px-4 sm:px-6 py-2.5 border-t border-white/[0.06] flex gap-2">
+                    <input ref={coachInputRef} value={coachInput} onChange={e => setCoachInput(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); sendCoachMessage() } }}
+                      placeholder="Ask about a lead or paste a DM..."
+                      className="flex-1 px-3 py-2 bg-zinc-800 border border-zinc-700 rounded text-sm text-white placeholder-zinc-600 focus:outline-none focus:ring-1 focus:ring-gold focus:border-gold transition" />
+                    <button onClick={() => sendCoachMessage()} disabled={!coachInput.trim() || coachSending}
+                      className="px-3 py-2 rounded bg-gold hover:bg-gold-light text-zinc-950 font-bold text-[10px] uppercase tracking-widest transition disabled:opacity-30">
+                      Send
+                    </button>
+                    {coachMessages.length > 0 && (
+                      <button onClick={() => setCoachMessages([])} className="px-2 py-2 text-zinc-600 hover:text-white transition" title="Clear chat">
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Spacer to prevent content being hidden behind the coach bar */}
+            <div className={coachOpen ? 'h-[420px] sm:h-[480px]' : 'h-14'} />
           </div>
         )}
 
